@@ -1,10 +1,7 @@
 apiVersion: contrail.juniper.net/v1alpha1
-kind: Manager
+kind: Cassandra
 metadata:
-  name: cluster-1
+  name: example-cassandra
 spec:
   # Add fields here
   size: 3
-  config:
-    activate: true
-    create: true

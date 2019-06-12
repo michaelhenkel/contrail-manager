@@ -8,20 +8,338 @@ import(
 	"io/ioutil"
 
 	"github.com/ghodss/yaml"
-
+	"k8s.io/apimachinery/pkg/runtime"
+	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
 
 const (
-	configCrd = "contrail_v1alpha1_config_crd.yaml"
+	crdManager = "crdManager.go"
+	crManager = "crManager.go"
 	crdDirectory = "../../deploy/crds/"
+	crDirectory = "../../deploy/crds/"
+	filePrefix = "contrail_v1alpha1_"
+	crdFileSuffix = "_crd.yaml"
+	crFileSuffix = "_cr.yaml"
 )
+
+var serviceList = [...]string{"config"}
+
+//var crdList = [...]string{"contrail_v1alpha1_config_crd.yaml"}
+//var crList = [...]string{"contrail_v1alpha1_config_cr.yaml"}
+var serviceMap = map[string]runtime.Object{"config":&contrailv1alpha1.Config{}}
+
 
 //go:generate go run gen.go
 func main(){
-	crdList := []string{configCrd}
-	for _, crdTemplate := range(crdList){
-		yamlData, err := ioutil.ReadFile(crdDirectory + crdTemplate)
+	createCrds()
+	createCrs()
+}
+
+func createCrs(){
+	
+	funcMap := template.FuncMap{
+		"ToLower": strings.ToLower,
+	}
+	
+
+	var packageTemplate = template.Must(template.New("").Parse(`package cr
+	
+import(
+	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	"github.com/ghodss/yaml"
+)
+
+var yamlData = {{ .YamlData }}
+
+func Get{{ .Kind }}Cr() *contrailv1alpha1.{{ .Kind }}{
+	cr := contrailv1alpha1.{{ .Kind }}{}
+	err := yaml.Unmarshal([]byte(yamlData), &cr)
+	if err != nil {
+		panic(err)
+	}
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlData))
+	if err != nil {
+		panic(err)
+	}
+	err = yaml.Unmarshal([]byte(jsonData), &cr)
+	if err != nil {
+		panic(err)
+	}
+	return &cr
+}
+	`))
+
+	var crManagerTemplate = template.Must(template.New("").Funcs(funcMap).Parse(`package manager
+	
+import(
+	"context"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes/scheme"
+	cr "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crs"
+)
+
+func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
+	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
+	reqLogger.Info("Reconciling Manager")
+	
+	objectKind := obj.GetObjectKind()
+	groupVersionKind := objectKind.GroupVersionKind()
+
+	gkv := schema.FromAPIVersionAndKind(groupVersionKind.Group + "/" + groupVersionKind.Version, groupVersionKind.Kind)
+	newObj, err := scheme.Scheme.New(gkv)
+	if err != nil {
+		return err
+	}
+
+	newObj = obj
+
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, newObj)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("CR " + name +" not found. Creating it.")
+		err = r.client.Create(context.TODO(), newObj)	
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new newObj.", "resource.Namespace", namespace, "resource.Name", name)
+			return err
+		}
+		reqLogger.Info("CR " + namespace +" created.")
+	}
+	return nil
+}
+
+func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
+	var err error
+	{{- range .KindList }}
+	if instance.Spec.{{ . }} != nil{
+		{{ . }}Created := instance.Spec.{{ . }}.Create
+		if *{{ . }}Created{
+			cr := cr.Get{{ . }}Cr()
+			cr.Spec.Service = instance.Spec.{{ . }}
+			cr.Name = instance.Name
+			cr.Namespace = instance.Namespace
+			err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
+			if err != nil {
+				return err
+			}
+			
+		}
+	}
+	{{- end }}
+	return nil
+}
+	
+	`))
+	var kindList []string
+	for crTemplate, crResource := range(serviceMap){
+		crFile := filePrefix + crTemplate + crFileSuffix
+		yamlData, err := ioutil.ReadFile(crDirectory + crFile)
+		if err != nil {
+			panic(err)
+		}
+		crKind := strings.Split(crTemplate, ".")
+		jsonData, err := yaml.YAMLToJSON([]byte(yamlData))
+		if err != nil {
+			panic(err)
+		}
+		cr := crResource
+		err = yaml.Unmarshal([]byte(jsonData), &cr)
+		if err != nil {
+			panic(err)
+		}
+		f, err := os.Create("../controller/manager/crs/" + crKind[0] + ".go")
+		if err != nil {
+			panic(err)
+		}
+		schema := cr.GetObjectKind()
+		groupVersionKind := schema.GroupVersionKind()
+		kind := groupVersionKind.Kind
+
+
+		yamlDataQuoted := fmt.Sprintf("`\n")
+		yamlDataQuoted = yamlDataQuoted + string(yamlData)
+		yamlDataQuoted = yamlDataQuoted + "`"
+		packageTemplate.Execute(f, struct{
+			YamlData string
+			Kind string
+		}{
+			YamlData: yamlDataQuoted,
+			Kind: kind,
+		})
+		kindList = append(kindList, kind)
+	}
+	
+	f, err := os.Create("../controller/manager/" + crManager)
+	if err != nil {
+		panic(err)
+	}
+	crManagerTemplate.Execute(f, struct{
+		KindList []string
+	}{
+		KindList: kindList,
+	})
+	
+}
+
+func createCrds(){
+
+	funcMap := template.FuncMap{
+		"ToLower": strings.ToLower,
+	}
+
+	var packageTemplate = template.Must(template.New("").Parse(`package crd
+	
+import(
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"github.com/ghodss/yaml"
+)
+
+var yamlData = {{ .YamlData }}
+
+func Get{{ .Kind }}Crd() *apiextensionsv1beta1.CustomResourceDefinition{
+	crd := apiextensionsv1beta1.CustomResourceDefinition{}
+	err := yaml.Unmarshal([]byte(yamlData), &crd)
+	if err != nil {
+		panic(err)
+	}
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlData))
+	if err != nil {
+		panic(err)
+	}
+	err = yaml.Unmarshal([]byte(jsonData), &crd)
+	if err != nil {
+		panic(err)
+	}
+	return &crd
+}
+	`))
+	
+	/*
+	var crdManagerTemplate = template.Must(template.New("").Parse(`package manager
+	
+	import(
+		apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+		"github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
+	)
+	
+	func GetCrdMap() map[string]*apiextensionsv1beta1.CustomResourceDefinition {
+		var crdMap = make(map[string]*apiextensionsv1beta1.CustomResourceDefinition)
+	
+		{{- range $key, $value := .KindFunctionMap }}
+		crdMap["{{ $key }}"] = crd.{{ $value }}()
+		{{- end }}
+	
+		return crdMap
+	}
+	`))
+	*/
+	
+	
+	var crdManagerTemplate = template.Must(template.New("").Funcs(funcMap).Parse(`package manager
+	
+import(
+	"context"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/api/errors"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
+	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"k8s.io/apimachinery/pkg/runtime"
+	{{- range .KindList }}
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/{{ . | ToLower }}"
+	{{- end }}
+)
+
+func (r *ReconcileManager) createCrd(instance *contrailv1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
+	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
+	reqLogger.Info("Reconciling Manager")
+	newCrd := apiextensionsv1beta1.CustomResourceDefinition{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: crd.Spec.Names.Plural + "." + crd.Spec.Group, Namespace: newCrd.Namespace}, &newCrd)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group +" not found. Creating it.")
+		err = r.client.Create(context.TODO(), crd)	
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new crd.", "crd.Namespace", crd.Namespace, "crd.Name", crd.Name)
+			return err
+		}
+		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group +" created.")
+	}
+	return nil
+}
+
+func (r *ReconcileManager) updateCrd(instance *contrailv1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
+	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
+	reqLogger.Info("Reconciling Manager")
+	newCrd := apiextensionsv1beta1.CustomResourceDefinition{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: crd.Spec.Names.Plural + "." + crd.Spec.Group, Namespace: newCrd.Namespace}, &newCrd)
+	if err != nil{
+		reqLogger.Info("Failed to get CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group)
+		return err
+	}
+	controllerutil.SetControllerReference(instance, &newCrd, r.scheme)
+	err = r.client.Update(context.TODO(), &newCrd)
+	if err != nil{
+		reqLogger.Info("Resource version: " + crd.ObjectMeta.ResourceVersion)
+		reqLogger.Info("Failed to update CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group)
+		return err
+	}
+	reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group +" updated.")
+	return nil
+}
+
+
+func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
+	ro runtime.Object,
+	crd *apiextensionsv1beta1.CustomResourceDefinition) error {
+		err := r.createCrd(instance, crd)
+		if err != nil {
+			return err
+		}
+		err = r.updateCrd(instance, crd)
+		if err != nil {
+			return err
+		}
+		err = r.addWatch(ro)
+		if err != nil {
+			return err
+		}	
+		return nil
+}
+
+
+func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) error{
+	var err error
+	{{- range .KindList }}
+	{{ . }}Activated := instance.Spec.{{ . }}.Activate
+	if *{{ . }}Activated{
+
+		resource := contrailv1alpha1.{{ . }}{}
+
+		err = r.ActivateResource(instance, &resource, crds.Get{{ . }}Crd())
+		if err != nil {
+			return err
+		}
+
+		err = {{ . | ToLower }}.Add(r.manager)
+		if err != nil {
+			return err
+		}
+	}
+	{{- end }}
+	return nil
+}
+	
+	`))
+
+	//crdList := []string{configCrd}
+	var kindList []string
+	for crdTemplate, _ := range(serviceMap){
+		crdFile := filePrefix + crdTemplate + crdFileSuffix
+		yamlData, err := ioutil.ReadFile(crdDirectory + crdFile)
 		if err != nil {
 			panic(err)
 		}
@@ -49,33 +367,15 @@ func main(){
 			YamlData: yamlDataQuoted,
 			Kind: crd.Spec.Names.Kind,
 		})
+		kindList = append(kindList, crd.Spec.Names.Kind)
 	}
+	f, err := os.Create("../controller/manager/" + crdManager)
+	if err != nil {
+		panic(err)
+	}
+	crdManagerTemplate.Execute(f, struct{
+		KindList []string
+	}{
+		KindList: kindList,
+	})
 }
-
-var packageTemplate = template.Must(template.New("").Parse(`package manager
-
-import(
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"github.com/ghodss/yaml"
-)
-
-var yamlData = {{ .YamlData }}
-
-func Get{{ .Kind }}Crd() *apiextensionsv1beta1.CustomResourceDefinition{
-	crd := apiextensionsv1beta1.CustomResourceDefinition{}
-	err := yaml.Unmarshal([]byte(yamlData), &crd)
-	if err != nil {
-		panic(err)
-	}
-	jsonData, err := yaml.YAMLToJSON([]byte(yamlData))
-	if err != nil {
-		panic(err)
-	}
-	err = yaml.Unmarshal([]byte(jsonData), &crd)
-	if err != nil {
-		panic(err)
-	}
-	return &crd
-}
-`))
-

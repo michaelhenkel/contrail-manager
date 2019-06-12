@@ -2,11 +2,12 @@ package manager
 
 import (
 	"context"
+	//"fmt"
 
 	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
-	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
-	"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	//crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
+	//"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
+	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/client-go/kubernetes/scheme"
 
@@ -14,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	//"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -46,7 +47,7 @@ func Add(mgr manager.Manager) error {
 		return err
 	}
 	reconcileManager.controller = c
-	return addWatch(c)
+	return addManagerWatch(c)
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -63,7 +64,7 @@ func createController(mgr manager.Manager, r reconcile.Reconciler) (controller.C
 	return c, nil
 }
 
-func addWatch(c controller.Controller) (error) {
+func addManagerWatch(c controller.Controller) (error) {
 	err := c.Watch(&source.Kind{Type: &contrailv1alpha1.Manager{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
@@ -118,61 +119,6 @@ type ReconcileManager struct {
 	controller controller.Controller
 }
 
-func (r *ReconcileManager) createCrd(instance *contrailv1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
-	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
-	reqLogger.Info("Reconciling Manager")
-	newCrd := apiextensionsv1beta1.CustomResourceDefinition{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: crd.Spec.Names.Plural + "." + crd.Spec.Group, Namespace: newCrd.Namespace}, &newCrd)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group +" not found. Creating it.")
-		err = r.client.Create(context.TODO(), crd)	
-		if err != nil {
-			reqLogger.Error(err, "Failed to create new crd.", "crd.Namespace", crd.Namespace, "crd.Name", crd.Name)
-			return err
-		}
-		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group +" created.")
-	}
-	return nil
-}
-
-func (r *ReconcileManager) updateCrd(instance *contrailv1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
-	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
-	reqLogger.Info("Reconciling Manager")
-	newCrd := apiextensionsv1beta1.CustomResourceDefinition{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: crd.Spec.Names.Plural + "." + crd.Spec.Group, Namespace: newCrd.Namespace}, &newCrd)
-	if err != nil{
-		reqLogger.Info("Failed to get CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group)
-		return err
-	}
-	controllerutil.SetControllerReference(instance, &newCrd, r.scheme)
-	err = r.client.Update(context.TODO(), &newCrd)
-	if err != nil{
-		reqLogger.Info("Resource version: " + crd.ObjectMeta.ResourceVersion)
-		reqLogger.Info("Failed to update CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group)
-		return err
-	}
-	reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group +" updated.")
-	return nil
-}
-
-
-func (r *ReconcileManager) CreateResource(instance *contrailv1alpha1.Manager, ro runtime.Object, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
-		err := r.createCrd(instance, crd)
-		if err != nil {
-			return err
-		}
-		err = r.updateCrd(instance, crd)
-		if err != nil {
-			return err
-		}
-		err = r.addWatch(ro)
-		if err != nil {
-			return err
-		}	
-		return nil
-}
-
-
 func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Manager")
@@ -184,21 +130,14 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 		return reconcile.Result{}, err
 	}
+	err = r.ActivateService(instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
-	configActivated := instance.Spec.Config.Activate
-	if *configActivated{
-
-		resource := contrailv1alpha1.Config{}
-
-		err = r.CreateResource(instance, &resource, crds.GetConfigCrd())
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		err = config.Add(r.manager)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+	err = r.CreateService(instance)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, nil

@@ -28,8 +28,43 @@ spec:
         metadata:
           type: object
         spec:
+          properties:
+            config:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "operator-sdk generate k8s" to regenerate code after
+                modifying this file Add custom validation using kubebuilder tags:
+                https://book.kubebuilder.io/beyond_basics/generating_crd.html'
+              properties:
+                activate:
+                  type: boolean
+                configuration:
+                  additionalProperties:
+                    type: string
+                  type: object
+                create:
+                  type: boolean
+                image:
+                  type: string
+                size:
+                  format: int64
+                  type: integer
+              type: object
+            size:
+              format: int64
+              type: integer
           type: object
         status:
+          properties:
+            serviceStatus:
+              additionalProperties:
+                type: string
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "operator-sdk generate k8s" to regenerate
+                code after modifying this file Add custom validation using kubebuilder
+                tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html'
+              type: object
+          required:
+          - serviceStatus
           type: object
   version: v1alpha1
   versions:

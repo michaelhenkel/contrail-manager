@@ -1,22 +1,14 @@
-package manager
-
-import(
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"github.com/ghodss/yaml"
-)
-
-var yamlData = `
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: configs.contrail.juniper.net
+  name: cassandras.contrail.juniper.net
 spec:
   group: contrail.juniper.net
   names:
-    kind: Config
-    listKind: ConfigList
-    plural: configs
-    singular: config
+    kind: Cassandra
+    listKind: CassandraList
+    plural: cassandras
+    singular: cassandra
   scope: Namespaced
   subresources:
     status: {}
@@ -44,21 +36,3 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
-`
-
-func GetConfigCrd() *apiextensionsv1beta1.CustomResourceDefinition{
-	crd := apiextensionsv1beta1.CustomResourceDefinition{}
-	err := yaml.Unmarshal([]byte(yamlData), &crd)
-	if err != nil {
-		panic(err)
-	}
-	jsonData, err := yaml.YAMLToJSON([]byte(yamlData))
-	if err != nil {
-		panic(err)
-	}
-	err = yaml.Unmarshal([]byte(jsonData), &crd)
-	if err != nil {
-		panic(err)
-	}
-	return &crd
-}

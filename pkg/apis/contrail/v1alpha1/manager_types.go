@@ -4,6 +4,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+/*
 type Service struct {
 	Activate      *bool `json:"activate,omitempty"`
 	Image         string `json:"image,omitempty"`
@@ -16,14 +17,14 @@ type Global struct {
 }
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
+*/
 // ManagerSpec defines the desired state of Manager
 // +k8s:openapi-gen=true
 type ManagerSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Config Service `json:"config,omitempty"`
+	Config *Service `json:"config,omitempty"`
 	Size   *int `json:"size,omitempty"`
 }
 

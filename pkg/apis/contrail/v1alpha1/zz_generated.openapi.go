@@ -13,12 +13,82 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Config":        schema_pkg_apis_contrail_v1alpha1_Config(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ConfigSpec":    schema_pkg_apis_contrail_v1alpha1_ConfigSpec(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ConfigStatus":  schema_pkg_apis_contrail_v1alpha1_ConfigStatus(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Manager":       schema_pkg_apis_contrail_v1alpha1_Manager(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ManagerSpec":   schema_pkg_apis_contrail_v1alpha1_ManagerSpec(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ManagerStatus": schema_pkg_apis_contrail_v1alpha1_ManagerStatus(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Cassandra":       schema_pkg_apis_contrail_v1alpha1_Cassandra(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CassandraSpec":   schema_pkg_apis_contrail_v1alpha1_CassandraSpec(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CassandraStatus": schema_pkg_apis_contrail_v1alpha1_CassandraStatus(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Config":          schema_pkg_apis_contrail_v1alpha1_Config(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ConfigSpec":      schema_pkg_apis_contrail_v1alpha1_ConfigSpec(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ConfigStatus":    schema_pkg_apis_contrail_v1alpha1_ConfigStatus(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Manager":         schema_pkg_apis_contrail_v1alpha1_Manager(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ManagerSpec":     schema_pkg_apis_contrail_v1alpha1_ManagerSpec(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ManagerStatus":   schema_pkg_apis_contrail_v1alpha1_ManagerStatus(ref),
+	}
+}
+
+func schema_pkg_apis_contrail_v1alpha1_Cassandra(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Cassandra is the Schema for the cassandras API",
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CassandraSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CassandraStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CassandraSpec", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CassandraStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_contrail_v1alpha1_CassandraSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CassandraSpec defines the desired state of Cassandra",
+				Properties:  map[string]spec.Schema{},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
+func schema_pkg_apis_contrail_v1alpha1_CassandraStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CassandraStatus defines the observed state of Cassandra",
+				Properties:  map[string]spec.Schema{},
+			},
+		},
+		Dependencies: []string{},
 	}
 }
 
@@ -70,10 +140,18 @@ func schema_pkg_apis_contrail_v1alpha1_ConfigSpec(ref common.ReferenceCallback) 
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "ConfigSpec defines the desired state of Config",
-				Properties:  map[string]spec.Schema{},
+				Properties: map[string]spec.Schema{
+					"service": {
+						SchemaProps: spec.SchemaProps{
+							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Ref:         ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
+						},
+					},
+				},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"},
 	}
 }
 
@@ -136,11 +214,25 @@ func schema_pkg_apis_contrail_v1alpha1_ManagerSpec(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ManagerSpec defines the desired state of Manager",
-				Properties:  map[string]spec.Schema{},
+				Description: "type Service struct {\n\tActivate      *bool `json:\"activate,omitempty\"`\n\tImage         string `json:\"image,omitempty\"`\n\tSize          *int `json:\"size,omitempty\"`\n\tConfiguration map[string]string `json:\"configuration,omitempty\"`\n}\n\ntype Global struct {\n\n} // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN! // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.\n\nManagerSpec defines the desired state of Manager",
+				Properties: map[string]spec.Schema{
+					"config": {
+						SchemaProps: spec.SchemaProps{
+							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Ref:         ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
+						},
+					},
+					"size": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"},
 	}
 }
 
@@ -149,7 +241,23 @@ func schema_pkg_apis_contrail_v1alpha1_ManagerStatus(ref common.ReferenceCallbac
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "ManagerStatus defines the observed state of Manager",
-				Properties:  map[string]spec.Schema{},
+				Properties: map[string]spec.Schema{
+					"serviceStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"serviceStatus"},
 			},
 		},
 		Dependencies: []string{},

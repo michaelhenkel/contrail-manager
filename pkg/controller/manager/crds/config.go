@@ -1,3 +1,11 @@
+package crd
+	
+import(
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"github.com/ghodss/yaml"
+)
+
+var yamlData = `
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -57,3 +65,22 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
+`
+
+func GetConfigCrd() *apiextensionsv1beta1.CustomResourceDefinition{
+	crd := apiextensionsv1beta1.CustomResourceDefinition{}
+	err := yaml.Unmarshal([]byte(yamlData), &crd)
+	if err != nil {
+		panic(err)
+	}
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlData))
+	if err != nil {
+		panic(err)
+	}
+	err = yaml.Unmarshal([]byte(jsonData), &crd)
+	if err != nil {
+		panic(err)
+	}
+	return &crd
+}
+	
