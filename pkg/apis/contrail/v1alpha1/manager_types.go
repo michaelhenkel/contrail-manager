@@ -26,7 +26,9 @@ type ManagerSpec struct {
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 	Config *Service `json:"config,omitempty"`
 	Cassandra *Service `json:"cassandra,omitempty"`
-	Size   *int `json:"size,omitempty"`
+	Size   *int32 `json:"size,omitempty"`
+	HostNetwork *bool `json:"hostNetwork,omitempty"`
+	ContrailStatusImage string `json:"contrailStatusImage,omitempty"`
 }
 
 // ManagerStatus defines the observed state of Manager
@@ -35,7 +37,8 @@ type ManagerStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	ServiceStatus map[string]string `json:"serviceStatus"`
+	Config *ServiceStatus `json:"config"`
+	Cassandra *ServiceStatus `json:"cassandra"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

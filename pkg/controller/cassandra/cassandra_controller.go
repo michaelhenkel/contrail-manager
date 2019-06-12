@@ -2,8 +2,13 @@ package cassandra
 
 import (
 	"context"
-
+	"fmt"
+	"strings"
+	"k8s.io/apimachinery/pkg/types"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -13,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 var log = logf.Log.WithName("controller_cassandra")
@@ -85,6 +91,190 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+
+	// Fetch Manager instance
+	managerInstance := &contrailv1alpha1.Manager{}
+	err = r.client.Get(context.TODO(), request.NamespacedName, managerInstance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Info("No Manager Instance")
+		}
+	} else {
+		instance.Spec.Service = managerInstance.Spec.Cassandra
+		if managerInstance.Spec.Cassandra.Size != nil {
+			instance.Spec.Service.Size = managerInstance.Spec.Cassandra.Size
+		} else {
+			instance.Spec.Service.Size = managerInstance.Spec.Size
+		}
+		if managerInstance.Spec.HostNetwork != nil {
+			instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
+		}
+	}
+
+	// Get default Deployment
+	deployment := GetDeployment()
+
+	// Create initial ConfigMap
+	configMap := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cassandra-" + instance.Name,
+			Namespace: instance.Namespace,
+		},
+		Data: instance.Spec.Service.Configuration,
+	}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "cassandra-" + instance.Name, Namespace: instance.Namespace}, &configMap)
+	if err != nil && errors.IsNotFound(err) {
+		err = r.client.Create(context.TODO(), &configMap)	
+		if err != nil {
+			reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", instance.Namespace, "Name", "cassandra-" + instance.Name)
+			return reconcile.Result{}, err
+		}
+	}
+
+	// Set Deployment Name & Namespace
+
+	deployment.ObjectMeta.Name = "cassandra-" + instance.Name 
+	deployment.ObjectMeta.Namespace = instance.Namespace 
+
+	// Configure Containers
+	for idx, container := range(deployment.Spec.Template.Spec.Containers){
+		for containerName, image := range(instance.Spec.Service.Images){
+			if containerName == container.Name{
+				(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
+			}
+			if containerName == "cassandra"{
+				(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "cassandra-" + instance.Name
+			}
+		}
+	}
+
+	// Configure InitContainers
+	for idx, container := range(deployment.Spec.Template.Spec.InitContainers){
+		for containerName, image := range(instance.Spec.Service.Images){
+			if containerName == container.Name{
+				(&deployment.Spec.Template.Spec.InitContainers[idx]).Image = image
+			}
+		}
+	}
+
+	// Set HostNetwork
+	deployment.Spec.Template.Spec.HostNetwork = *instance.Spec.HostNetwork
+
+	// Set Selector and Label
+	deployment.Spec.Selector.MatchLabels["app"] = "cassandra-" + instance.Name
+	deployment.Spec.Template.ObjectMeta.Labels["app"] = "cassandra-" + instance.Name
+
+	// Set Size
+	deployment.Spec.Replicas = instance.Spec.Service.Size
+
+
+
+	fmt.Printf("%+v\n", deployment.Spec.Template.Spec.HostNetwork)
+
+	// Create Deployment
+	controllerutil.SetControllerReference(instance, deployment, r.scheme)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "cassandra-" + instance.Name, Namespace: instance.Namespace}, deployment)
+	if err != nil && errors.IsNotFound(err) {
+		err = r.client.Create(context.TODO(), deployment)	
+		if err != nil {
+			reqLogger.Error(err, "Failed to create Deployment", "Namespace", instance.Namespace, "Name", "cassandra-" + instance.Name)
+			return reconcile.Result{}, err
+		}
+	}
+	
+	podList := &corev1.PodList{}
+	labelSelector := labels.SelectorFromSet(map[string]string{"app": "cassandra-" + instance.Name})
+	listOps := &client.ListOptions{Namespace: instance.Namespace, LabelSelector: labelSelector}
+	err = r.client.List(context.TODO(), listOps, podList)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list pods", "Namespace", instance.Namespace, "Memcached.Name", instance.Name)
+		return reconcile.Result{}, err
+	}
+
+	initContainerRunning := true
+	var podIpMap = make(map[string]string)
+	for _, pod := range(podList.Items){
+		if pod.Status.PodIP != ""{
+			podIpMap[pod.Name] = pod.Status.PodIP
+		}
+		for _, initContainer := range(pod.Status.InitContainerStatuses){
+			if initContainer.Name == "init"{
+				if !initContainer.Ready{
+					initContainerRunning = false
+				}
+			}
+		}
+	}
+	var podIpList []string
+	if len(podIpMap) == int(*instance.Spec.Service.Size){
+		for _, podIp := range(podIpMap){
+			podIpList = append(podIpList, podIp)
+		}
+		for _, pod := range(podList.Items){
+			pod.ObjectMeta.Labels["status"] = "ready"
+			err = r.client.Update(context.TODO(), &pod)
+			if err != nil {
+				reqLogger.Error(err, "Failed to update pod", "Namespace", pod.Name, "Memcached.Name", instance.Name)
+				return reconcile.Result{}, err
+			}	
+		}
+		nodeList := strings.Join(podIpList,",")
+		configMap.Data["CASSANDRA_SEEDS"] = nodeList
+		configMap.Data["CONTROLLER_NODES"] = nodeList
+		err = r.client.Update(context.TODO(), &configMap)	
+		if err != nil {
+			reqLogger.Error(err, "Failed to update ConfigMap", "Namespace", instance.Namespace, "Name", "cassandra-" + instance.Name)
+			return reconcile.Result{}, err
+		}
+
+	}
+
+	if initContainerRunning{
+		instance.Status.Nodes = podIpMap
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update status.")
+			return reconcile.Result{}, err
+		}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "cassandra-" + instance.Name, Namespace: instance.Namespace}, deployment)
+		if err != nil {
+			reqLogger.Error(err, "Failed to get Deployment")
+			return reconcile.Result{}, err
+		}
+		if deployment.Status.Replicas == deployment.Status.ReadyReplicas { 
+			active := true
+			instance.Status.Active = &active
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				reqLogger.Error(err, "Failed to update status.")
+				return reconcile.Result{}, err
+			}
+		} else {
+			reqLogger.Info("Waiting for Deployment to be complete, requeing")
+			return reconcile.Result{Requeue: true}, nil
+		}
+		if err != nil {
+			reqLogger.Error(err, "Failed to update status.")
+			return reconcile.Result{}, err
+		}
+	} else {
+		reqLogger.Info("Init Pods not ready, requeing")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+
+
 	return reconcile.Result{}, nil
 }
 
+func labelsForService(name string) map[string]string {
+	return map[string]string{"app": name}
+}
+
+func getPodNames(pods []corev1.Pod) []string {
+	var podNames []string
+	for _, pod := range pods {
+		podNames = append(podNames, pod.Name)
+	}
+	return podNames
+}

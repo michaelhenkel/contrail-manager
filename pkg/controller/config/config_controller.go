@@ -4,7 +4,6 @@ import (
 	"context"
 
 	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,13 +52,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner Config
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	
+	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Cassandra{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &contrailv1alpha1.Config{},
+		OwnerType:    &contrailv1alpha1.Cassandra{},
 	})
 	if err != nil {
 		return err
 	}
+	
 
 	return nil
 }
@@ -99,14 +100,12 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-
-	if instance.Spec.Service != nil {
-		activated := *instance.Spec.Service.Activate
-		if activated{
-			reqLogger.Info("Config CR activated")
-		} else {
-			reqLogger.Info("Config CR not activated")
-		}
+	active := true
+	instance.Status.Active = &active
+	err = r.client.Status().Update(context.TODO(), instance)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update status.")
+		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
 }

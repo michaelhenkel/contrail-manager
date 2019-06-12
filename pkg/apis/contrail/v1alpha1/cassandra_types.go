@@ -13,7 +13,9 @@ type CassandraSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	HostNetwork *bool `json:"hostNetwork,omitempty"`
 	Service *Service `json:"service,omitempty"`
+	ContrailStatusImage string `json:"contrailStatusImage,omitempty"`
 }
 
 // CassandraStatus defines the observed state of Cassandra
@@ -22,6 +24,8 @@ type CassandraStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	Active *bool `json:"active"`
+	Nodes map[string]string `json:"nodes"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

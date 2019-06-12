@@ -4,9 +4,24 @@ metadata:
   name: cluster-1
 spec:
   size: 3
+  hostNetwork: false
+  contrailStatusImage: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
   config:
     activate: true
     create: true
   cassandra:
     activate: true
     create: true
+    images:
+      cassandra: docker.io/michaelhenkel/contrail-external-cassandra:5.2.0-dev1
+      init: busybox
+    configuration:
+      CASSANDRA_LISTEN_ADDRESS: "auto"
+      CASSANDRA_PORT: "9160"
+      CASSANDRA_CQL_PORT: "9042"
+      CASSANDRA_SSL_STORAGE_PORT: "7001"
+      CASSANDRA_STORAGE_PORT: "7000"
+      CASSANDRA_JMX_LOCAL_PORT: "7199"
+      CASSANDRA_START_RPC: "true"
+      CASSANDRA_CLUSTER_NAME: "ContrailConfigDB"
+      NODE_TYPE: "config-database"

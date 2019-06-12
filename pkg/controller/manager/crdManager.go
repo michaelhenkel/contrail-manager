@@ -72,29 +72,87 @@ func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
 
 func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) error{
 	var err error
-	if instance.Spec.Config != nil {
-		ConfigActivated := instance.Spec.Config.Activate
-		if *ConfigActivated{
-			resource := contrailv1alpha1.Config{}
-			err = r.ActivateResource(instance, &resource, crds.GetConfigCrd())
-			if err != nil {
-				return err
+	var ConfigStatus contrailv1alpha1.ServiceStatus
+	var CassandraStatus contrailv1alpha1.ServiceStatus
+	ConfigActive := true
+	if instance.Status.Config == nil {
+		ConfigActive = false
+		active := true
+		ConfigStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Config.Active == nil {
+		ConfigActive = false
+		active := true
+		ConfigStatus = *instance.Status.Config
+		ConfigStatus.Active = &active
+
+	}
+	CassandraActive := true
+	if instance.Status.Cassandra == nil {
+		CassandraActive = false
+		active := true
+		CassandraStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Cassandra.Active == nil {
+		CassandraActive = false
+		active := true
+		CassandraStatus = *instance.Status.Cassandra
+		CassandraStatus.Active = &active
+
+	}
+	if !ConfigActive{
+		if instance.Spec.Config != nil {
+			ConfigActivated := instance.Spec.Config.Activate
+			if *ConfigActivated{
+				resource := contrailv1alpha1.Config{}
+				err = r.ActivateResource(instance, &resource, crds.GetConfigCrd())
+				if err != nil {
+					return err
+				}
 			}
-			err = config.Add(r.manager)
+		}
+	}
+	if !CassandraActive{
+		if instance.Spec.Cassandra != nil {
+			CassandraActivated := instance.Spec.Cassandra.Activate
+			if *CassandraActivated{
+				resource := contrailv1alpha1.Cassandra{}
+				err = r.ActivateResource(instance, &resource, crds.GetCassandraCrd())
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if !ConfigActive{
+		if instance.Spec.Config != nil {
+			ConfigActivated := instance.Spec.Config.Activate
+			if *ConfigActivated{
+				err = config.Add(r.manager)
+				if err != nil {
+					return err
+				}
+			}
+			instance.Status.Config = &ConfigStatus
+			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err
 			}
 		}
 	}
-	if instance.Spec.Cassandra != nil {
-		CassandraActivated := instance.Spec.Cassandra.Activate
-		if *CassandraActivated{
-			resource := contrailv1alpha1.Cassandra{}
-			err = r.ActivateResource(instance, &resource, crds.GetCassandraCrd())
-			if err != nil {
-				return err
+	if !CassandraActive{
+		if instance.Spec.Cassandra != nil {
+			CassandraActivated := instance.Spec.Cassandra.Activate
+			if *CassandraActivated{
+				err = cassandra.Add(r.manager)
+				if err != nil {
+					return err
+				}
 			}
-			err = cassandra.Add(r.manager)
+			instance.Status.Cassandra = &CassandraStatus
+			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err
 			}

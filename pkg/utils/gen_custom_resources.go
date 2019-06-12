@@ -31,18 +31,16 @@ var serviceMap = map[string]runtime.Object{
 }
 
 
-//go:generate go run gen.go
+//go:generate go run gen_custom_resources.go
 func main(){
 	createCrds()
 	createCrs()
 }
 
 func createCrs(){
-	
 	funcMap := template.FuncMap{
 		"ToLower": strings.ToLower,
 	}
-	
 
 	var packageTemplate = template.Must(template.New("").Parse(`package cr
 	
@@ -81,8 +79,49 @@ import(
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	cr "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crs"
 )
+
+func (r *ReconcileManager) UpdateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
+	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
+	reqLogger.Info("Reconciling Manager")
+	
+	objectKind := obj.GetObjectKind()
+	groupVersionKind := objectKind.GroupVersionKind()
+
+	gkv := schema.FromAPIVersionAndKind(groupVersionKind.Group + "/" + groupVersionKind.Version, groupVersionKind.Kind)
+	newObj, err := scheme.Scheme.New(gkv)
+	if err != nil {
+		return err
+	}
+
+	newObj = obj
+
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, newObj)
+	if err != nil{
+		reqLogger.Info("Failed to get CR " + name)
+		return err
+	}
+
+	switch groupVersionKind.Kind{
+	{{- range .KindList }}
+	case "{{ . }}":
+		var typedObject *v1alpha1.{{ . }}
+		typedObject = newObj.(*v1alpha1.{{ . }})
+		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+	{{- end }}
+	}
+
+
+	err = r.client.Update(context.TODO(), newObj)
+	if err != nil{
+		reqLogger.Info("Failed to update CR " + name)
+		return err
+	}
+	reqLogger.Info("CR " + name +" updated.")
+	return nil
+}
 
 func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
 	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
@@ -115,18 +154,47 @@ func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtim
 func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 	var err error
 	{{- range .KindList }}
-	if instance.Spec.{{ . }} != nil{
-		{{ . }}Created := instance.Spec.{{ . }}.Create
-		if *{{ . }}Created{
-			cr := cr.Get{{ . }}Cr()
-			cr.Spec.Service = instance.Spec.{{ . }}
-			cr.Name = instance.Name
-			cr.Namespace = instance.Namespace
-			err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
+	var {{ . }}Status v1alpha1.ServiceStatus
+	{{- end }}
+
+	{{- range .KindList }}
+	{{ . }}Created := true
+	if instance.Status.{{ . }} == nil {
+		{{ . }}Created = false
+		active := true
+		{{ . }}Status = v1alpha1.ServiceStatus{
+			Created: &active,
+		}
+	} else if instance.Status.{{ . }}.Created == nil {
+		{{ . }}Created = false
+		active := true
+		{{ . }}Status = *instance.Status.{{ . }}
+		{{ . }}Status.Created = &active
+	}
+	{{- end }}
+	{{- range .KindList }}
+	if !{{ . }}Created{
+		if instance.Spec.{{ . }} != nil{
+			{{ . }}Created := instance.Spec.{{ . }}.Create
+			if *{{ . }}Created{
+				cr := cr.Get{{ . }}Cr()
+				cr.Spec.Service = instance.Spec.{{ . }}
+				cr.Name = instance.Name
+				cr.Namespace = instance.Namespace
+				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}
+				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}		
+			}
+			instance.Status.{{ . }} = &{{ . }}Status
+			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err
-			}
-			
+			}			
 		}
 	}
 	{{- end }}
@@ -172,7 +240,6 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 		})
 		kindList = append(kindList, kind)
 	}
-	
 	f, err := os.Create("../controller/manager/" + crManager)
 	if err != nil {
 		panic(err)
@@ -182,7 +249,6 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 	}{
 		KindList: kindList,
 	})
-	
 }
 
 func createCrds(){
@@ -217,28 +283,6 @@ func Get{{ .Kind }}Crd() *apiextensionsv1beta1.CustomResourceDefinition{
 	return &crd
 }
 	`))
-	
-	/*
-	var crdManagerTemplate = template.Must(template.New("").Parse(`package manager
-	
-	import(
-		apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-		"github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
-	)
-	
-	func GetCrdMap() map[string]*apiextensionsv1beta1.CustomResourceDefinition {
-		var crdMap = make(map[string]*apiextensionsv1beta1.CustomResourceDefinition)
-	
-		{{- range $key, $value := .KindFunctionMap }}
-		crdMap["{{ $key }}"] = crd.{{ $value }}()
-		{{- end }}
-	
-		return crdMap
-	}
-	`))
-	*/
-	
-	
 	var crdManagerTemplate = template.Must(template.New("").Funcs(funcMap).Parse(`package manager
 	
 import(
@@ -315,15 +359,51 @@ func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
 func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) error{
 	var err error
 	{{- range .KindList }}
-	if instance.Spec.{{ . }} != nil {
-		{{ . }}Activated := instance.Spec.{{ . }}.Activate
-		if *{{ . }}Activated{
-			resource := contrailv1alpha1.{{ . }}{}
-			err = r.ActivateResource(instance, &resource, crds.Get{{ . }}Crd())
-			if err != nil {
-				return err
+	var {{ . }}Status contrailv1alpha1.ServiceStatus
+	{{- end }}	
+
+	{{- range .KindList }}
+	{{ . }}Active := true
+	if instance.Status.{{ . }} == nil {
+		{{ . }}Active = false
+		active := true
+		{{ . }}Status = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.{{ . }}.Active == nil {
+		{{ . }}Active = false
+		active := true
+		{{ . }}Status = *instance.Status.{{ . }}
+		{{ . }}Status.Active = &active
+
+	}
+	{{- end }}
+	{{- range .KindList }}
+	if !{{ . }}Active{
+		if instance.Spec.{{ . }} != nil {
+			{{ . }}Activated := instance.Spec.{{ . }}.Activate
+			if *{{ . }}Activated{
+				resource := contrailv1alpha1.{{ . }}{}
+				err = r.ActivateResource(instance, &resource, crds.Get{{ . }}Crd())
+				if err != nil {
+					return err
+				}
 			}
-			err = {{ . | ToLower }}.Add(r.manager)
+		}
+	}
+	{{- end }}
+	{{- range .KindList }}
+	if !{{ . }}Active{
+		if instance.Spec.{{ . }} != nil {
+			{{ . }}Activated := instance.Spec.{{ . }}.Activate
+			if *{{ . }}Activated{
+				err = {{ . | ToLower }}.Add(r.manager)
+				if err != nil {
+					return err
+				}
+			}
+			instance.Status.{{ . }} = &{{ . }}Status
+			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err
 			}
