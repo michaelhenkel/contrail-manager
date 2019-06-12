@@ -23,11 +23,12 @@ const (
 	crFileSuffix = "_cr.yaml"
 )
 
-var serviceList = [...]string{"config"}
-
 //var crdList = [...]string{"contrail_v1alpha1_config_crd.yaml"}
 //var crList = [...]string{"contrail_v1alpha1_config_cr.yaml"}
-var serviceMap = map[string]runtime.Object{"config":&contrailv1alpha1.Config{}}
+var serviceMap = map[string]runtime.Object{
+	"config":&contrailv1alpha1.Config{},
+	"cassandra":&contrailv1alpha1.Cassandra{},
+}
 
 
 //go:generate go run gen.go
@@ -50,15 +51,15 @@ import(
 	"github.com/ghodss/yaml"
 )
 
-var yamlData = {{ .YamlData }}
+var yamlData{{ .Kind }}= {{ .YamlData }}
 
 func Get{{ .Kind }}Cr() *contrailv1alpha1.{{ .Kind }}{
 	cr := contrailv1alpha1.{{ .Kind }}{}
-	err := yaml.Unmarshal([]byte(yamlData), &cr)
+	err := yaml.Unmarshal([]byte(yamlData{{ .Kind }}), &cr)
 	if err != nil {
 		panic(err)
 	}
-	jsonData, err := yaml.YAMLToJSON([]byte(yamlData))
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlData{{ .Kind }}))
 	if err != nil {
 		panic(err)
 	}
@@ -197,15 +198,15 @@ import(
 	"github.com/ghodss/yaml"
 )
 
-var yamlData = {{ .YamlData }}
+var yamlData{{ .Kind }} = {{ .YamlData }}
 
 func Get{{ .Kind }}Crd() *apiextensionsv1beta1.CustomResourceDefinition{
 	crd := apiextensionsv1beta1.CustomResourceDefinition{}
-	err := yaml.Unmarshal([]byte(yamlData), &crd)
+	err := yaml.Unmarshal([]byte(yamlData{{ .Kind }}), &crd)
 	if err != nil {
 		panic(err)
 	}
-	jsonData, err := yaml.YAMLToJSON([]byte(yamlData))
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlData{{ .Kind }}))
 	if err != nil {
 		panic(err)
 	}
@@ -314,19 +315,18 @@ func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
 func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) error{
 	var err error
 	{{- range .KindList }}
-	{{ . }}Activated := instance.Spec.{{ . }}.Activate
-	if *{{ . }}Activated{
-
-		resource := contrailv1alpha1.{{ . }}{}
-
-		err = r.ActivateResource(instance, &resource, crds.Get{{ . }}Crd())
-		if err != nil {
-			return err
-		}
-
-		err = {{ . | ToLower }}.Add(r.manager)
-		if err != nil {
-			return err
+	if instance.Spec.{{ . }} != nil {
+		{{ . }}Activated := instance.Spec.{{ . }}.Activate
+		if *{{ . }}Activated{
+			resource := contrailv1alpha1.{{ . }}{}
+			err = r.ActivateResource(instance, &resource, crds.Get{{ . }}Crd())
+			if err != nil {
+				return err
+			}
+			err = {{ . | ToLower }}.Add(r.manager)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	{{- end }}

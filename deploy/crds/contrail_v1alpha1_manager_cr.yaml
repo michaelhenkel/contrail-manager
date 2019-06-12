@@ -3,8 +3,10 @@ kind: Manager
 metadata:
   name: cluster-1
 spec:
-  # Add fields here
   size: 3
   config:
+    activate: true
+    create: true
+  cassandra:
     activate: true
     create: true

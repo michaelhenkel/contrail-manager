@@ -55,6 +55,20 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 			
 		}
 	}
+	if instance.Spec.Cassandra != nil{
+		CassandraCreated := instance.Spec.Cassandra.Create
+		if *CassandraCreated{
+			cr := cr.GetCassandraCr()
+			cr.Spec.Service = instance.Spec.Cassandra
+			cr.Name = instance.Name
+			cr.Namespace = instance.Namespace
+			err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
+			if err != nil {
+				return err
+			}
+			
+		}
+	}
 	return nil
 }
 	

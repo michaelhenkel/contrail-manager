@@ -5,25 +5,23 @@ import(
 	"github.com/ghodss/yaml"
 )
 
-var yamlDataConfig= `
+var yamlDataCassandra= `
 apiVersion: contrail.juniper.net/v1alpha1
-kind: Config
+kind: Cassandra
 metadata:
-  name: example-config
+  name: example-cassandra
 spec:
   # Add fields here
   size: 3
-  service: 
-    activate: true
 `
 
-func GetConfigCr() *contrailv1alpha1.Config{
-	cr := contrailv1alpha1.Config{}
-	err := yaml.Unmarshal([]byte(yamlDataConfig), &cr)
+func GetCassandraCr() *contrailv1alpha1.Cassandra{
+	cr := contrailv1alpha1.Cassandra{}
+	err := yaml.Unmarshal([]byte(yamlDataCassandra), &cr)
 	if err != nil {
 		panic(err)
 	}
-	jsonData, err := yaml.YAMLToJSON([]byte(yamlDataConfig))
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlDataCassandra))
 	if err != nil {
 		panic(err)
 	}

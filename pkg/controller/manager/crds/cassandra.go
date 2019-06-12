@@ -5,18 +5,18 @@ import(
 	"github.com/ghodss/yaml"
 )
 
-var yamlDataConfig = `
+var yamlDataCassandra = `
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: configs.contrail.juniper.net
+  name: cassandras.contrail.juniper.net
 spec:
   group: contrail.juniper.net
   names:
-    kind: Config
-    listKind: ConfigList
-    plural: configs
-    singular: config
+    kind: Cassandra
+    listKind: CassandraList
+    plural: cassandras
+    singular: cassandra
   scope: Namespaced
   subresources:
     status: {}
@@ -36,27 +36,6 @@ spec:
         metadata:
           type: object
         spec:
-          properties:
-            service:
-              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                Important: Run "operator-sdk generate k8s" to regenerate code after
-                modifying this file Add custom validation using kubebuilder tags:
-                https://book.kubebuilder.io/beyond_basics/generating_crd.html'
-              properties:
-                activate:
-                  type: boolean
-                configuration:
-                  additionalProperties:
-                    type: string
-                  type: object
-                create:
-                  type: boolean
-                image:
-                  type: string
-                size:
-                  format: int64
-                  type: integer
-              type: object
           type: object
         status:
           type: object
@@ -67,13 +46,13 @@ spec:
     storage: true
 `
 
-func GetConfigCrd() *apiextensionsv1beta1.CustomResourceDefinition{
+func GetCassandraCrd() *apiextensionsv1beta1.CustomResourceDefinition{
 	crd := apiextensionsv1beta1.CustomResourceDefinition{}
-	err := yaml.Unmarshal([]byte(yamlDataConfig), &crd)
+	err := yaml.Unmarshal([]byte(yamlDataCassandra), &crd)
 	if err != nil {
 		panic(err)
 	}
-	jsonData, err := yaml.YAMLToJSON([]byte(yamlDataConfig))
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlDataCassandra))
 	if err != nil {
 		panic(err)
 	}

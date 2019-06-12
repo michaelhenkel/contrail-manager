@@ -10,6 +10,7 @@ import(
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"k8s.io/apimachinery/pkg/runtime"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
 )
 
 func (r *ReconcileManager) createCrd(instance *contrailv1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
@@ -71,19 +72,32 @@ func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
 
 func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) error{
 	var err error
-	ConfigActivated := instance.Spec.Config.Activate
-	if *ConfigActivated{
-
-		resource := contrailv1alpha1.Config{}
-
-		err = r.ActivateResource(instance, &resource, crds.GetConfigCrd())
-		if err != nil {
-			return err
+	if instance.Spec.Config != nil {
+		ConfigActivated := instance.Spec.Config.Activate
+		if *ConfigActivated{
+			resource := contrailv1alpha1.Config{}
+			err = r.ActivateResource(instance, &resource, crds.GetConfigCrd())
+			if err != nil {
+				return err
+			}
+			err = config.Add(r.manager)
+			if err != nil {
+				return err
+			}
 		}
-
-		err = config.Add(r.manager)
-		if err != nil {
-			return err
+	}
+	if instance.Spec.Cassandra != nil {
+		CassandraActivated := instance.Spec.Cassandra.Activate
+		if *CassandraActivated{
+			resource := contrailv1alpha1.Cassandra{}
+			err = r.ActivateResource(instance, &resource, crds.GetCassandraCrd())
+			if err != nil {
+				return err
+			}
+			err = cassandra.Add(r.manager)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
