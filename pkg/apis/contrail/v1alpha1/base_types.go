@@ -3,8 +3,8 @@ package v1alpha1
 //metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 type ServiceStatus struct {
-	Active  *bool `json:"active"`
-	Created *bool `json:"created"`
+	Active  *bool `json:"active,omitempty"`
+	Created *bool `json:"created,omitempty"`
 }
 
 type Service struct {
@@ -21,8 +21,8 @@ type Status struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Active *bool             `json:"active"`
-	Nodes  map[string]string `json:"nodes"`
+	Active *bool             `json:"active,omitempty"`
+	Nodes  map[string]string `json:"nodes,omitempty"`
 }
 type Global struct {
 }
