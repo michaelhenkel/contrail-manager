@@ -46,5 +46,7 @@ rules:
   - '*'
   - managers
   - cassandras
+  - zookeepers
+  - rabbitmqs
   verbs:
   - '*'

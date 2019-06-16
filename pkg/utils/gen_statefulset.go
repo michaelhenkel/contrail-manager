@@ -14,17 +14,18 @@ import (
 )
 
 const (
-	deploymentDirectory = "../../deployments/"
+	statefullSetDirectory = "../../deployments/"
 )
 
-var serviceList = [...]string{"cassandra", "zookeeper", "rabbitmq", "config"}
+var stateFullSetServiceList = [...]string{"zookeeper"}
 
-//go:generate go run gen_deployments.go
+//go:generate go run gen_statefulset.go
 func main() {
-	createDeployments()
+
+	createSts()
 }
 
-func createDeployments() {
+func createSts() {
 
 	var packageTemplate = template.Must(template.New("").Parse(`package {{ .Kind }}
 	
@@ -35,9 +36,9 @@ import(
 
 var yamlData{{ .Kind }}= {{ .YamlData }}
 
-func GetDeployment() *appsv1.Deployment{
-	deployment := appsv1.Deployment{}
-	err := yaml.Unmarshal([]byte(yamlData{{ .Kind }}), &deployment)
+func GetStatefulset() *appsv1.StatefulSet{
+	statefulSet := appsv1.StatefulSet{}
+	err := yaml.Unmarshal([]byte(yamlData{{ .Kind }}), &statefulSet)
 	if err != nil {
 		panic(err)
 	}
@@ -45,17 +46,17 @@ func GetDeployment() *appsv1.Deployment{
 	if err != nil {
 		panic(err)
 	}
-	err = yaml.Unmarshal([]byte(jsonData), &deployment)
+	err = yaml.Unmarshal([]byte(jsonData), &statefulSet)
 	if err != nil {
 		panic(err)
 	}
-	return &deployment
+	return &statefulSet
 }
 	`))
 
-	for _, deploymentName := range serviceList {
-		crFile := deploymentName + ".yaml"
-		yamlData, err := ioutil.ReadFile(deploymentDirectory + crFile)
+	for _, stsName := range stateFullSetServiceList {
+		crFile := stsName + ".yaml"
+		yamlData, err := ioutil.ReadFile(statefullSetDirectory + crFile)
 		if err != nil {
 			panic(err)
 		}
@@ -64,12 +65,12 @@ func GetDeployment() *appsv1.Deployment{
 		if err != nil {
 			panic(err)
 		}
-		var deployment appsv1.Deployment
-		err = yaml.Unmarshal([]byte(jsonData), &deployment)
+		var statefulSet appsv1.StatefulSet
+		err = yaml.Unmarshal([]byte(jsonData), &statefulSet)
 		if err != nil {
 			panic(err)
 		}
-		f, err := os.Create("../controller/" + deploymentName + "/deployment.go")
+		f, err := os.Create("../controller/" + stsName + "/statefulset.go")
 		if err != nil {
 			panic(err)
 		}
@@ -82,7 +83,7 @@ func GetDeployment() *appsv1.Deployment{
 			Kind     string
 		}{
 			YamlData: yamlDataQuoted,
-			Kind:     deploymentName,
+			Kind:     stsName,
 		})
 	}
 }

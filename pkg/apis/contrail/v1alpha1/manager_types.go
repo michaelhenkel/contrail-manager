@@ -24,11 +24,13 @@ type ManagerSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Config *Service `json:"config,omitempty"`
-	Cassandra *Service `json:"cassandra,omitempty"`
-	Size   *int32 `json:"size,omitempty"`
-	HostNetwork *bool `json:"hostNetwork,omitempty"`
-	ContrailStatusImage string `json:"contrailStatusImage,omitempty"`
+	Config              *Service `json:"config,omitempty"`
+	Cassandra           *Service `json:"cassandra,omitempty"`
+	Zookeeper           *Service `json:"zookeeper,omitempty"`
+	Rabbitmq            *Service `json:"rabbitmq,omitempty"`
+	Size                *int32   `json:"size,omitempty"`
+	HostNetwork         *bool    `json:"hostNetwork,omitempty"`
+	ContrailStatusImage string   `json:"contrailStatusImage,omitempty"`
 }
 
 // ManagerStatus defines the observed state of Manager
@@ -37,8 +39,10 @@ type ManagerStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Config *ServiceStatus `json:"config"`
+	Config    *ServiceStatus `json:"config"`
 	Cassandra *ServiceStatus `json:"cassandra"`
+	Zookeeper *ServiceStatus `json:"zookeeper"`
+	Rabbitmq  *ServiceStatus `json:"rabbitmq"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

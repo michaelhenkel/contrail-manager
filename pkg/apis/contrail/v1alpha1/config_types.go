@@ -13,9 +13,9 @@ type ConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	HostNetwork *bool `json:"hostNetwork,omitempty"`
-	Service *Service `json:"service,omitempty"`
-	ContrailStatusImage string `json:"contrailStatusImage,omitempty"`
+	HostNetwork         *bool    `json:"hostNetwork,omitempty"`
+	Service             *Service `json:"service,omitempty"`
+	ContrailStatusImage string   `json:"contrailStatusImage,omitempty"`
 }
 
 // ConfigStatus defines the observed state of Config
@@ -36,8 +36,8 @@ type Config struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ConfigSpec   `json:"spec,omitempty"`
-	Status ConfigStatus `json:"status,omitempty"`
+	Spec   ConfigSpec `json:"spec,omitempty"`
+	Status Status     `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

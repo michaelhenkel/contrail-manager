@@ -23,12 +23,18 @@ spec:
         app: cassandra
         cassandra_cr: cassandra
     spec:
+      terminationGracePeriodSeconds: 1800
       containers:
       - envFrom:
         - configMapRef:
             name: tfcassandracmv1
         image: hub.juniper.net/contrail-nightly/contrail-external-cassandra:5.2.0-0.740
         imagePullPolicy: Always
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         lifecycle:
           preStop:
             exec:
@@ -41,12 +47,14 @@ spec:
             command:
             - /bin/bash
             - -c
-            - /readiness.sh
+            - /ready-probe.sh
           initialDelaySeconds: 15
           timeoutSeconds: 5
         name: cassandra
-        resources: {}
         securityContext:
+          capabilities:
+            add:
+              - IPC_LOCK
           privileged: false
           procMount: Default
         terminationMessagePath: /dev/termination-log
@@ -84,8 +92,6 @@ spec:
         node-role.kubernetes.io/master: ""
       restartPolicy: Always
       schedulerName: default-scheduler
-      securityContext: {}
-      terminationGracePeriodSeconds: 30
       tolerations:
       - effect: NoSchedule
         operator: Exists

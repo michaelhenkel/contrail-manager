@@ -18,13 +18,13 @@ import (
 	//"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+
 	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
 )
 
 var log = logf.Log.WithName("controller_manager")
@@ -41,9 +41,9 @@ func Add(mgr manager.Manager) error {
 	var r reconcile.Reconciler
 	reconcileManager := ReconcileManager{client: mgr.GetClient(), scheme: mgr.GetScheme(), manager: mgr}
 	r = &reconcileManager
-	//r := newReconciler(mgr) 
+	//r := newReconciler(mgr)
 	c, err := createController(mgr, r)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	reconcileManager.controller = c
@@ -64,7 +64,7 @@ func createController(mgr manager.Manager, r reconcile.Reconciler) (controller.C
 	return c, nil
 }
 
-func addManagerWatch(c controller.Controller) (error) {
+func addManagerWatch(c controller.Controller) error {
 	err := c.Watch(&source.Kind{Type: &contrailv1alpha1.Manager{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
@@ -91,7 +91,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) (controller.Controller, er
 	return c, nil
 }
 
-func (r *ReconcileManager) addWatch (ro runtime.Object) error {
+func (r *ReconcileManager) addWatch(ro runtime.Object) error {
 
 	controller := r.controller
 	//err := controller.Watch(&source.Kind{Type: &contrailv1alpha1.Config{}}, &handler.EnqueueRequestForOwner{
@@ -113,9 +113,9 @@ var _ reconcile.Reconciler = &ReconcileManager{}
 type ReconcileManager struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
-	manager manager.Manager
+	client     client.Client
+	scheme     *runtime.Scheme
+	manager    manager.Manager
 	controller controller.Controller
 }
 

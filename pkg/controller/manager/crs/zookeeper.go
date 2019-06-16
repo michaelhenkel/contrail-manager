@@ -5,20 +5,20 @@ import(
 	"github.com/ghodss/yaml"
 )
 
-var yamlDataCassandra= `
+var yamlDataZookeeper= `
 apiVersion: contrail.juniper.net/v1alpha1
-kind: Cassandra
+kind: Zookeeper
 metadata:
-  name: example-cassandra
+  name: cluster-1
 `
 
-func GetCassandraCr() *contrailv1alpha1.Cassandra{
-	cr := contrailv1alpha1.Cassandra{}
-	err := yaml.Unmarshal([]byte(yamlDataCassandra), &cr)
+func GetZookeeperCr() *contrailv1alpha1.Zookeeper{
+	cr := contrailv1alpha1.Zookeeper{}
+	err := yaml.Unmarshal([]byte(yamlDataZookeeper), &cr)
 	if err != nil {
 		panic(err)
 	}
-	jsonData, err := yaml.YAMLToJSON([]byte(yamlDataCassandra))
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlDataZookeeper))
 	if err != nil {
 		panic(err)
 	}

@@ -1,14 +1,22 @@
+package crd
+	
+import(
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"github.com/ghodss/yaml"
+)
+
+var yamlDataZookeeper = `
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: cassandras.contrail.juniper.net
+  name: zookeepers.contrail.juniper.net
 spec:
   group: contrail.juniper.net
   names:
-    kind: Cassandra
-    listKind: CassandraList
-    plural: cassandras
-    singular: cassandra
+    kind: Zookeeper
+    listKind: ZookeeperList
+    plural: zookeepers
+    singular: zookeeper
   scope: Namespaced
   subresources:
     status: {}
@@ -29,7 +37,15 @@ spec:
           type: object
         spec:
           properties:
+            clientPort:
+              format: int64
+              type: integer
             contrailStatusImage:
+              type: string
+            electionPort:
+              format: int64
+              type: integer
+            heapSize:
               type: string
             hostNetwork:
               description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -37,6 +53,9 @@ spec:
                 modifying this file Add custom validation using kubebuilder tags:
                 https://book.kubebuilder.io/beyond_basics/generating_crd.html'
               type: boolean
+            serverPort:
+              format: int64
+              type: integer
             service:
               properties:
                 activate:
@@ -79,3 +98,22 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
+`
+
+func GetZookeeperCrd() *apiextensionsv1beta1.CustomResourceDefinition{
+	crd := apiextensionsv1beta1.CustomResourceDefinition{}
+	err := yaml.Unmarshal([]byte(yamlDataZookeeper), &crd)
+	if err != nil {
+		panic(err)
+	}
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlDataZookeeper))
+	if err != nil {
+		panic(err)
+	}
+	err = yaml.Unmarshal([]byte(jsonData), &crd)
+	if err != nil {
+		panic(err)
+	}
+	return &crd
+}
+	

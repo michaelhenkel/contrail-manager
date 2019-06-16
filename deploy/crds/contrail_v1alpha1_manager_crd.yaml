@@ -29,6 +29,26 @@ spec:
           type: object
         spec:
           properties:
+            cassandra:
+              properties:
+                activate:
+                  type: boolean
+                configuration:
+                  additionalProperties:
+                    type: string
+                  type: object
+                create:
+                  type: boolean
+                image:
+                  type: string
+                images:
+                  additionalProperties:
+                    type: string
+                  type: object
+                size:
+                  format: int32
+                  type: integer
+              type: object
             config:
               description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
                 Important: Run "operator-sdk generate k8s" to regenerate code after
@@ -45,26 +65,82 @@ spec:
                   type: boolean
                 image:
                   type: string
+                images:
+                  additionalProperties:
+                    type: string
+                  type: object
                 size:
-                  format: int64
+                  format: int32
                   type: integer
               type: object
+            contrailStatusImage:
+              type: string
+            hostNetwork:
+              type: boolean
             size:
-              format: int64
+              format: int32
               type: integer
+            zookeeper:
+              properties:
+                activate:
+                  type: boolean
+                configuration:
+                  additionalProperties:
+                    type: string
+                  type: object
+                create:
+                  type: boolean
+                image:
+                  type: string
+                images:
+                  additionalProperties:
+                    type: string
+                  type: object
+                size:
+                  format: int32
+                  type: integer
+              type: object
           type: object
         status:
           properties:
-            serviceStatus:
-              additionalProperties:
-                type: string
+            cassandra:
+              properties:
+                active:
+                  type: boolean
+                created:
+                  type: boolean
+              required:
+              - active
+              - created
+              type: object
+            config:
               description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
                 of cluster Important: Run "operator-sdk generate k8s" to regenerate
                 code after modifying this file Add custom validation using kubebuilder
                 tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html'
+              properties:
+                active:
+                  type: boolean
+                created:
+                  type: boolean
+              required:
+              - active
+              - created
+              type: object
+            zookeeper:
+              properties:
+                active:
+                  type: boolean
+                created:
+                  type: boolean
+              required:
+              - active
+              - created
               type: object
           required:
-          - serviceStatus
+          - config
+          - cassandra
+          - zookeeper
           type: object
   version: v1alpha1
   versions:

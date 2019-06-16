@@ -11,6 +11,8 @@ import(
 	"k8s.io/apimachinery/pkg/runtime"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/zookeeper"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/rabbitmq"
 )
 
 func (r *ReconcileManager) createCrd(instance *contrailv1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
@@ -74,6 +76,8 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 	var err error
 	var ConfigStatus contrailv1alpha1.ServiceStatus
 	var CassandraStatus contrailv1alpha1.ServiceStatus
+	var ZookeeperStatus contrailv1alpha1.ServiceStatus
+	var RabbitmqStatus contrailv1alpha1.ServiceStatus
 	ConfigActive := true
 	if instance.Status.Config == nil {
 		ConfigActive = false
@@ -102,6 +106,34 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 		CassandraStatus.Active = &active
 
 	}
+	ZookeeperActive := true
+	if instance.Status.Zookeeper == nil {
+		ZookeeperActive = false
+		active := true
+		ZookeeperStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Zookeeper.Active == nil {
+		ZookeeperActive = false
+		active := true
+		ZookeeperStatus = *instance.Status.Zookeeper
+		ZookeeperStatus.Active = &active
+
+	}
+	RabbitmqActive := true
+	if instance.Status.Rabbitmq == nil {
+		RabbitmqActive = false
+		active := true
+		RabbitmqStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Rabbitmq.Active == nil {
+		RabbitmqActive = false
+		active := true
+		RabbitmqStatus = *instance.Status.Rabbitmq
+		RabbitmqStatus.Active = &active
+
+	}
 	if !ConfigActive{
 		if instance.Spec.Config != nil {
 			ConfigActivated := instance.Spec.Config.Activate
@@ -120,6 +152,30 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 			if *CassandraActivated{
 				resource := contrailv1alpha1.Cassandra{}
 				err = r.ActivateResource(instance, &resource, crds.GetCassandraCrd())
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if !ZookeeperActive{
+		if instance.Spec.Zookeeper != nil {
+			ZookeeperActivated := instance.Spec.Zookeeper.Activate
+			if *ZookeeperActivated{
+				resource := contrailv1alpha1.Zookeeper{}
+				err = r.ActivateResource(instance, &resource, crds.GetZookeeperCrd())
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if !RabbitmqActive{
+		if instance.Spec.Rabbitmq != nil {
+			RabbitmqActivated := instance.Spec.Rabbitmq.Activate
+			if *RabbitmqActivated{
+				resource := contrailv1alpha1.Rabbitmq{}
+				err = r.ActivateResource(instance, &resource, crds.GetRabbitmqCrd())
 				if err != nil {
 					return err
 				}
@@ -152,6 +208,38 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 				}
 			}
 			instance.Status.Cassandra = &CassandraStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if !ZookeeperActive{
+		if instance.Spec.Zookeeper != nil {
+			ZookeeperActivated := instance.Spec.Zookeeper.Activate
+			if *ZookeeperActivated{
+				err = zookeeper.Add(r.manager)
+				if err != nil {
+					return err
+				}
+			}
+			instance.Status.Zookeeper = &ZookeeperStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if !RabbitmqActive{
+		if instance.Spec.Rabbitmq != nil {
+			RabbitmqActivated := instance.Spec.Rabbitmq.Activate
+			if *RabbitmqActivated{
+				err = rabbitmq.Add(r.manager)
+				if err != nil {
+					return err
+				}
+			}
+			instance.Status.Rabbitmq = &RabbitmqStatus
 			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err

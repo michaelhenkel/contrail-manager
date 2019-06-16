@@ -5,20 +5,23 @@ import(
 	"github.com/ghodss/yaml"
 )
 
-var yamlDataCassandra= `
+var yamlDataRabbitmq= `
 apiVersion: contrail.juniper.net/v1alpha1
-kind: Cassandra
+kind: Rabbitmq
 metadata:
-  name: example-cassandra
+  name: example-rabbitmq
+spec:
+  # Add fields here
+  size: 3
 `
 
-func GetCassandraCr() *contrailv1alpha1.Cassandra{
-	cr := contrailv1alpha1.Cassandra{}
-	err := yaml.Unmarshal([]byte(yamlDataCassandra), &cr)
+func GetRabbitmqCr() *contrailv1alpha1.Rabbitmq{
+	cr := contrailv1alpha1.Rabbitmq{}
+	err := yaml.Unmarshal([]byte(yamlDataRabbitmq), &cr)
 	if err != nil {
 		panic(err)
 	}
-	jsonData, err := yaml.YAMLToJSON([]byte(yamlDataCassandra))
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlDataRabbitmq))
 	if err != nil {
 		panic(err)
 	}

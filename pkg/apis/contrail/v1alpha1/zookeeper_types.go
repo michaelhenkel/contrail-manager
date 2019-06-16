@@ -7,41 +7,53 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// CassandraSpec defines the desired state of Cassandra
+// ZookeeperSpec defines the desired state of Zookeeper
 // +k8s:openapi-gen=true
-type CassandraSpec struct {
+type ZookeeperSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 	HostNetwork         *bool    `json:"hostNetwork,omitempty"`
 	Service             *Service `json:"service,omitempty"`
 	ContrailStatusImage string   `json:"contrailStatusImage,omitempty"`
+	ClientPort          int      `json:"clientPort,omitempty"`
+	ElectionPort        int      `json:"electionPort,omitempty"`
+	ServerPort          int      `json:"serverPort,omitempty"`
+	HeapSize            string   `json:"heapSize,omitempty"`
 }
 
-// CassandraStatus defines the observed state of Cassandra
+// ZookeeperStatus defines the observed state of Zookeeper
+// +k8s:openapi-gen=true
+type ZookeeperStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	Active *bool             `json:"active"`
+	Nodes  map[string]string `json:"nodes"`
+}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Cassandra is the Schema for the cassandras API
+// Zookeeper is the Schema for the zookeepers API
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
-type Cassandra struct {
+type Zookeeper struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CassandraSpec `json:"spec,omitempty"`
+	Spec   ZookeeperSpec `json:"spec,omitempty"`
 	Status Status        `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// CassandraList contains a list of Cassandra
-type CassandraList struct {
+// ZookeeperList contains a list of Zookeeper
+type ZookeeperList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Cassandra `json:"items"`
+	Items           []Zookeeper `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Cassandra{}, &CassandraList{})
+	SchemeBuilder.Register(&Zookeeper{}, &ZookeeperList{})
 }

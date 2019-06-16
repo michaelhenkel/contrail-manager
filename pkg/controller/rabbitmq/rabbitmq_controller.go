@@ -1,4 +1,4 @@
-package cassandra
+package rabbitmq
 
 import (
 	"context"
@@ -20,14 +20,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_cassandra")
+var log = logf.Log.WithName("controller_rabbitmq")
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
  */
 
-// Add creates a new Cassandra Controller and adds it to the Manager. The Manager will set fields on the Controller
+// Add creates a new Rabbitmq Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
@@ -35,19 +35,29 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileCassandra{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileRabbitmq{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("cassandra-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("rabbitmq-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to primary resource Cassandra
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Cassandra{}}, &handler.EnqueueRequestForObject{})
+	// Watch for changes to primary resource Rabbitmq
+	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Rabbitmq{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
+
+	// TODO(user): Modify this to be the types you create that are owned by the primary resource
+	// Watch for changes to secondary resource Pods and requeue the owner Rabbitmq
+	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &contrailv1alpha1.Rabbitmq{},
+	})
 	if err != nil {
 		return err
 	}
@@ -55,30 +65,30 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-// blank assignment to verify that ReconcileCassandra implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileCassandra{}
+// blank assignment to verify that ReconcileRabbitmq implements reconcile.Reconciler
+var _ reconcile.Reconciler = &ReconcileRabbitmq{}
 
-// ReconcileCassandra reconciles a Cassandra object
-type ReconcileCassandra struct {
+// ReconcileRabbitmq reconciles a Rabbitmq object
+type ReconcileRabbitmq struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a Cassandra object and makes changes based on the state read
-// and what is in the Cassandra.Spec
+// Reconcile reads that state of the cluster for a Rabbitmq object and makes changes based on the state read
+// and what is in the Rabbitmq.Spec
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
 // a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling Cassandra")
+	reqLogger.Info("Reconciling Rabbitmq")
 
-	// Fetch the Cassandra instance
-	instance := &contrailv1alpha1.Cassandra{}
+	// Fetch the Rabbitmq instance
+	instance := &contrailv1alpha1.Rabbitmq{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -90,7 +100,6 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-
 	// Fetch Manager instance
 	managerInstance := &contrailv1alpha1.Manager{}
 	err = r.client.Get(context.TODO(), request.NamespacedName, managerInstance)
@@ -99,9 +108,9 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 			reqLogger.Info("No Manager Instance")
 		}
 	} else {
-		instance.Spec.Service = managerInstance.Spec.Cassandra
-		if managerInstance.Spec.Cassandra.Size != nil {
-			instance.Spec.Service.Size = managerInstance.Spec.Cassandra.Size
+		instance.Spec.Service = managerInstance.Spec.Rabbitmq
+		if managerInstance.Spec.Rabbitmq.Size != nil {
+			instance.Spec.Service.Size = managerInstance.Spec.Rabbitmq.Size
 		} else {
 			instance.Spec.Service.Size = managerInstance.Spec.Size
 		}
@@ -116,25 +125,29 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 	// Create initial ConfigMap
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cassandra-" + instance.Name,
+			Name:      "rabbitmq-" + instance.Name,
 			Namespace: instance.Namespace,
 		},
 		Data: instance.Spec.Service.Configuration,
 	}
 	controllerutil.SetControllerReference(instance, &configMap, r.scheme)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "cassandra-" + instance.Name, Namespace: instance.Namespace}, &configMap)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "rabbitmq-" + instance.Name, Namespace: instance.Namespace}, &configMap)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.client.Create(context.TODO(), &configMap)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", instance.Namespace, "Name", "cassandra-"+instance.Name)
+			reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", instance.Namespace, "Name", "rabbitmq-"+instance.Name)
 			return reconcile.Result{}, err
 		}
 	}
 
 	// Set Deployment Name & Namespace
 
-	deployment.ObjectMeta.Name = "cassandra-" + instance.Name
+	deployment.ObjectMeta.Name = "rabbitmq-" + instance.Name
 	deployment.ObjectMeta.Namespace = instance.Namespace
+
+	//command := []string{"/bin/sh", "-c", "while true; do echo hello; sleep 10;done"}
+
+	//readinessCommand := []string{"/bin/bash", "-c", "OK=$(echo ruok | nc 127.0.0.1 2181); if [[ ${OK} == \"imok\" ]]; then exit 0; else exit 1;fi"}
 
 	// Configure Containers
 	for idx, container := range deployment.Spec.Template.Spec.Containers {
@@ -142,9 +155,15 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
 			}
-			if containerName == "cassandra" {
-				(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "cassandra-" + instance.Name
+			if containerName == "rabbitmq" {
+				(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "rabbitmq-" + instance.Name
 			}
+			/*
+				if containerName == "rabbitmq" {
+					(&deployment.Spec.Template.Spec.Containers[idx]).Command = command
+				}
+			*/
+
 		}
 	}
 
@@ -161,19 +180,19 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 	deployment.Spec.Template.Spec.HostNetwork = *instance.Spec.HostNetwork
 
 	// Set Selector and Label
-	deployment.Spec.Selector.MatchLabels["app"] = "cassandra-" + instance.Name
-	deployment.Spec.Template.ObjectMeta.Labels["app"] = "cassandra-" + instance.Name
+	deployment.Spec.Selector.MatchLabels["app"] = "rabbitmq-" + instance.Name
+	deployment.Spec.Template.ObjectMeta.Labels["app"] = "rabbitmq-" + instance.Name
 
 	// Set Size
 	deployment.Spec.Replicas = instance.Spec.Service.Size
 
 	// Create Deployment
 	controllerutil.SetControllerReference(instance, deployment, r.scheme)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "cassandra-" + instance.Name, Namespace: instance.Namespace}, deployment)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "rabbitmq-" + instance.Name, Namespace: instance.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.client.Create(context.TODO(), deployment)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create Deployment", "Namespace", instance.Namespace, "Name", "cassandra-"+instance.Name)
+			reqLogger.Error(err, "Failed to create Deployment", "Namespace", instance.Namespace, "Name", "rabbitmq-"+instance.Name)
 			return reconcile.Result{}, err
 		}
 	}
@@ -181,7 +200,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 	// Check if Init Containers are running
 	_, err = contrailv1alpha1.InitContainerRunning(r.client,
 		instance.ObjectMeta,
-		"cassandra",
+		"rabbitmq",
 		instance,
 		*instance.Spec.Service,
 		&instance.Status)
@@ -198,7 +217,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		podIpList = append(podIpList, ip)
 	}
 	nodeList := strings.Join(podIpList, ",")
-	configMap.Data["CASSANDRA_SEEDS"] = nodeList
+	configMap.Data["RABBITMQ_NODES"] = nodeList
 	configMap.Data["CONTROLLER_NODES"] = nodeList
 	err = r.client.Update(context.TODO(), &configMap)
 	if err != nil {
@@ -206,7 +225,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	err = contrailv1alpha1.MarkInitPodsReady(r.client, instance.ObjectMeta, "cassandra")
+	err = contrailv1alpha1.MarkInitPodsReady(r.client, instance.ObjectMeta, "rabbitmq")
 
 	if err != nil {
 		reqLogger.Error(err, "Failed to mark Pods ready")
@@ -215,7 +234,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 
 	err = contrailv1alpha1.SetServiceStatus(r.client,
 		instance.ObjectMeta,
-		"cassandra",
+		"rabbitmq",
 		instance,
 		&deployment.Status,
 		&instance.Status)
@@ -227,16 +246,4 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		reqLogger.Info("set service status")
 	}
 	return reconcile.Result{}, nil
-}
-
-func labelsForService(name string) map[string]string {
-	return map[string]string{"app": name}
-}
-
-func getPodNames(pods []corev1.Pod) []string {
-	var podNames []string
-	for _, pod := range pods {
-		podNames = append(podNames, pod.Name)
-	}
-	return podNames
 }

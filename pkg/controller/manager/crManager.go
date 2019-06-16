@@ -42,6 +42,14 @@ func (r *ReconcileManager) UpdateResource(instance *v1alpha1.Manager, obj runtim
 		var typedObject *v1alpha1.Cassandra
 		typedObject = newObj.(*v1alpha1.Cassandra)
 		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+	case "Zookeeper":
+		var typedObject *v1alpha1.Zookeeper
+		typedObject = newObj.(*v1alpha1.Zookeeper)
+		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+	case "Rabbitmq":
+		var typedObject *v1alpha1.Rabbitmq
+		typedObject = newObj.(*v1alpha1.Rabbitmq)
+		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
 	}
 
 
@@ -86,6 +94,8 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 	var err error
 	var ConfigStatus v1alpha1.ServiceStatus
 	var CassandraStatus v1alpha1.ServiceStatus
+	var ZookeeperStatus v1alpha1.ServiceStatus
+	var RabbitmqStatus v1alpha1.ServiceStatus
 	ConfigCreated := true
 	if instance.Status.Config == nil {
 		ConfigCreated = false
@@ -111,6 +121,32 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 		active := true
 		CassandraStatus = *instance.Status.Cassandra
 		CassandraStatus.Created = &active
+	}
+	ZookeeperCreated := true
+	if instance.Status.Zookeeper == nil {
+		ZookeeperCreated = false
+		active := true
+		ZookeeperStatus = v1alpha1.ServiceStatus{
+			Created: &active,
+		}
+	} else if instance.Status.Zookeeper.Created == nil {
+		ZookeeperCreated = false
+		active := true
+		ZookeeperStatus = *instance.Status.Zookeeper
+		ZookeeperStatus.Created = &active
+	}
+	RabbitmqCreated := true
+	if instance.Status.Rabbitmq == nil {
+		RabbitmqCreated = false
+		active := true
+		RabbitmqStatus = v1alpha1.ServiceStatus{
+			Created: &active,
+		}
+	} else if instance.Status.Rabbitmq.Created == nil {
+		RabbitmqCreated = false
+		active := true
+		RabbitmqStatus = *instance.Status.Rabbitmq
+		RabbitmqStatus.Created = &active
 	}
 	if !ConfigCreated{
 		if instance.Spec.Config != nil{
@@ -154,6 +190,54 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 				}		
 			}
 			instance.Status.Cassandra = &CassandraStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}			
+		}
+	}
+	if !ZookeeperCreated{
+		if instance.Spec.Zookeeper != nil{
+			ZookeeperCreated := instance.Spec.Zookeeper.Create
+			if *ZookeeperCreated{
+				cr := cr.GetZookeeperCr()
+				cr.Spec.Service = instance.Spec.Zookeeper
+				cr.Name = instance.Name
+				cr.Namespace = instance.Namespace
+				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}
+				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}		
+			}
+			instance.Status.Zookeeper = &ZookeeperStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}			
+		}
+	}
+	if !RabbitmqCreated{
+		if instance.Spec.Rabbitmq != nil{
+			RabbitmqCreated := instance.Spec.Rabbitmq.Create
+			if *RabbitmqCreated{
+				cr := cr.GetRabbitmqCr()
+				cr.Spec.Service = instance.Spec.Rabbitmq
+				cr.Name = instance.Name
+				cr.Namespace = instance.Namespace
+				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}
+				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}		
+			}
+			instance.Status.Rabbitmq = &RabbitmqStatus
 			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err

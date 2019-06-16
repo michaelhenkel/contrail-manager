@@ -1,43 +1,44 @@
 package main
 
-import(
+import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"text/template"
-	"io/ioutil"
 
 	"github.com/ghodss/yaml"
-	"k8s.io/apimachinery/pkg/runtime"
 	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
-	crdManager = "crdManager.go"
-	crManager = "crManager.go"
-	crdDirectory = "../../deploy/crds/"
-	crDirectory = "../../deploy/crds/"
-	filePrefix = "contrail_v1alpha1_"
+	crdManager    = "crdManager.go"
+	crManager     = "crManager.go"
+	crdDirectory  = "../../deploy/crds/"
+	crDirectory   = "../../deploy/crds/"
+	filePrefix    = "contrail_v1alpha1_"
 	crdFileSuffix = "_crd.yaml"
-	crFileSuffix = "_cr.yaml"
+	crFileSuffix  = "_cr.yaml"
 )
 
 //var crdList = [...]string{"contrail_v1alpha1_config_crd.yaml"}
 //var crList = [...]string{"contrail_v1alpha1_config_cr.yaml"}
 var serviceMap = map[string]runtime.Object{
-	"config":&contrailv1alpha1.Config{},
-	"cassandra":&contrailv1alpha1.Cassandra{},
+	"config":    &contrailv1alpha1.Config{},
+	"cassandra": &contrailv1alpha1.Cassandra{},
+	"zookeeper": &contrailv1alpha1.Zookeeper{},
+	"rabbitmq":  &contrailv1alpha1.Rabbitmq{},
 }
 
-
 //go:generate go run gen_custom_resources.go
-func main(){
+func main() {
 	createCrds()
 	createCrs()
 }
 
-func createCrs(){
+func createCrs() {
 	funcMap := template.FuncMap{
 		"ToLower": strings.ToLower,
 	}
@@ -203,7 +204,7 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 	
 	`))
 	var kindList []string
-	for crTemplate, crResource := range(serviceMap){
+	for crTemplate, crResource := range serviceMap {
 		crFile := filePrefix + crTemplate + crFileSuffix
 		yamlData, err := ioutil.ReadFile(crDirectory + crFile)
 		if err != nil {
@@ -227,16 +228,15 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 		groupVersionKind := schema.GroupVersionKind()
 		kind := groupVersionKind.Kind
 
-
 		yamlDataQuoted := fmt.Sprintf("`\n")
 		yamlDataQuoted = yamlDataQuoted + string(yamlData)
 		yamlDataQuoted = yamlDataQuoted + "`"
-		packageTemplate.Execute(f, struct{
+		packageTemplate.Execute(f, struct {
 			YamlData string
-			Kind string
+			Kind     string
 		}{
 			YamlData: yamlDataQuoted,
-			Kind: kind,
+			Kind:     kind,
 		})
 		kindList = append(kindList, kind)
 	}
@@ -244,14 +244,14 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 	if err != nil {
 		panic(err)
 	}
-	crManagerTemplate.Execute(f, struct{
+	crManagerTemplate.Execute(f, struct {
 		KindList []string
 	}{
 		KindList: kindList,
 	})
 }
 
-func createCrds(){
+func createCrds() {
 
 	funcMap := template.FuncMap{
 		"ToLower": strings.ToLower,
@@ -417,7 +417,7 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 
 	//crdList := []string{configCrd}
 	var kindList []string
-	for crdTemplate, _ := range(serviceMap){
+	for crdTemplate, _ := range serviceMap {
 		crdFile := filePrefix + crdTemplate + crdFileSuffix
 		yamlData, err := ioutil.ReadFile(crdDirectory + crdFile)
 		if err != nil {
@@ -440,12 +440,12 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 		yamlDataQuoted := fmt.Sprintf("`\n")
 		yamlDataQuoted = yamlDataQuoted + string(yamlData)
 		yamlDataQuoted = yamlDataQuoted + "`"
-		packageTemplate.Execute(f, struct{
+		packageTemplate.Execute(f, struct {
 			YamlData string
-			Kind string
+			Kind     string
 		}{
 			YamlData: yamlDataQuoted,
-			Kind: crd.Spec.Names.Kind,
+			Kind:     crd.Spec.Names.Kind,
 		})
 		kindList = append(kindList, crd.Spec.Names.Kind)
 	}
@@ -453,7 +453,7 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 	if err != nil {
 		panic(err)
 	}
-	crdManagerTemplate.Execute(f, struct{
+	crdManagerTemplate.Execute(f, struct {
 		KindList []string
 	}{
 		KindList: kindList,
