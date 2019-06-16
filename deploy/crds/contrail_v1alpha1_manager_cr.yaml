@@ -3,15 +3,15 @@ kind: Manager
 metadata:
   name: cluster-1
 spec:
-  size: 3
-  hostNetwork: false
+  size: 1
+  hostNetwork: true
   contrailStatusImage: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
   config:
     activate: true
-    create: false
+    create: true
   cassandra:
     activate: true
-    create: false
+    create: true
     images:
       cassandra: gcr.io/google-samples/cassandra:v13
       init: busybox
@@ -29,7 +29,7 @@ spec:
       NODE_TYPE: "config-database"
   zookeeper:
     activate: true
-    create: false
+    create: true
     images:
       zookeeper: docker.io/michaelhenkel/contrail-external-zookeeper:5.2.0-dev1
       init: busybox
