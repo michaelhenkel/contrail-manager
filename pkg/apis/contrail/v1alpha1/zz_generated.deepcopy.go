@@ -298,6 +298,11 @@ func (in *ManagerSpec) DeepCopyInto(out *ManagerSpec) {
 		*out = new(Service)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Rabbitmq != nil {
+		in, out := &in.Rabbitmq, &out.Rabbitmq
+		*out = new(Service)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Size != nil {
 		in, out := &in.Size, &out.Size
 		*out = new(int32)
@@ -336,6 +341,11 @@ func (in *ManagerStatus) DeepCopyInto(out *ManagerStatus) {
 	}
 	if in.Zookeeper != nil {
 		in, out := &in.Zookeeper, &out.Zookeeper
+		*out = new(ServiceStatus)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.Rabbitmq != nil {
+		in, out := &in.Rabbitmq, &out.Rabbitmq
 		*out = new(ServiceStatus)
 		(*in).DeepCopyInto(*out)
 	}
