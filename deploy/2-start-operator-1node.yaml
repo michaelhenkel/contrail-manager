@@ -1,0 +1,50 @@
+---
+apiVersion: contrail.juniper.net/v1alpha1
+kind: Manager
+metadata:
+  name: cluster-1
+spec:
+  size: 3
+  hostNetwork: false
+  contrailStatusImage: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
+  config:
+    activate: true
+    create: false
+  cassandra:
+    activate: true
+    create: false
+    images:
+      cassandra: gcr.io/google-samples/cassandra:v13
+      init: busybox
+    configuration:
+      CASSANDRA_LISTEN_ADDRESS: "auto"
+      CASSANDRA_PORT: "9160"
+      CASSANDRA_CQL_PORT: "9042"
+      CASSANDRA_SSL_STORAGE_PORT: "7001"
+      CASSANDRA_STORAGE_PORT: "7000"
+      CASSANDRA_JMX_LOCAL_PORT: "7199"
+      CASSANDRA_START_RPC: "true"
+      CASSANDRA_CLUSTER_NAME: "ContrailConfigDB"
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 100M
+      NODE_TYPE: "config-database"
+  zookeeper:
+    activate: true
+    create: false
+    images:
+      zookeeper: docker.io/michaelhenkel/contrail-external-zookeeper:5.2.0-dev1
+      init: busybox
+    configuration:
+      ZOOKEEPER_PORT: "2181"
+      ZOOKEEPER_PORTS: "2888:3888"
+      NODE_TYPE: "config-database"
+  rabbitmq:
+    activate: true
+    create: true
+    images:
+      rabbitmq: docker.io/michaelhenkel/contrail-external-rabbitmq:5.2.0-dev1
+      init: busybox
+    configuration:
+      RABBITMQ_ERLANG_COOKIE: "47EFF3BB-4786-46E0-A5BB-58455B3C2CB4"
+      RABBITMQ_NODE_PORT: "5673"
+      NODE_TYPE: "config-database"

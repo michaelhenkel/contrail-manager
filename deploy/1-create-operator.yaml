@@ -1,0 +1,320 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: null
+  name: contrail-manager
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - apps
+  resourceNames:
+  - contrail-manager
+  resources:
+  - deployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - contrail.juniper.net
+  resources:
+  - '*'
+  - managers
+  - cassandras
+  - zookeepers
+  - rabbitmqs
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: contrail-manager
+rules:
+  - apiGroups:
+    - "*"
+    resources:
+    - "*"
+    verbs:
+    - "*"
+#- apiGroups:
+#  - ""
+#  resources:
+#  - pods
+#  - services
+#  - endpoints
+#  - events
+#  - configmaps
+#  verbs:
+#  - get
+#  - list
+#  - update
+#  - watch
+#  - patch
+#- apiGroups:
+#  - apiextensions.k8s.io
+#  - extensions
+#  resources:
+#  - customresourcedefinitions
+#  verbs:
+#  - get
+#  - create
+#  - list
+#  - update
+#  - watch
+#  - delete
+#  - patch
+#- apiGroups:
+#  - rbac
+#  - rbac.authorization.k8s.io
+#  resources:
+#  - clusterroles
+#  - clusterrolebindings
+#  verbs:
+#  - get
+#  - create
+#  - list
+#  - update
+#  - watch
+#  - delete
+#  - patch
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: contrail-manager
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: contrail-manager
+subjects:
+- kind: ServiceAccount
+  name: contrail-manager
+roleRef:
+  kind: Role
+  name: contrail-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: contrail-manager
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: contrail-manager
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: contrail-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: managers.contrail.juniper.net
+spec:
+  group: contrail.juniper.net
+  names:
+    kind: Manager
+    listKind: ManagerList
+    plural: managers
+    singular: manager
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            cassandra:
+              properties:
+                activate:
+                  type: boolean
+                configuration:
+                  additionalProperties:
+                    type: string
+                  type: object
+                create:
+                  type: boolean
+                image:
+                  type: string
+                images:
+                  additionalProperties:
+                    type: string
+                  type: object
+                size:
+                  format: int32
+                  type: integer
+              type: object
+            config:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "operator-sdk generate k8s" to regenerate code after
+                modifying this file Add custom validation using kubebuilder tags:
+                https://book.kubebuilder.io/beyond_basics/generating_crd.html'
+              properties:
+                activate:
+                  type: boolean
+                configuration:
+                  additionalProperties:
+                    type: string
+                  type: object
+                create:
+                  type: boolean
+                image:
+                  type: string
+                images:
+                  additionalProperties:
+                    type: string
+                  type: object
+                size:
+                  format: int32
+                  type: integer
+              type: object
+            contrailStatusImage:
+              type: string
+            hostNetwork:
+              type: boolean
+            size:
+              format: int32
+              type: integer
+            zookeeper:
+              properties:
+                activate:
+                  type: boolean
+                configuration:
+                  additionalProperties:
+                    type: string
+                  type: object
+                create:
+                  type: boolean
+                image:
+                  type: string
+                images:
+                  additionalProperties:
+                    type: string
+                  type: object
+                size:
+                  format: int32
+                  type: integer
+              type: object
+          type: object
+        status:
+          properties:
+            cassandra:
+              properties:
+                active:
+                  type: boolean
+                created:
+                  type: boolean
+              required:
+              - active
+              - created
+              type: object
+            config:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "operator-sdk generate k8s" to regenerate
+                code after modifying this file Add custom validation using kubebuilder
+                tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html'
+              properties:
+                active:
+                  type: boolean
+                created:
+                  type: boolean
+              required:
+              - active
+              - created
+              type: object
+            zookeeper:
+              properties:
+                active:
+                  type: boolean
+                created:
+                  type: boolean
+              required:
+              - active
+              - created
+              type: object
+          required:
+          - config
+          - cassandra
+          - zookeeper
+          type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contrail-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: contrail-manager
+  template:
+    metadata:
+      labels:
+        name: contrail-manager
+    spec:
+      serviceAccountName: contrail-manager
+      containers:
+        - name: contrail-manager
+          # Replace this with the built image name
+          image: docker.io/michaelhenkel/contrail-manager
+          command:
+          - contrail-manager
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "contrail-manager"
