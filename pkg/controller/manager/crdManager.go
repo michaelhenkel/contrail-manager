@@ -10,6 +10,7 @@ import(
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"k8s.io/apimachinery/pkg/runtime"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/control"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/zookeeper"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/rabbitmq"
@@ -75,6 +76,7 @@ func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
 func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) error{
 	var err error
 	var ConfigStatus contrailv1alpha1.ServiceStatus
+	var ControlStatus contrailv1alpha1.ServiceStatus
 	var CassandraStatus contrailv1alpha1.ServiceStatus
 	var ZookeeperStatus contrailv1alpha1.ServiceStatus
 	var RabbitmqStatus contrailv1alpha1.ServiceStatus
@@ -90,6 +92,20 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 		active := true
 		ConfigStatus = *instance.Status.Config
 		ConfigStatus.Active = &active
+
+	}
+	ControlActive := true
+	if instance.Status.Control == nil {
+		ControlActive = false
+		active := true
+		ControlStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Control.Active == nil {
+		ControlActive = false
+		active := true
+		ControlStatus = *instance.Status.Control
+		ControlStatus.Active = &active
 
 	}
 	CassandraActive := true
@@ -146,6 +162,18 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 			}
 		}
 	}
+	if !ControlActive{
+		if instance.Spec.Control != nil {
+			ControlActivated := instance.Spec.Control.Activate
+			if *ControlActivated{
+				resource := contrailv1alpha1.Control{}
+				err = r.ActivateResource(instance, &resource, crds.GetControlCrd())
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
 	if !CassandraActive{
 		if instance.Spec.Cassandra != nil {
 			CassandraActivated := instance.Spec.Cassandra.Activate
@@ -192,6 +220,22 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 				}
 			}
 			instance.Status.Config = &ConfigStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if !ControlActive{
+		if instance.Spec.Control != nil {
+			ControlActivated := instance.Spec.Control.Activate
+			if *ControlActivated{
+				err = control.Add(r.manager)
+				if err != nil {
+					return err
+				}
+			}
+			instance.Status.Control = &ControlStatus
 			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err

@@ -23,6 +23,7 @@ type Status struct {
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 	Active *bool             `json:"active,omitempty"`
 	Nodes  map[string]string `json:"nodes,omitempty"`
+	Ports  map[string]string `json:"ports,omitempty"`
 }
 type Global struct {
 }

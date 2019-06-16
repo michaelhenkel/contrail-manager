@@ -25,6 +25,7 @@ type ManagerSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 	Config              *Service `json:"config,omitempty"`
+	Control             *Service `json:"control,omitempty"`
 	Cassandra           *Service `json:"cassandra,omitempty"`
 	Zookeeper           *Service `json:"zookeeper,omitempty"`
 	Rabbitmq            *Service `json:"rabbitmq,omitempty"`
@@ -40,6 +41,7 @@ type ManagerStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 	Config    *ServiceStatus `json:"config,omitempty"`
+	Control   *ServiceStatus `json:"control,omitempty"`
 	Cassandra *ServiceStatus `json:"cassandra,omitempty"`
 	Zookeeper *ServiceStatus `json:"zookeeper,omitempty"`
 	Rabbitmq  *ServiceStatus `json:"rabbitmq,omitempty"`

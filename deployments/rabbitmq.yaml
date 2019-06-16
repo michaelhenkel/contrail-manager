@@ -56,6 +56,14 @@ spec:
           name: rabbitmq-data
         - mountPath: /var/log/rabbitmq
           name: rabbitmq-logs
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "cluster_status=$(rabbitmqctl cluster_status);cluster_status=$(echo $cluster_status| sed -e 's/.*disc,\\[\\(.*\\)\\]}\\]},.*/\\1/' | tr -d '[:space:]'|tr \",\" \"\\n\");hosts=$(cat /etc/rabbitmq/rabbitmq.config |grep cluster_nodes |sed -e 's/.*\\[\\(.*\\)\\].*/\\1/' | tr \",\" \"\\n\");for i in $cluster_status; do echo $hosts |grep $i; if [[ $? -ne 0 ]]; then exit -1;  fi; done"
+          initialDelaySeconds: 15
+          timeoutSeconds: 5
       volumes:
       - name: rabbitmq-data
         hostPath:

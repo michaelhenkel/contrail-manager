@@ -81,9 +81,10 @@ spec:
               additionalProperties:
                 type: string
               type: object
-          required:
-          - active
-          - nodes
+            ports:
+              additionalProperties:
+                type: string
+              type: object
           type: object
   version: v1alpha1
   versions:

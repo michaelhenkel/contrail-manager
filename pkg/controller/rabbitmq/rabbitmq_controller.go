@@ -245,5 +245,12 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 	} else {
 		reqLogger.Info("set service status")
 	}
+	portMap := map[string]string{"port": instance.Spec.Service.Configuration["RABBITMQ_NODE_PORT"]}
+	instance.Status.Ports = portMap
+	err = r.client.Status().Update(context.TODO(), instance)
+	if err != nil {
+		reqLogger.Error(err, "Failed to instance with port information")
+		return reconcile.Result{}, err
+	}
 	return reconcile.Result{}, nil
 }

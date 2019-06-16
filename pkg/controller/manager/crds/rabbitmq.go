@@ -36,8 +36,52 @@ spec:
         metadata:
           type: object
         spec:
+          properties:
+            contrailStatusImage:
+              type: string
+            hostNetwork:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "operator-sdk generate k8s" to regenerate code after
+                modifying this file Add custom validation using kubebuilder tags:
+                https://book.kubebuilder.io/beyond_basics/generating_crd.html'
+              type: boolean
+            service:
+              properties:
+                activate:
+                  type: boolean
+                configuration:
+                  additionalProperties:
+                    type: string
+                  type: object
+                create:
+                  type: boolean
+                image:
+                  type: string
+                images:
+                  additionalProperties:
+                    type: string
+                  type: object
+                size:
+                  format: int32
+                  type: integer
+              type: object
           type: object
         status:
+          properties:
+            active:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "operator-sdk generate k8s" to regenerate
+                code after modifying this file Add custom validation using kubebuilder
+                tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html'
+              type: boolean
+            nodes:
+              additionalProperties:
+                type: string
+              type: object
+            ports:
+              additionalProperties:
+                type: string
+              type: object
           type: object
   version: v1alpha1
   versions:

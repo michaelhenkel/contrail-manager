@@ -1,0 +1,113 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+  creationTimestamp: "2019-06-16T18:28:26Z"
+  generation: 1
+  name: tfwebui-cluster-1
+  namespace: default
+  ownerReferences:
+  - apiVersion: tf.tungstenfabric.io/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: WebuiCluster
+    name: cluster-1
+    uid: 87fee238-9064-11e9-b098-525400d14c09
+  resourceVersion: "6794322"
+  selfLink: /apis/extensions/v1beta1/namespaces/default/deployments/tfwebui-cluster-1
+  uid: 883b78c6-9064-11e9-b098-525400d14c09
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: webui
+      webui_cr: webui
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: webui
+        webui_cr: webui
+    spec:
+      containers:
+      - envFrom:
+        - configMapRef:
+            name: tfwebuicmv1
+        image: docker.io/michaelhenkel/contrail-controller-webui-web:5.2.0-dev1
+        imagePullPolicy: Always
+        lifecycle: {}
+        name: webuiweb
+        resources: {}
+        securityContext:
+          privileged: false
+          procMount: Default
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/log/contrail
+          name: webui-logs
+      - envFrom:
+        - configMapRef:
+            name: tfwebuicmv1
+        image: docker.io/michaelhenkel/contrail-controller-webui-job:5.2.0-dev1
+        imagePullPolicy: Always
+        lifecycle: {}
+        name: webuijob
+        resources: {}
+        securityContext:
+          privileged: false
+          procMount: Default
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/log/contrail
+          name: webui-logs
+      dnsPolicy: ClusterFirst
+      hostNetwork: true
+      initContainers:
+      - env:
+        - name: CONTRAIL_STATUS_IMAGE
+          value: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
+        envFrom:
+        - configMapRef:
+            name: tfwebuicmv1
+        image: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
+        imagePullPolicy: Always
+        name: nodeinit
+        resources: {}
+        securityContext:
+          privileged: true
+          procMount: Default
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /host/usr/bin
+          name: host-usr-bin
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+      volumes:
+      - hostPath:
+          path: /var/log/contrail/webui
+          type: ""
+        name: webui-logs
+      - hostPath:
+          path: /usr/bin
+          type: ""
+        name: host-usr-bin

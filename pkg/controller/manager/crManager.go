@@ -34,9 +34,17 @@ func (r *ReconcileManager) UpdateResource(instance *v1alpha1.Manager, obj runtim
 	}
 
 	switch groupVersionKind.Kind{
+	case "Rabbitmq":
+		var typedObject *v1alpha1.Rabbitmq
+		typedObject = newObj.(*v1alpha1.Rabbitmq)
+		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
 	case "Config":
 		var typedObject *v1alpha1.Config
 		typedObject = newObj.(*v1alpha1.Config)
+		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+	case "Control":
+		var typedObject *v1alpha1.Control
+		typedObject = newObj.(*v1alpha1.Control)
 		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
 	case "Cassandra":
 		var typedObject *v1alpha1.Cassandra
@@ -45,10 +53,6 @@ func (r *ReconcileManager) UpdateResource(instance *v1alpha1.Manager, obj runtim
 	case "Zookeeper":
 		var typedObject *v1alpha1.Zookeeper
 		typedObject = newObj.(*v1alpha1.Zookeeper)
-		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
-	case "Rabbitmq":
-		var typedObject *v1alpha1.Rabbitmq
-		typedObject = newObj.(*v1alpha1.Rabbitmq)
 		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
 	}
 
@@ -92,10 +96,24 @@ func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtim
 
 func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 	var err error
+	var RabbitmqStatus v1alpha1.ServiceStatus
 	var ConfigStatus v1alpha1.ServiceStatus
+	var ControlStatus v1alpha1.ServiceStatus
 	var CassandraStatus v1alpha1.ServiceStatus
 	var ZookeeperStatus v1alpha1.ServiceStatus
-	var RabbitmqStatus v1alpha1.ServiceStatus
+	RabbitmqCreated := true
+	if instance.Status.Rabbitmq == nil {
+		RabbitmqCreated = false
+		active := true
+		RabbitmqStatus = v1alpha1.ServiceStatus{
+			Created: &active,
+		}
+	} else if instance.Status.Rabbitmq.Created == nil {
+		RabbitmqCreated = false
+		active := true
+		RabbitmqStatus = *instance.Status.Rabbitmq
+		RabbitmqStatus.Created = &active
+	}
 	ConfigCreated := true
 	if instance.Status.Config == nil {
 		ConfigCreated = false
@@ -108,6 +126,19 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 		active := true
 		ConfigStatus = *instance.Status.Config
 		ConfigStatus.Created = &active
+	}
+	ControlCreated := true
+	if instance.Status.Control == nil {
+		ControlCreated = false
+		active := true
+		ControlStatus = v1alpha1.ServiceStatus{
+			Created: &active,
+		}
+	} else if instance.Status.Control.Created == nil {
+		ControlCreated = false
+		active := true
+		ControlStatus = *instance.Status.Control
+		ControlStatus.Created = &active
 	}
 	CassandraCreated := true
 	if instance.Status.Cassandra == nil {
@@ -135,18 +166,29 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 		ZookeeperStatus = *instance.Status.Zookeeper
 		ZookeeperStatus.Created = &active
 	}
-	RabbitmqCreated := true
-	if instance.Status.Rabbitmq == nil {
-		RabbitmqCreated = false
-		active := true
-		RabbitmqStatus = v1alpha1.ServiceStatus{
-			Created: &active,
+	if !RabbitmqCreated{
+		if instance.Spec.Rabbitmq != nil{
+			RabbitmqCreated := instance.Spec.Rabbitmq.Create
+			if *RabbitmqCreated{
+				cr := cr.GetRabbitmqCr()
+				cr.Spec.Service = instance.Spec.Rabbitmq
+				cr.Name = instance.Name
+				cr.Namespace = instance.Namespace
+				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}
+				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}		
+			}
+			instance.Status.Rabbitmq = &RabbitmqStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}			
 		}
-	} else if instance.Status.Rabbitmq.Created == nil {
-		RabbitmqCreated = false
-		active := true
-		RabbitmqStatus = *instance.Status.Rabbitmq
-		RabbitmqStatus.Created = &active
 	}
 	if !ConfigCreated{
 		if instance.Spec.Config != nil{
@@ -166,6 +208,30 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 				}		
 			}
 			instance.Status.Config = &ConfigStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}			
+		}
+	}
+	if !ControlCreated{
+		if instance.Spec.Control != nil{
+			ControlCreated := instance.Spec.Control.Create
+			if *ControlCreated{
+				cr := cr.GetControlCr()
+				cr.Spec.Service = instance.Spec.Control
+				cr.Name = instance.Name
+				cr.Namespace = instance.Namespace
+				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}
+				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}		
+			}
+			instance.Status.Control = &ControlStatus
 			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err
@@ -214,30 +280,6 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 				}		
 			}
 			instance.Status.Zookeeper = &ZookeeperStatus
-			err := r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				return err
-			}			
-		}
-	}
-	if !RabbitmqCreated{
-		if instance.Spec.Rabbitmq != nil{
-			RabbitmqCreated := instance.Spec.Rabbitmq.Create
-			if *RabbitmqCreated{
-				cr := cr.GetRabbitmqCr()
-				cr.Spec.Service = instance.Spec.Rabbitmq
-				cr.Name = instance.Name
-				cr.Namespace = instance.Namespace
-				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
-				if err != nil {
-					return err
-				}
-				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
-				if err != nil {
-					return err
-				}		
-			}
-			instance.Status.Rabbitmq = &RabbitmqStatus
 			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err

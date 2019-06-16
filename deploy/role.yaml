@@ -48,5 +48,6 @@ rules:
   - cassandras
   - zookeepers
   - rabbitmqs
+  - controls
   verbs:
   - '*'

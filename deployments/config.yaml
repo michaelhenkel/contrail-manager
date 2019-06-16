@@ -1,138 +1,83 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tfconfig-cluster-1
+  annotations:
+  name: config
   namespace: default
 spec:
-  progressDeadlineSeconds: 600
-  replicas: 3
-  revisionHistoryLimit: 10
   selector:
     matchLabels:
       app: config
-      config_cr: config
-  strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: config
-        config_cr: config
     spec:
       containers:
       - envFrom:
         - configMapRef:
-            name: tfconfigcmv1
-        image: hub.juniper.net/contrail-nightly/contrail-controller-config-api:5.2.0-0.740
+            name: config
+        image: docker.io/michaelhenkel/contrail-controller-config-api:5.2.0-dev1
         imagePullPolicy: Always
-        lifecycle: {}
         name: api
-        resources: {}
-        securityContext:
-          privileged: false
-          procMount: Default
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
+        readinessProbe:
+          httpGet:
+            path: /documentation/index.html
+            port: 8082
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
       - envFrom:
         - configMapRef:
-            name: tfconfigcmv1
-        image: hub.juniper.net/contrail-nightly/contrail-controller-config-devicemgr:5.2.0-0.740
+            name: config
+        image: docker.io/michaelhenkel/contrail-controller-config-devicemgr:5.2.0-dev1
         imagePullPolicy: Always
-        lifecycle: {}
         name: devicemanager
-        resources: {}
-        securityContext:
-          privileged: false
-          procMount: Default
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
       - envFrom:
         - configMapRef:
-            name: tfconfigcmv1
-        image: hub.juniper.net/contrail-nightly/contrail-controller-config-schema:5.2.0-0.740
+            name: config
+        image: docker.io/michaelhenkel/contrail-controller-config-schema:5.2.0-dev1
         imagePullPolicy: Always
-        lifecycle: {}
         name: schematransformer
-        resources: {}
-        securityContext:
-          privileged: false
-          procMount: Default
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
       - envFrom:
         - configMapRef:
-            name: tfconfigcmv1
-        image: hub.juniper.net/contrail-nightly/contrail-controller-config-svcmonitor:5.2.0-0.740
+            name: config
+        image: docker.io/michaelhenkel/contrail-controller-config-svcmonitor:5.2.0-dev1
         imagePullPolicy: Always
-        lifecycle: {}
         name: servicemonitor
-        resources: {}
-        securityContext:
-          privileged: false
-          procMount: Default
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
       - envFrom:
         - configMapRef:
-            name: tfconfigcmv1
-        image: hub.juniper.net/contrail-nightly/contrail-analytics-api:5.2.0-0.740
+            name: config
+        image: docker.io/michaelhenkel/contrail-analytics-api:5.2.0-dev1
         imagePullPolicy: Always
-        lifecycle: {}
         name: analyticsapi
-        resources: {}
-        securityContext:
-          privileged: false
-          procMount: Default
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
       - envFrom:
         - configMapRef:
-            name: tfconfigcmv1
-        image: hub.juniper.net/contrail-nightly/contrail-analytics-collector:5.2.0-0.740
+            name: config
+        image: docker.io/michaelhenkel/contrail-analytics-collector:5.2.0-dev1
         imagePullPolicy: Always
-        lifecycle: {}
         name: collector
-        resources: {}
-        securityContext:
-          privileged: false
-          procMount: Default
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
       - envFrom:
         - configMapRef:
-            name: tfconfigcmv1
-        image: hub.juniper.net/contrail-nightly/contrail-external-redis:5.2.0-0.740
+            name: config
+        image: docker.io/michaelhenkel/contrail-external-redis:5.2.0-dev1
         imagePullPolicy: Always
-        lifecycle: {}
         name: redis
-        resources: {}
-        securityContext:
-          privileged: false
-          procMount: Default
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
@@ -145,17 +90,10 @@ spec:
           value: config
         envFrom:
         - configMapRef:
-            name: tfconfigcmv1
-        image: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
+            name: config
+        image: docker.io/michaelhenkel/contrail-nodemgr:5.2.0-dev1
         imagePullPolicy: Always
-        lifecycle: {}
         name: nodemanagerconfig
-        resources: {}
-        securityContext:
-          privileged: false
-          procMount: Default
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
@@ -168,17 +106,10 @@ spec:
           value: analytics
         envFrom:
         - configMapRef:
-            name: tfconfigcmv1
-        image: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
+            name: config
+        image: docker.io/michaelhenkel/contrail-nodemgr:5.2.0-dev1
         imagePullPolicy: Always
-        lifecycle: {}
         name: nodemanageranalytics
-        resources: {}
-        securityContext:
-          privileged: false
-          procMount: Default
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
@@ -186,8 +117,6 @@ spec:
           name: docker-unix-socket
       dnsPolicy: ClusterFirst
       hostNetwork: true
-      imagePullSecrets:
-      - name: contrail
       initContainers:
       - command:
         - sh
@@ -195,43 +124,32 @@ spec:
         - until grep ready /tmp/podinfo/pod_labels > /dev/null 2>&1; do sleep 1; done
         env:
         - name: CONTRAIL_STATUS_IMAGE
-          value: hub.juniper.net/contrail-nightly/contrail-status:5.2.0-0.740
+          value: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
         image: busybox
         imagePullPolicy: Always
         name: init
-        resources: {}
-        securityContext:
-          privileged: false
-          procMount: Default
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
+        envFrom:
+        - configMapRef:
+            name: config
         volumeMounts:
         - mountPath: /tmp/podinfo
           name: status
       - env:
         - name: CONTRAIL_STATUS_IMAGE
-          value: hub.juniper.net/contrail-nightly/contrail-status:5.2.0-0.740
+          value: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
         envFrom:
         - configMapRef:
-            name: tfconfigcmv1
-        image: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
+            name: config
+        image: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
         imagePullPolicy: Always
         name: nodeinit
-        resources: {}
         securityContext:
           privileged: true
-          procMount: Default
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /host/usr/bin
           name: host-usr-bin
       nodeSelector:
         node-role.kubernetes.io/master: ""
-      restartPolicy: Always
-      schedulerName: default-scheduler
-      securityContext: {}
-      terminationGracePeriodSeconds: 30
       tolerations:
       - effect: NoSchedule
         operator: Exists

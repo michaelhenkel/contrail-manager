@@ -1,4 +1,4 @@
-package config
+package control
 
 import (
 	"context"
@@ -20,14 +20,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_config")
+var log = logf.Log.WithName("controller_control")
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
  */
 
-// Add creates a new Config Controller and adds it to the Manager. The Manager will set fields on the Controller
+// Add creates a new Control Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
@@ -35,26 +35,25 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileConfig{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileControl{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("config-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("control-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to primary resource Config
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Config{}}, &handler.EnqueueRequestForObject{})
+	// Watch for changes to primary resource Control
+	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Control{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner Config
-
+	// Watch for changes to secondary resource Pods and requeue the owner Control
 	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Cassandra{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &contrailv1alpha1.Cassandra{},
@@ -79,33 +78,41 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Config{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &contrailv1alpha1.Config{},
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// blank assignment to verify that ReconcileConfig implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileConfig{}
+// blank assignment to verify that ReconcileControl implements reconcile.Reconciler
+var _ reconcile.Reconciler = &ReconcileControl{}
 
-// ReconcileConfig reconciles a Config object
-type ReconcileConfig struct {
+// ReconcileControl reconciles a Control object
+type ReconcileControl struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a Config object and makes changes based on the state read
-// and what is in the Config.Spec
+// Reconcile reads that state of the cluster for a Control object and makes changes based on the state read
+// and what is in the Control.Spec
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
 // a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling Config")
+	reqLogger.Info("Reconciling Control")
 
-	// Fetch the Config instance
-	instance := &contrailv1alpha1.Config{}
+	// Fetch the Control instance
+	instance := &contrailv1alpha1.Control{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -159,8 +166,21 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 		rabbitmqStatus = *rabbitmqInstance.Status.Active
 	}
 
-	if !rabbitmqStatus || !zookeeperStatus || !cassandraStatus {
-		reqLogger.Info("cassandra, zookeeper or rmq not ready")
+	configInstance := &contrailv1alpha1.Config{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, configInstance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Info("No Config Instance")
+			return reconcile.Result{}, err
+		}
+	}
+	configStatus := false
+	if configInstance.Status.Active != nil {
+		configStatus = *configInstance.Status.Active
+	}
+
+	if !rabbitmqStatus || !zookeeperStatus || !cassandraStatus || !configStatus {
+		reqLogger.Info("cassandra, zookeeper, rmq or config not ready")
 		return reconcile.Result{}, nil
 	}
 
@@ -182,6 +202,12 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 	cassandraNodeList := strings.Join(cassandraNodes, ",")
 
+	var configNodes []string
+	for _, ip := range configInstance.Status.Nodes {
+		configNodes = append(configNodes, ip)
+	}
+	configNodeList := strings.Join(configNodes, ",")
+
 	managerInstance := &contrailv1alpha1.Manager{}
 	err = r.client.Get(context.TODO(), request.NamespacedName, managerInstance)
 	if err != nil {
@@ -189,9 +215,9 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 			reqLogger.Info("No Manager Instance")
 		}
 	} else {
-		instance.Spec.Service = managerInstance.Spec.Config
-		if managerInstance.Spec.Config.Size != nil {
-			instance.Spec.Service.Size = managerInstance.Spec.Config.Size
+		instance.Spec.Service = managerInstance.Spec.Control
+		if managerInstance.Spec.Control.Size != nil {
+			instance.Spec.Service.Size = managerInstance.Spec.Control.Size
 		} else {
 			instance.Spec.Service.Size = managerInstance.Spec.Size
 		}
@@ -203,27 +229,43 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 	// Get default Deployment
 	deployment := GetDeployment()
 
+	if instance.Spec.Service.Configuration == nil {
+		instance.Spec.Service.Configuration = make(map[string]string)
+		reqLogger.Info("config map empty, initializing it")
+	}
+
+	instance.Spec.Service.Configuration["RABBITMQ_NODES"] = rabbitmqNodeList
+	instance.Spec.Service.Configuration["ZOOKEEPER_NODES"] = zookeeperNodeList
+	instance.Spec.Service.Configuration["CONFIGDB_NODES"] = cassandraNodeList
+	instance.Spec.Service.Configuration["CONFIG_NODES"] = configNodeList
+	instance.Spec.Service.Configuration["CONTROLLER_NODES"] = configNodeList
+	instance.Spec.Service.Configuration["ANALYTICS_NODES"] = configNodeList
+	instance.Spec.Service.Configuration["CONFIGDB_CQL_PORT"] = cassandraInstance.Status.Ports["cqlPort"]
+	instance.Spec.Service.Configuration["CONFIGDB_PORT"] = cassandraInstance.Status.Ports["port"]
+	instance.Spec.Service.Configuration["RABBITMQ_NODE_PORT"] = rabbitmqInstance.Status.Ports["port"]
+	instance.Spec.Service.Configuration["ZOOKEEPER_NODE_PORT"] = zookeeperInstance.Status.Ports["port"]
+
 	// Create initial ConfigMap
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "config-" + instance.Name,
+			Name:      "control-" + instance.Name,
 			Namespace: instance.Namespace,
 		},
 		Data: instance.Spec.Service.Configuration,
 	}
 	controllerutil.SetControllerReference(instance, &configMap, r.scheme)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "config-" + instance.Name, Namespace: instance.Namespace}, &configMap)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "control-" + instance.Name, Namespace: instance.Namespace}, &configMap)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.client.Create(context.TODO(), &configMap)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", instance.Namespace, "Name", "config-"+instance.Name)
+			reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", instance.Namespace, "Name", "control-"+instance.Name)
 			return reconcile.Result{}, err
 		}
 	}
 
 	// Set Deployment Name & Namespace
 
-	deployment.ObjectMeta.Name = "config-" + instance.Name
+	deployment.ObjectMeta.Name = "control-" + instance.Name
 	deployment.ObjectMeta.Namespace = instance.Namespace
 
 	// Configure Containers
@@ -231,7 +273,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 		for containerName, image := range instance.Spec.Service.Images {
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
-				(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "config-" + instance.Name
+				(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "control-" + instance.Name
 			}
 		}
 	}
@@ -241,7 +283,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 		for containerName, image := range instance.Spec.Service.Images {
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.InitContainers[idx]).Image = image
-				(&deployment.Spec.Template.Spec.InitContainers[idx]).EnvFrom[0].ConfigMapRef.Name = "config-" + instance.Name
+				(&deployment.Spec.Template.Spec.InitContainers[idx]).EnvFrom[0].ConfigMapRef.Name = "control-" + instance.Name
 			}
 		}
 	}
@@ -250,19 +292,19 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 	deployment.Spec.Template.Spec.HostNetwork = *instance.Spec.HostNetwork
 
 	// Set Selector and Label
-	deployment.Spec.Selector.MatchLabels["app"] = "config-" + instance.Name
-	deployment.Spec.Template.ObjectMeta.Labels["app"] = "config-" + instance.Name
+	deployment.Spec.Selector.MatchLabels["app"] = "control-" + instance.Name
+	deployment.Spec.Template.ObjectMeta.Labels["app"] = "control-" + instance.Name
 
 	// Set Size
 	deployment.Spec.Replicas = instance.Spec.Service.Size
 
 	// Create Deployment
 	controllerutil.SetControllerReference(instance, deployment, r.scheme)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "config-" + instance.Name, Namespace: instance.Namespace}, deployment)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "control-" + instance.Name, Namespace: instance.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.client.Create(context.TODO(), deployment)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create Deployment", "Namespace", instance.Namespace, "Name", "config-"+instance.Name)
+			reqLogger.Error(err, "Failed to create Deployment", "Namespace", instance.Namespace, "Name", "control-"+instance.Name)
 			return reconcile.Result{}, err
 		}
 	}
@@ -270,7 +312,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 	// Check if Init Containers are running
 	_, err = contrailv1alpha1.InitContainerRunning(r.client,
 		instance.ObjectMeta,
-		"config",
+		"control",
 		instance,
 		*instance.Spec.Service,
 		&instance.Status)
@@ -280,27 +322,19 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
-	configMap.Data["RABBITMQ_NODES"] = rabbitmqNodeList
-	configMap.Data["ZOOKEEPER_NODES"] = zookeeperNodeList
-	configMap.Data["CONFIGDB_NODES"] = cassandraNodeList
-	configMap.Data["CONFIGDB_CQL_PORT"] = cassandraInstance.Status.Ports["cqlPort"]
-	configMap.Data["CONFIGDB_PORT"] = cassandraInstance.Status.Ports["port"]
-	configMap.Data["RABBITMQ_NODE_PORT"] = rabbitmqInstance.Status.Ports["port"]
-	configMap.Data["ZOOKEEPER_NODE_PORT"] = zookeeperInstance.Status.Ports["port"]
-
 	var podIpList []string
 	for _, ip := range instance.Status.Nodes {
 		podIpList = append(podIpList, ip)
 	}
 	nodeList := strings.Join(podIpList, ",")
-	configMap.Data["CONTROLLER_NODES"] = nodeList
+	configMap.Data["CONTROL_NODES"] = nodeList
 	err = r.client.Update(context.TODO(), &configMap)
 	if err != nil {
-		reqLogger.Error(err, "Failed to update ConfigMap", "Namespace", instance.Namespace, "Name", "config-"+instance.Name)
+		reqLogger.Error(err, "Failed to update ConfigMap", "Namespace", instance.Namespace, "Name", "control-"+instance.Name)
 		return reconcile.Result{}, err
 	}
 
-	err = contrailv1alpha1.MarkInitPodsReady(r.client, instance.ObjectMeta, "config")
+	err = contrailv1alpha1.MarkInitPodsReady(r.client, instance.ObjectMeta, "control")
 
 	if err != nil {
 		reqLogger.Error(err, "Failed to mark Pods ready")
@@ -309,7 +343,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 
 	err = contrailv1alpha1.SetServiceStatus(r.client,
 		instance.ObjectMeta,
-		"config",
+		"control",
 		instance,
 		&deployment.Status,
 		&instance.Status)
