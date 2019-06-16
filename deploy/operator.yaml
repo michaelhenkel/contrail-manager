@@ -13,6 +13,7 @@ spec:
         name: contrail-manager
     spec:
       serviceAccountName: contrail-manager
+      hostNetwork: true
       containers:
         - name: contrail-manager
           # Replace this with the built image name
