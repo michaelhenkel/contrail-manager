@@ -14,12 +14,12 @@ import (
 )
 
 const (
-	statefullSetDirectory = "../../deployments/"
+	daemonSetDirectory = "../../deployments/"
 )
 
-var stateFullSetServiceList = [...]string{"zookeeper"}
+var daemonSetServiceList = [...]string{"vrouter"}
 
-//go:generate go run gen_statefulset.go
+//go:generate go run gen_daemonset.go
 func main() {
 
 	createSts()
@@ -36,9 +36,9 @@ import(
 
 var yamlData{{ .Kind }}= {{ .YamlData }}
 
-func GetStatefulset() *appsv1.StatefulSet{
-	statefulSet := appsv1.StatefulSet{}
-	err := yaml.Unmarshal([]byte(yamlData{{ .Kind }}), &statefulSet)
+func GetDaemonset() *appsv1.DaemonSet{
+	daemonSet := appsv1.DaemonSet{}
+	err := yaml.Unmarshal([]byte(yamlData{{ .Kind }}), &daemonSet)
 	if err != nil {
 		panic(err)
 	}
@@ -46,17 +46,17 @@ func GetStatefulset() *appsv1.StatefulSet{
 	if err != nil {
 		panic(err)
 	}
-	err = yaml.Unmarshal([]byte(jsonData), &statefulSet)
+	err = yaml.Unmarshal([]byte(jsonData), &daemonSet)
 	if err != nil {
 		panic(err)
 	}
-	return &statefulSet
+	return &daemonSet
 }
 	`))
 
-	for _, stsName := range stateFullSetServiceList {
+	for _, stsName := range daemonSetServiceList {
 		crFile := stsName + ".yaml"
-		yamlData, err := ioutil.ReadFile(statefullSetDirectory + crFile)
+		yamlData, err := ioutil.ReadFile(daemonSetDirectory + crFile)
 		if err != nil {
 			panic(err)
 		}
@@ -65,12 +65,12 @@ func GetStatefulset() *appsv1.StatefulSet{
 		if err != nil {
 			panic(err)
 		}
-		var statefulSet appsv1.StatefulSet
-		err = yaml.Unmarshal([]byte(jsonData), &statefulSet)
+		var daemonSet appsv1.DaemonSet
+		err = yaml.Unmarshal([]byte(jsonData), &daemonSet)
 		if err != nil {
 			panic(err)
 		}
-		f, err := os.Create("../controller/" + stsName + "/statefulset.go")
+		f, err := os.Create("../controller/" + stsName + "/daemonset.go")
 		if err != nil {
 			panic(err)
 		}

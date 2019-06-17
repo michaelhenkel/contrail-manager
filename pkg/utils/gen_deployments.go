@@ -17,7 +17,7 @@ const (
 	deploymentDirectory = "../../deployments/"
 )
 
-var serviceList = [...]string{"cassandra", "zookeeper", "rabbitmq", "config", "control"}
+var serviceList = [...]string{"cassandra", "zookeeper", "rabbitmq", "config", "control", "kubemanager", "webui"}
 
 //go:generate go run gen_deployments.go
 func main() {

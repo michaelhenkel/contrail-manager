@@ -5,18 +5,18 @@ import(
 	"github.com/ghodss/yaml"
 )
 
-var yamlDataControl = `
+var yamlDataKubemanager = `
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: controls.contrail.juniper.net
+  name: kubemanagers.contrail.juniper.net
 spec:
   group: contrail.juniper.net
   names:
-    kind: Control
-    listKind: ControlList
-    plural: controls
-    singular: control
+    kind: Kubemanager
+    listKind: KubemanagerList
+    plural: kubemanagers
+    singular: kubemanager
   scope: Namespaced
   subresources:
     status: {}
@@ -90,13 +90,13 @@ spec:
     storage: true
 `
 
-func GetControlCrd() *apiextensionsv1beta1.CustomResourceDefinition{
+func GetKubemanagerCrd() *apiextensionsv1beta1.CustomResourceDefinition{
 	crd := apiextensionsv1beta1.CustomResourceDefinition{}
-	err := yaml.Unmarshal([]byte(yamlDataControl), &crd)
+	err := yaml.Unmarshal([]byte(yamlDataKubemanager), &crd)
 	if err != nil {
 		panic(err)
 	}
-	jsonData, err := yaml.YAMLToJSON([]byte(yamlDataControl))
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlDataKubemanager))
 	if err != nil {
 		panic(err)
 	}

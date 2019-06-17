@@ -34,6 +34,43 @@ spec:
       nodemanager: docker.io/michaelhenkel/contrail-nodemgr:5.2.0-dev1
       nodeinit: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
       init: busybox
+  kubemanager:
+    activate: true
+    create: true
+    images:
+      kubemanager: docker.io/michaelhenkel/contrail-kubernetes-kube-manager:5.2.0-dev1
+      nodeinit: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
+      init: busybox
+    configuration:
+      serviceAccount: contrail-service-account
+      clusterRoleBinding: contrail-cluster-role-binding
+      clusterRole: contrail-cluster-role
+      CLOUD_ORCHESTRATOR: kubernetes
+      #USE_KUBEADM_CONFIG: "true"
+      KUBERNETES_API_SERVER: "10.96.0.1"
+      KUBERNETES_API_SECURE_PORT: "443"
+      KUBERNETES_POD_SUBNETS: 10.32.0.0/12
+      KUBERNETES_SERVICE_SUBNETS: 10.96.0.0/12
+      KUBERNETES_CLUSTER_NAME: kubernetes
+      KUBERNETES_IP_FABRIC_FORWARDING: "true"
+      KUBERNETES_IP_FABRIC_SNAT: "true"
+      K8S_TOKEN_FILE: /var/run/secrets/kubernetes.io/serviceaccount/token
+  webui:
+    activate: true
+    create: true
+    images:
+      webuiweb: docker.io/michaelhenkel/contrail-controller-webui-web:5.2.0-dev1
+      webuijob: docker.io/michaelhenkel/contrail-controller-webui-job:5.2.0-dev1
+      nodeinit: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
+  vrouter:
+    activate: true
+    create: true
+    images:
+      vrouteragent: docker.io/michaelhenkel/contrail-vrouter-agent:5.2.0-dev1
+      vrouterkernelinit: docker.io/michaelhenkel/contrail-vrouter-kernel-init:5.2.0-dev1
+      vroutercni: docker.io/michaelhenkel/contrail-kubernetes-cni-init:5.2.0-dev1
+      nodemanager: docker.io/michaelhenkel/contrail-nodemgr:5.2.0-dev1
+      nodeinit: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
   cassandra:
     activate: true
     create: true

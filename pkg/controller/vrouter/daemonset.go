@@ -1,3 +1,11 @@
+package vrouter
+	
+import(
+	appsv1 "k8s.io/api/apps/v1"
+	"github.com/ghodss/yaml"
+)
+
+var yamlDatavrouter= `
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -180,4 +188,22 @@ spec:
       - hostPath:
           path: /opt/cni/bin
           type: ""
-        name: opt-cni-bin
+        name: opt-cni-bin`
+
+func GetDaemonset() *appsv1.DaemonSet{
+	daemonSet := appsv1.DaemonSet{}
+	err := yaml.Unmarshal([]byte(yamlDatavrouter), &daemonSet)
+	if err != nil {
+		panic(err)
+	}
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlDatavrouter))
+	if err != nil {
+		panic(err)
+	}
+	err = yaml.Unmarshal([]byte(jsonData), &daemonSet)
+	if err != nil {
+		panic(err)
+	}
+	return &daemonSet
+}
+	

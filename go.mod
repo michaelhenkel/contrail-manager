@@ -30,6 +30,7 @@ require (
 	go.uber.org/zap v1.9.1 // indirect
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
 	google.golang.org/genproto v0.0.0-20190307195333-5fe7a883aa19
+	gopkg.in/yaml.v2 v2.2.2
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190228180357-d002e88f6236
 	k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628

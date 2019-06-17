@@ -1,3 +1,11 @@
+package webui
+	
+import(
+	appsv1 "k8s.io/api/apps/v1"
+	"github.com/ghodss/yaml"
+)
+
+var yamlDatawebui= `
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -62,4 +70,22 @@ spec:
       - hostPath:
           path: /usr/bin
           type: ""
-        name: host-usr-bin
+        name: host-usr-bin`
+
+func GetDeployment() *appsv1.Deployment{
+	deployment := appsv1.Deployment{}
+	err := yaml.Unmarshal([]byte(yamlDatawebui), &deployment)
+	if err != nil {
+		panic(err)
+	}
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlDatawebui))
+	if err != nil {
+		panic(err)
+	}
+	err = yaml.Unmarshal([]byte(jsonData), &deployment)
+	if err != nil {
+		panic(err)
+	}
+	return &deployment
+}
+	

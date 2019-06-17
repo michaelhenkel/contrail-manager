@@ -1,3 +1,11 @@
+package kubemanager
+	
+import(
+	appsv1 "k8s.io/api/apps/v1"
+	"github.com/ghodss/yaml"
+)
+
+var yamlDatakubemanager= `
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -84,4 +92,22 @@ spec:
               apiVersion: v1
               fieldPath: metadata.labels
             path: pod_labelsx
-        name: status
+        name: status`
+
+func GetDeployment() *appsv1.Deployment{
+	deployment := appsv1.Deployment{}
+	err := yaml.Unmarshal([]byte(yamlDatakubemanager), &deployment)
+	if err != nil {
+		panic(err)
+	}
+	jsonData, err := yaml.YAMLToJSON([]byte(yamlDatakubemanager))
+	if err != nil {
+		panic(err)
+	}
+	err = yaml.Unmarshal([]byte(jsonData), &deployment)
+	if err != nil {
+		panic(err)
+	}
+	return &deployment
+}
+	

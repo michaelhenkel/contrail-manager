@@ -49,5 +49,8 @@ rules:
   - zookeepers
   - rabbitmqs
   - controls
+  - kubemanagers
+  - webuis
+  - vrouters
   verbs:
   - '*'

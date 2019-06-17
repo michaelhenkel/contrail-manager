@@ -26,11 +26,13 @@ const (
 //var crdList = [...]string{"contrail_v1alpha1_config_crd.yaml"}
 //var crList = [...]string{"contrail_v1alpha1_config_cr.yaml"}
 var serviceMap = map[string]runtime.Object{
-	"config":    &contrailv1alpha1.Config{},
-	"control":   &contrailv1alpha1.Control{},
-	"cassandra": &contrailv1alpha1.Cassandra{},
-	"zookeeper": &contrailv1alpha1.Zookeeper{},
-	"rabbitmq":  &contrailv1alpha1.Rabbitmq{},
+	"config":      &contrailv1alpha1.Config{},
+	"control":     &contrailv1alpha1.Control{},
+	"kubemanager": &contrailv1alpha1.Kubemanager{},
+	"webui":       &contrailv1alpha1.Webui{},
+	"cassandra":   &contrailv1alpha1.Cassandra{},
+	"zookeeper":   &contrailv1alpha1.Zookeeper{},
+	"rabbitmq":    &contrailv1alpha1.Rabbitmq{},
 }
 
 //go:generate go run gen_custom_resources.go

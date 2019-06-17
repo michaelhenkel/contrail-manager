@@ -11,6 +11,8 @@ import(
 	"k8s.io/apimachinery/pkg/runtime"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/control"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/kubemanager"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/webui"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/zookeeper"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/rabbitmq"
@@ -77,6 +79,8 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 	var err error
 	var ConfigStatus contrailv1alpha1.ServiceStatus
 	var ControlStatus contrailv1alpha1.ServiceStatus
+	var KubemanagerStatus contrailv1alpha1.ServiceStatus
+	var WebuiStatus contrailv1alpha1.ServiceStatus
 	var CassandraStatus contrailv1alpha1.ServiceStatus
 	var ZookeeperStatus contrailv1alpha1.ServiceStatus
 	var RabbitmqStatus contrailv1alpha1.ServiceStatus
@@ -106,6 +110,34 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 		active := true
 		ControlStatus = *instance.Status.Control
 		ControlStatus.Active = &active
+
+	}
+	KubemanagerActive := true
+	if instance.Status.Kubemanager == nil {
+		KubemanagerActive = false
+		active := true
+		KubemanagerStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Kubemanager.Active == nil {
+		KubemanagerActive = false
+		active := true
+		KubemanagerStatus = *instance.Status.Kubemanager
+		KubemanagerStatus.Active = &active
+
+	}
+	WebuiActive := true
+	if instance.Status.Webui == nil {
+		WebuiActive = false
+		active := true
+		WebuiStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Webui.Active == nil {
+		WebuiActive = false
+		active := true
+		WebuiStatus = *instance.Status.Webui
+		WebuiStatus.Active = &active
 
 	}
 	CassandraActive := true
@@ -174,6 +206,30 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 			}
 		}
 	}
+	if !KubemanagerActive{
+		if instance.Spec.Kubemanager != nil {
+			KubemanagerActivated := instance.Spec.Kubemanager.Activate
+			if *KubemanagerActivated{
+				resource := contrailv1alpha1.Kubemanager{}
+				err = r.ActivateResource(instance, &resource, crds.GetKubemanagerCrd())
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if !WebuiActive{
+		if instance.Spec.Webui != nil {
+			WebuiActivated := instance.Spec.Webui.Activate
+			if *WebuiActivated{
+				resource := contrailv1alpha1.Webui{}
+				err = r.ActivateResource(instance, &resource, crds.GetWebuiCrd())
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
 	if !CassandraActive{
 		if instance.Spec.Cassandra != nil {
 			CassandraActivated := instance.Spec.Cassandra.Activate
@@ -236,6 +292,38 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 				}
 			}
 			instance.Status.Control = &ControlStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if !KubemanagerActive{
+		if instance.Spec.Kubemanager != nil {
+			KubemanagerActivated := instance.Spec.Kubemanager.Activate
+			if *KubemanagerActivated{
+				err = kubemanager.Add(r.manager)
+				if err != nil {
+					return err
+				}
+			}
+			instance.Status.Kubemanager = &KubemanagerStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if !WebuiActive{
+		if instance.Spec.Webui != nil {
+			WebuiActivated := instance.Spec.Webui.Activate
+			if *WebuiActivated{
+				err = webui.Add(r.manager)
+				if err != nil {
+					return err
+				}
+			}
+			instance.Status.Webui = &WebuiStatus
 			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err

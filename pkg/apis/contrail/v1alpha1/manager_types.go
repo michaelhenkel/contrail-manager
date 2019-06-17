@@ -26,6 +26,9 @@ type ManagerSpec struct {
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 	Config              *Service `json:"config,omitempty"`
 	Control             *Service `json:"control,omitempty"`
+	Kubemanager         *Service `json:"kubemanager,omitempty"`
+	Webui               *Service `json:"webui,omitempty"`
+	Vrouter             *Service `json:"vrouter,omitempty"`
 	Cassandra           *Service `json:"cassandra,omitempty"`
 	Zookeeper           *Service `json:"zookeeper,omitempty"`
 	Rabbitmq            *Service `json:"rabbitmq,omitempty"`
@@ -40,11 +43,14 @@ type ManagerStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Config    *ServiceStatus `json:"config,omitempty"`
-	Control   *ServiceStatus `json:"control,omitempty"`
-	Cassandra *ServiceStatus `json:"cassandra,omitempty"`
-	Zookeeper *ServiceStatus `json:"zookeeper,omitempty"`
-	Rabbitmq  *ServiceStatus `json:"rabbitmq,omitempty"`
+	Config      *ServiceStatus `json:"config,omitempty"`
+	Control     *ServiceStatus `json:"control,omitempty"`
+	Kubemanager *ServiceStatus `json:"kubemanager,omitempty"`
+	Webui       *ServiceStatus `json:"webui,omitempty"`
+	Vrouter     *ServiceStatus `json:"vrouter,omitempty"`
+	Cassandra   *ServiceStatus `json:"cassandra,omitempty"`
+	Zookeeper   *ServiceStatus `json:"zookeeper,omitempty"`
+	Rabbitmq    *ServiceStatus `json:"rabbitmq,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
