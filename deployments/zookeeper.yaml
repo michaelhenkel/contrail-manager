@@ -67,6 +67,14 @@ spec:
             - "OK=$(echo ruok | nc ${POD_IP} 2181); if [[ ${OK} == \"imok\" ]]; then exit 0; else exit 1;fi"
           initialDelaySeconds: 15
           timeoutSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "state=$(echo stats |nc ${POD_IP} 2181); if [[ ${state} == \"This ZooKeeper instance is not currently serving requests\" ]]; then exit 1; else exit 0; fi"
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
         volumeMounts:
         - mountPath: /var/lib/zookeeper
           name: zookeeper-data

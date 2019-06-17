@@ -84,11 +84,11 @@ import(
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	cr "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crs"
 )
 
-func (r *ReconcileManager) UpdateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
+func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
 	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
 	reqLogger.Info("Reconciling Manager")
 	
@@ -104,31 +104,27 @@ func (r *ReconcileManager) UpdateResource(instance *v1alpha1.Manager, obj runtim
 	newObj = obj
 
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, newObj)
-	if err != nil{
-		reqLogger.Info("Failed to get CR " + name)
-		return err
-	}
+	if err != nil && errors.IsNotFound(err) {
 
-	switch groupVersionKind.Kind{
-	{{- range .KindList }}
-	case "{{ . }}":
-		var typedObject *v1alpha1.{{ . }}
-		typedObject = newObj.(*v1alpha1.{{ . }})
-		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
-	{{- end }}
+		switch groupVersionKind.Kind{
+		{{- range .KindList }}
+		case "{{ . }}":
+			var typedObject *v1alpha1.{{ . }}
+			typedObject = newObj.(*v1alpha1.{{ . }})
+			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			err = r.client.Create(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to create CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" Created.")
+		{{- end }}
+		}
 	}
-
-
-	err = r.client.Update(context.TODO(), newObj)
-	if err != nil{
-		reqLogger.Info("Failed to update CR " + name)
-		return err
-	}
-	reqLogger.Info("CR " + name +" updated.")
 	return nil
 }
-
-func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
+/*
+func (r *ReconcileManager) UpdateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
 	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
 	reqLogger.Info("Reconciling Manager")
 	
@@ -155,8 +151,9 @@ func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtim
 	}
 	return nil
 }
+*/
 
-func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
+func (r *ReconcileManager) ManageCr(instance *v1alpha1.Manager) error{
 	var err error
 	{{- range .KindList }}
 	var {{ . }}Status v1alpha1.ServiceStatus
@@ -166,15 +163,28 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 	{{ . }}Created := true
 	if instance.Status.{{ . }} == nil {
 		{{ . }}Created = false
-		active := true
 		{{ . }}Status = v1alpha1.ServiceStatus{
-			Created: &active,
+			Created: instance.Spec.{{ . }}.Create,
 		}
 	} else if instance.Status.{{ . }}.Created == nil {
 		{{ . }}Created = false
-		active := true
 		{{ . }}Status = *instance.Status.{{ . }}
-		{{ . }}Status.Created = &active
+		{{ . }}Status.Created = instance.Spec.{{ . }}.Create
+	} else if *instance.Status.{{ . }}.Created && !*instance.Spec.{{ . }}.Create {
+		cr := cr.Get{{ . }}Cr()
+		cr.Name = instance.Name
+		cr.Namespace = instance.Namespace
+		err := r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
+		}
+		instance.Status.{{ . }}.Created = instance.Spec.{{ . }}.Create
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	} else if !*instance.Status.{{ . }}.Created && *instance.Spec.{{ . }}.Create {
+		{{ . }}Created = false
 	}
 	{{- end }}
 	{{- range .KindList }}
@@ -190,10 +200,12 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 				if err != nil {
 					return err
 				}
+				/*
 				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
 				if err != nil {
 					return err
-				}		
+				}
+				*/	
 			}
 			instance.Status.{{ . }} = &{{ . }}Status
 			err := r.client.Status().Update(context.TODO(), instance)
@@ -310,6 +322,7 @@ func (r *ReconcileManager) createCrd(instance *contrailv1alpha1.Manager, crd *ap
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: crd.Spec.Names.Plural + "." + crd.Spec.Group, Namespace: newCrd.Namespace}, &newCrd)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group +" not found. Creating it.")
+		controllerutil.SetControllerReference(&newCrd, &newCrd, r.scheme)
 		err = r.client.Create(context.TODO(), crd)	
 		if err != nil {
 			reqLogger.Error(err, "Failed to create new crd.", "crd.Namespace", crd.Namespace, "crd.Name", crd.Name)
@@ -348,10 +361,12 @@ func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
 		if err != nil {
 			return err
 		}
+		/*
 		err = r.updateCrd(instance, crd)
 		if err != nil {
 			return err
 		}
+		*/
 		err = r.addWatch(ro)
 		if err != nil {
 			return err
@@ -360,7 +375,7 @@ func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
 }
 
 
-func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) error{
+func (r *ReconcileManager) ManageCrd(instance *contrailv1alpha1.Manager) error{
 	var err error
 	{{- range .KindList }}
 	var {{ . }}Status contrailv1alpha1.ServiceStatus

@@ -8,11 +8,11 @@ import(
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	cr "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crs"
 )
 
-func (r *ReconcileManager) UpdateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
+func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
 	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
 	reqLogger.Info("Reconciling Manager")
 	
@@ -28,57 +28,95 @@ func (r *ReconcileManager) UpdateResource(instance *v1alpha1.Manager, obj runtim
 	newObj = obj
 
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, newObj)
-	if err != nil{
-		reqLogger.Info("Failed to get CR " + name)
-		return err
-	}
+	if err != nil && errors.IsNotFound(err) {
 
-	switch groupVersionKind.Kind{
-	case "Vrouter":
-		var typedObject *v1alpha1.Vrouter
-		typedObject = newObj.(*v1alpha1.Vrouter)
-		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
-	case "Cassandra":
-		var typedObject *v1alpha1.Cassandra
-		typedObject = newObj.(*v1alpha1.Cassandra)
-		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
-	case "Zookeeper":
-		var typedObject *v1alpha1.Zookeeper
-		typedObject = newObj.(*v1alpha1.Zookeeper)
-		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
-	case "Rabbitmq":
-		var typedObject *v1alpha1.Rabbitmq
-		typedObject = newObj.(*v1alpha1.Rabbitmq)
-		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
-	case "Config":
-		var typedObject *v1alpha1.Config
-		typedObject = newObj.(*v1alpha1.Config)
-		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
-	case "Control":
-		var typedObject *v1alpha1.Control
-		typedObject = newObj.(*v1alpha1.Control)
-		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
-	case "Kubemanager":
-		var typedObject *v1alpha1.Kubemanager
-		typedObject = newObj.(*v1alpha1.Kubemanager)
-		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
-	case "Webui":
-		var typedObject *v1alpha1.Webui
-		typedObject = newObj.(*v1alpha1.Webui)
-		controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+		switch groupVersionKind.Kind{
+		case "Webui":
+			var typedObject *v1alpha1.Webui
+			typedObject = newObj.(*v1alpha1.Webui)
+			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			err = r.client.Create(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to create CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" Created.")
+		case "Vrouter":
+			var typedObject *v1alpha1.Vrouter
+			typedObject = newObj.(*v1alpha1.Vrouter)
+			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			err = r.client.Create(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to create CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" Created.")
+		case "Cassandra":
+			var typedObject *v1alpha1.Cassandra
+			typedObject = newObj.(*v1alpha1.Cassandra)
+			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			err = r.client.Create(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to create CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" Created.")
+		case "Zookeeper":
+			var typedObject *v1alpha1.Zookeeper
+			typedObject = newObj.(*v1alpha1.Zookeeper)
+			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			err = r.client.Create(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to create CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" Created.")
+		case "Rabbitmq":
+			var typedObject *v1alpha1.Rabbitmq
+			typedObject = newObj.(*v1alpha1.Rabbitmq)
+			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			err = r.client.Create(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to create CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" Created.")
+		case "Config":
+			var typedObject *v1alpha1.Config
+			typedObject = newObj.(*v1alpha1.Config)
+			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			err = r.client.Create(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to create CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" Created.")
+		case "Control":
+			var typedObject *v1alpha1.Control
+			typedObject = newObj.(*v1alpha1.Control)
+			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			err = r.client.Create(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to create CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" Created.")
+		case "Kubemanager":
+			var typedObject *v1alpha1.Kubemanager
+			typedObject = newObj.(*v1alpha1.Kubemanager)
+			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			err = r.client.Create(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to create CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" Created.")
+		}
 	}
-
-
-	err = r.client.Update(context.TODO(), newObj)
-	if err != nil{
-		reqLogger.Info("Failed to update CR " + name)
-		return err
-	}
-	reqLogger.Info("CR " + name +" updated.")
 	return nil
 }
-
-func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
+/*
+func (r *ReconcileManager) UpdateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
 	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
 	reqLogger.Info("Reconciling Manager")
 	
@@ -105,9 +143,11 @@ func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtim
 	}
 	return nil
 }
+*/
 
-func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
+func (r *ReconcileManager) ManageCr(instance *v1alpha1.Manager) error{
 	var err error
+	var WebuiStatus v1alpha1.ServiceStatus
 	var VrouterStatus v1alpha1.ServiceStatus
 	var CassandraStatus v1alpha1.ServiceStatus
 	var ZookeeperStatus v1alpha1.ServiceStatus
@@ -115,110 +155,239 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 	var ConfigStatus v1alpha1.ServiceStatus
 	var ControlStatus v1alpha1.ServiceStatus
 	var KubemanagerStatus v1alpha1.ServiceStatus
-	var WebuiStatus v1alpha1.ServiceStatus
+	WebuiCreated := true
+	if instance.Status.Webui == nil {
+		WebuiCreated = false
+		WebuiStatus = v1alpha1.ServiceStatus{
+			Created: instance.Spec.Webui.Create,
+		}
+	} else if instance.Status.Webui.Created == nil {
+		WebuiCreated = false
+		WebuiStatus = *instance.Status.Webui
+		WebuiStatus.Created = instance.Spec.Webui.Create
+	} else if *instance.Status.Webui.Created && !*instance.Spec.Webui.Create {
+		cr := cr.GetWebuiCr()
+		cr.Name = instance.Name
+		cr.Namespace = instance.Namespace
+		err := r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
+		}
+		instance.Status.Webui.Created = instance.Spec.Webui.Create
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	} else if !*instance.Status.Webui.Created && *instance.Spec.Webui.Create {
+		WebuiCreated = false
+	}
 	VrouterCreated := true
 	if instance.Status.Vrouter == nil {
 		VrouterCreated = false
-		active := true
 		VrouterStatus = v1alpha1.ServiceStatus{
-			Created: &active,
+			Created: instance.Spec.Vrouter.Create,
 		}
 	} else if instance.Status.Vrouter.Created == nil {
 		VrouterCreated = false
-		active := true
 		VrouterStatus = *instance.Status.Vrouter
-		VrouterStatus.Created = &active
+		VrouterStatus.Created = instance.Spec.Vrouter.Create
+	} else if *instance.Status.Vrouter.Created && !*instance.Spec.Vrouter.Create {
+		cr := cr.GetVrouterCr()
+		cr.Name = instance.Name
+		cr.Namespace = instance.Namespace
+		err := r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
+		}
+		instance.Status.Vrouter.Created = instance.Spec.Vrouter.Create
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	} else if !*instance.Status.Vrouter.Created && *instance.Spec.Vrouter.Create {
+		VrouterCreated = false
 	}
 	CassandraCreated := true
 	if instance.Status.Cassandra == nil {
 		CassandraCreated = false
-		active := true
 		CassandraStatus = v1alpha1.ServiceStatus{
-			Created: &active,
+			Created: instance.Spec.Cassandra.Create,
 		}
 	} else if instance.Status.Cassandra.Created == nil {
 		CassandraCreated = false
-		active := true
 		CassandraStatus = *instance.Status.Cassandra
-		CassandraStatus.Created = &active
+		CassandraStatus.Created = instance.Spec.Cassandra.Create
+	} else if *instance.Status.Cassandra.Created && !*instance.Spec.Cassandra.Create {
+		cr := cr.GetCassandraCr()
+		cr.Name = instance.Name
+		cr.Namespace = instance.Namespace
+		err := r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
+		}
+		instance.Status.Cassandra.Created = instance.Spec.Cassandra.Create
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	} else if !*instance.Status.Cassandra.Created && *instance.Spec.Cassandra.Create {
+		CassandraCreated = false
 	}
 	ZookeeperCreated := true
 	if instance.Status.Zookeeper == nil {
 		ZookeeperCreated = false
-		active := true
 		ZookeeperStatus = v1alpha1.ServiceStatus{
-			Created: &active,
+			Created: instance.Spec.Zookeeper.Create,
 		}
 	} else if instance.Status.Zookeeper.Created == nil {
 		ZookeeperCreated = false
-		active := true
 		ZookeeperStatus = *instance.Status.Zookeeper
-		ZookeeperStatus.Created = &active
+		ZookeeperStatus.Created = instance.Spec.Zookeeper.Create
+	} else if *instance.Status.Zookeeper.Created && !*instance.Spec.Zookeeper.Create {
+		cr := cr.GetZookeeperCr()
+		cr.Name = instance.Name
+		cr.Namespace = instance.Namespace
+		err := r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
+		}
+		instance.Status.Zookeeper.Created = instance.Spec.Zookeeper.Create
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	} else if !*instance.Status.Zookeeper.Created && *instance.Spec.Zookeeper.Create {
+		ZookeeperCreated = false
 	}
 	RabbitmqCreated := true
 	if instance.Status.Rabbitmq == nil {
 		RabbitmqCreated = false
-		active := true
 		RabbitmqStatus = v1alpha1.ServiceStatus{
-			Created: &active,
+			Created: instance.Spec.Rabbitmq.Create,
 		}
 	} else if instance.Status.Rabbitmq.Created == nil {
 		RabbitmqCreated = false
-		active := true
 		RabbitmqStatus = *instance.Status.Rabbitmq
-		RabbitmqStatus.Created = &active
+		RabbitmqStatus.Created = instance.Spec.Rabbitmq.Create
+	} else if *instance.Status.Rabbitmq.Created && !*instance.Spec.Rabbitmq.Create {
+		cr := cr.GetRabbitmqCr()
+		cr.Name = instance.Name
+		cr.Namespace = instance.Namespace
+		err := r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
+		}
+		instance.Status.Rabbitmq.Created = instance.Spec.Rabbitmq.Create
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	} else if !*instance.Status.Rabbitmq.Created && *instance.Spec.Rabbitmq.Create {
+		RabbitmqCreated = false
 	}
 	ConfigCreated := true
 	if instance.Status.Config == nil {
 		ConfigCreated = false
-		active := true
 		ConfigStatus = v1alpha1.ServiceStatus{
-			Created: &active,
+			Created: instance.Spec.Config.Create,
 		}
 	} else if instance.Status.Config.Created == nil {
 		ConfigCreated = false
-		active := true
 		ConfigStatus = *instance.Status.Config
-		ConfigStatus.Created = &active
+		ConfigStatus.Created = instance.Spec.Config.Create
+	} else if *instance.Status.Config.Created && !*instance.Spec.Config.Create {
+		cr := cr.GetConfigCr()
+		cr.Name = instance.Name
+		cr.Namespace = instance.Namespace
+		err := r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
+		}
+		instance.Status.Config.Created = instance.Spec.Config.Create
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	} else if !*instance.Status.Config.Created && *instance.Spec.Config.Create {
+		ConfigCreated = false
 	}
 	ControlCreated := true
 	if instance.Status.Control == nil {
 		ControlCreated = false
-		active := true
 		ControlStatus = v1alpha1.ServiceStatus{
-			Created: &active,
+			Created: instance.Spec.Control.Create,
 		}
 	} else if instance.Status.Control.Created == nil {
 		ControlCreated = false
-		active := true
 		ControlStatus = *instance.Status.Control
-		ControlStatus.Created = &active
+		ControlStatus.Created = instance.Spec.Control.Create
+	} else if *instance.Status.Control.Created && !*instance.Spec.Control.Create {
+		cr := cr.GetControlCr()
+		cr.Name = instance.Name
+		cr.Namespace = instance.Namespace
+		err := r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
+		}
+		instance.Status.Control.Created = instance.Spec.Control.Create
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	} else if !*instance.Status.Control.Created && *instance.Spec.Control.Create {
+		ControlCreated = false
 	}
 	KubemanagerCreated := true
 	if instance.Status.Kubemanager == nil {
 		KubemanagerCreated = false
-		active := true
 		KubemanagerStatus = v1alpha1.ServiceStatus{
-			Created: &active,
+			Created: instance.Spec.Kubemanager.Create,
 		}
 	} else if instance.Status.Kubemanager.Created == nil {
 		KubemanagerCreated = false
-		active := true
 		KubemanagerStatus = *instance.Status.Kubemanager
-		KubemanagerStatus.Created = &active
-	}
-	WebuiCreated := true
-	if instance.Status.Webui == nil {
-		WebuiCreated = false
-		active := true
-		WebuiStatus = v1alpha1.ServiceStatus{
-			Created: &active,
+		KubemanagerStatus.Created = instance.Spec.Kubemanager.Create
+	} else if *instance.Status.Kubemanager.Created && !*instance.Spec.Kubemanager.Create {
+		cr := cr.GetKubemanagerCr()
+		cr.Name = instance.Name
+		cr.Namespace = instance.Namespace
+		err := r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
 		}
-	} else if instance.Status.Webui.Created == nil {
-		WebuiCreated = false
-		active := true
-		WebuiStatus = *instance.Status.Webui
-		WebuiStatus.Created = &active
+		instance.Status.Kubemanager.Created = instance.Spec.Kubemanager.Create
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	} else if !*instance.Status.Kubemanager.Created && *instance.Spec.Kubemanager.Create {
+		KubemanagerCreated = false
+	}
+	if !WebuiCreated{
+		if instance.Spec.Webui != nil{
+			WebuiCreated := instance.Spec.Webui.Create
+			if *WebuiCreated{
+				cr := cr.GetWebuiCr()
+				cr.Spec.Service = instance.Spec.Webui
+				cr.Name = instance.Name
+				cr.Namespace = instance.Namespace
+				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}
+				/*
+				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}
+				*/	
+			}
+			instance.Status.Webui = &WebuiStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}			
+		}
 	}
 	if !VrouterCreated{
 		if instance.Spec.Vrouter != nil{
@@ -232,10 +401,12 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 				if err != nil {
 					return err
 				}
+				/*
 				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
 				if err != nil {
 					return err
-				}		
+				}
+				*/	
 			}
 			instance.Status.Vrouter = &VrouterStatus
 			err := r.client.Status().Update(context.TODO(), instance)
@@ -256,10 +427,12 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 				if err != nil {
 					return err
 				}
+				/*
 				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
 				if err != nil {
 					return err
-				}		
+				}
+				*/	
 			}
 			instance.Status.Cassandra = &CassandraStatus
 			err := r.client.Status().Update(context.TODO(), instance)
@@ -280,10 +453,12 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 				if err != nil {
 					return err
 				}
+				/*
 				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
 				if err != nil {
 					return err
-				}		
+				}
+				*/	
 			}
 			instance.Status.Zookeeper = &ZookeeperStatus
 			err := r.client.Status().Update(context.TODO(), instance)
@@ -304,10 +479,12 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 				if err != nil {
 					return err
 				}
+				/*
 				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
 				if err != nil {
 					return err
-				}		
+				}
+				*/	
 			}
 			instance.Status.Rabbitmq = &RabbitmqStatus
 			err := r.client.Status().Update(context.TODO(), instance)
@@ -328,10 +505,12 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 				if err != nil {
 					return err
 				}
+				/*
 				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
 				if err != nil {
 					return err
-				}		
+				}
+				*/	
 			}
 			instance.Status.Config = &ConfigStatus
 			err := r.client.Status().Update(context.TODO(), instance)
@@ -352,10 +531,12 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 				if err != nil {
 					return err
 				}
+				/*
 				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
 				if err != nil {
 					return err
-				}		
+				}
+				*/	
 			}
 			instance.Status.Control = &ControlStatus
 			err := r.client.Status().Update(context.TODO(), instance)
@@ -376,36 +557,14 @@ func (r *ReconcileManager) CreateService(instance *v1alpha1.Manager) error{
 				if err != nil {
 					return err
 				}
+				/*
 				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
-				if err != nil {
-					return err
-				}		
-			}
-			instance.Status.Kubemanager = &KubemanagerStatus
-			err := r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				return err
-			}			
-		}
-	}
-	if !WebuiCreated{
-		if instance.Spec.Webui != nil{
-			WebuiCreated := instance.Spec.Webui.Create
-			if *WebuiCreated{
-				cr := cr.GetWebuiCr()
-				cr.Spec.Service = instance.Spec.Webui
-				cr.Name = instance.Name
-				cr.Namespace = instance.Namespace
-				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
 				if err != nil {
 					return err
 				}
-				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
-				if err != nil {
-					return err
-				}		
+				*/	
 			}
-			instance.Status.Webui = &WebuiStatus
+			instance.Status.Kubemanager = &KubemanagerStatus
 			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err

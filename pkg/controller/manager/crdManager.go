@@ -9,14 +9,14 @@ import(
 	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"k8s.io/apimachinery/pkg/runtime"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/zookeeper"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/rabbitmq"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/control"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/kubemanager"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/webui"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/vrouter"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
-	"github.com/michaelhenkel/contrail-manager/pkg/controller/zookeeper"
-	"github.com/michaelhenkel/contrail-manager/pkg/controller/rabbitmq"
-	"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
 )
 
 func (r *ReconcileManager) createCrd(instance *contrailv1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
@@ -26,6 +26,7 @@ func (r *ReconcileManager) createCrd(instance *contrailv1alpha1.Manager, crd *ap
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: crd.Spec.Names.Plural + "." + crd.Spec.Group, Namespace: newCrd.Namespace}, &newCrd)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group +" not found. Creating it.")
+		controllerutil.SetControllerReference(&newCrd, &newCrd, r.scheme)
 		err = r.client.Create(context.TODO(), crd)	
 		if err != nil {
 			reqLogger.Error(err, "Failed to create new crd.", "crd.Namespace", crd.Namespace, "crd.Name", crd.Name)
@@ -64,10 +65,12 @@ func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
 		if err != nil {
 			return err
 		}
+		/*
 		err = r.updateCrd(instance, crd)
 		if err != nil {
 			return err
 		}
+		*/
 		err = r.addWatch(ro)
 		if err != nil {
 			return err
@@ -76,16 +79,58 @@ func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
 }
 
 
-func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) error{
+func (r *ReconcileManager) ManageCrd(instance *contrailv1alpha1.Manager) error{
 	var err error
+	var ZookeeperStatus contrailv1alpha1.ServiceStatus
+	var RabbitmqStatus contrailv1alpha1.ServiceStatus
+	var ConfigStatus contrailv1alpha1.ServiceStatus
 	var ControlStatus contrailv1alpha1.ServiceStatus
 	var KubemanagerStatus contrailv1alpha1.ServiceStatus
 	var WebuiStatus contrailv1alpha1.ServiceStatus
 	var VrouterStatus contrailv1alpha1.ServiceStatus
 	var CassandraStatus contrailv1alpha1.ServiceStatus
-	var ZookeeperStatus contrailv1alpha1.ServiceStatus
-	var RabbitmqStatus contrailv1alpha1.ServiceStatus
-	var ConfigStatus contrailv1alpha1.ServiceStatus
+	ZookeeperActive := true
+	if instance.Status.Zookeeper == nil {
+		ZookeeperActive = false
+		active := true
+		ZookeeperStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Zookeeper.Active == nil {
+		ZookeeperActive = false
+		active := true
+		ZookeeperStatus = *instance.Status.Zookeeper
+		ZookeeperStatus.Active = &active
+
+	}
+	RabbitmqActive := true
+	if instance.Status.Rabbitmq == nil {
+		RabbitmqActive = false
+		active := true
+		RabbitmqStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Rabbitmq.Active == nil {
+		RabbitmqActive = false
+		active := true
+		RabbitmqStatus = *instance.Status.Rabbitmq
+		RabbitmqStatus.Active = &active
+
+	}
+	ConfigActive := true
+	if instance.Status.Config == nil {
+		ConfigActive = false
+		active := true
+		ConfigStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Config.Active == nil {
+		ConfigActive = false
+		active := true
+		ConfigStatus = *instance.Status.Config
+		ConfigStatus.Active = &active
+
+	}
 	ControlActive := true
 	if instance.Status.Control == nil {
 		ControlActive = false
@@ -156,47 +201,41 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 		CassandraStatus.Active = &active
 
 	}
-	ZookeeperActive := true
-	if instance.Status.Zookeeper == nil {
-		ZookeeperActive = false
-		active := true
-		ZookeeperStatus = contrailv1alpha1.ServiceStatus{
-			Active: &active,
+	if !ZookeeperActive{
+		if instance.Spec.Zookeeper != nil {
+			ZookeeperActivated := instance.Spec.Zookeeper.Activate
+			if *ZookeeperActivated{
+				resource := contrailv1alpha1.Zookeeper{}
+				err = r.ActivateResource(instance, &resource, crds.GetZookeeperCrd())
+				if err != nil {
+					return err
+				}
+			}
 		}
-	} else if instance.Status.Zookeeper.Active == nil {
-		ZookeeperActive = false
-		active := true
-		ZookeeperStatus = *instance.Status.Zookeeper
-		ZookeeperStatus.Active = &active
-
 	}
-	RabbitmqActive := true
-	if instance.Status.Rabbitmq == nil {
-		RabbitmqActive = false
-		active := true
-		RabbitmqStatus = contrailv1alpha1.ServiceStatus{
-			Active: &active,
+	if !RabbitmqActive{
+		if instance.Spec.Rabbitmq != nil {
+			RabbitmqActivated := instance.Spec.Rabbitmq.Activate
+			if *RabbitmqActivated{
+				resource := contrailv1alpha1.Rabbitmq{}
+				err = r.ActivateResource(instance, &resource, crds.GetRabbitmqCrd())
+				if err != nil {
+					return err
+				}
+			}
 		}
-	} else if instance.Status.Rabbitmq.Active == nil {
-		RabbitmqActive = false
-		active := true
-		RabbitmqStatus = *instance.Status.Rabbitmq
-		RabbitmqStatus.Active = &active
-
 	}
-	ConfigActive := true
-	if instance.Status.Config == nil {
-		ConfigActive = false
-		active := true
-		ConfigStatus = contrailv1alpha1.ServiceStatus{
-			Active: &active,
+	if !ConfigActive{
+		if instance.Spec.Config != nil {
+			ConfigActivated := instance.Spec.Config.Activate
+			if *ConfigActivated{
+				resource := contrailv1alpha1.Config{}
+				err = r.ActivateResource(instance, &resource, crds.GetConfigCrd())
+				if err != nil {
+					return err
+				}
+			}
 		}
-	} else if instance.Status.Config.Active == nil {
-		ConfigActive = false
-		active := true
-		ConfigStatus = *instance.Status.Config
-		ConfigStatus.Active = &active
-
 	}
 	if !ControlActive{
 		if instance.Spec.Control != nil {
@@ -262,11 +301,15 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 		if instance.Spec.Zookeeper != nil {
 			ZookeeperActivated := instance.Spec.Zookeeper.Activate
 			if *ZookeeperActivated{
-				resource := contrailv1alpha1.Zookeeper{}
-				err = r.ActivateResource(instance, &resource, crds.GetZookeeperCrd())
+				err = zookeeper.Add(r.manager)
 				if err != nil {
 					return err
 				}
+			}
+			instance.Status.Zookeeper = &ZookeeperStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -274,11 +317,15 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 		if instance.Spec.Rabbitmq != nil {
 			RabbitmqActivated := instance.Spec.Rabbitmq.Activate
 			if *RabbitmqActivated{
-				resource := contrailv1alpha1.Rabbitmq{}
-				err = r.ActivateResource(instance, &resource, crds.GetRabbitmqCrd())
+				err = rabbitmq.Add(r.manager)
 				if err != nil {
 					return err
 				}
+			}
+			instance.Status.Rabbitmq = &RabbitmqStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -286,11 +333,15 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 		if instance.Spec.Config != nil {
 			ConfigActivated := instance.Spec.Config.Activate
 			if *ConfigActivated{
-				resource := contrailv1alpha1.Config{}
-				err = r.ActivateResource(instance, &resource, crds.GetConfigCrd())
+				err = config.Add(r.manager)
 				if err != nil {
 					return err
 				}
+			}
+			instance.Status.Config = &ConfigStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -368,54 +419,6 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 				}
 			}
 			instance.Status.Cassandra = &CassandraStatus
-			err := r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	if !ZookeeperActive{
-		if instance.Spec.Zookeeper != nil {
-			ZookeeperActivated := instance.Spec.Zookeeper.Activate
-			if *ZookeeperActivated{
-				err = zookeeper.Add(r.manager)
-				if err != nil {
-					return err
-				}
-			}
-			instance.Status.Zookeeper = &ZookeeperStatus
-			err := r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	if !RabbitmqActive{
-		if instance.Spec.Rabbitmq != nil {
-			RabbitmqActivated := instance.Spec.Rabbitmq.Activate
-			if *RabbitmqActivated{
-				err = rabbitmq.Add(r.manager)
-				if err != nil {
-					return err
-				}
-			}
-			instance.Status.Rabbitmq = &RabbitmqStatus
-			err := r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	if !ConfigActive{
-		if instance.Spec.Config != nil {
-			ConfigActivated := instance.Spec.Config.Activate
-			if *ConfigActivated{
-				err = config.Add(r.manager)
-				if err != nil {
-					return err
-				}
-			}
-			instance.Status.Config = &ConfigStatus
 			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err

@@ -130,12 +130,12 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 		return reconcile.Result{}, err
 	}
-	err = r.ActivateService(instance)
+	err = r.ManageCrd(instance)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	err = r.CreateService(instance)
+	err = r.ManageCr(instance)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
