@@ -30,6 +30,7 @@ var serviceMap = map[string]runtime.Object{
 	"control":     &contrailv1alpha1.Control{},
 	"kubemanager": &contrailv1alpha1.Kubemanager{},
 	"webui":       &contrailv1alpha1.Webui{},
+	"vrouter":     &contrailv1alpha1.Vrouter{},
 	"cassandra":   &contrailv1alpha1.Cassandra{},
 	"zookeeper":   &contrailv1alpha1.Zookeeper{},
 	"rabbitmq":    &contrailv1alpha1.Rabbitmq{},

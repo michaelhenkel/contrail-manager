@@ -9,13 +9,14 @@ import(
 	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"k8s.io/apimachinery/pkg/runtime"
-	"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/control"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/kubemanager"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/webui"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/vrouter"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/zookeeper"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/rabbitmq"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
 )
 
 func (r *ReconcileManager) createCrd(instance *contrailv1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
@@ -77,27 +78,14 @@ func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
 
 func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) error{
 	var err error
-	var ConfigStatus contrailv1alpha1.ServiceStatus
 	var ControlStatus contrailv1alpha1.ServiceStatus
 	var KubemanagerStatus contrailv1alpha1.ServiceStatus
 	var WebuiStatus contrailv1alpha1.ServiceStatus
+	var VrouterStatus contrailv1alpha1.ServiceStatus
 	var CassandraStatus contrailv1alpha1.ServiceStatus
 	var ZookeeperStatus contrailv1alpha1.ServiceStatus
 	var RabbitmqStatus contrailv1alpha1.ServiceStatus
-	ConfigActive := true
-	if instance.Status.Config == nil {
-		ConfigActive = false
-		active := true
-		ConfigStatus = contrailv1alpha1.ServiceStatus{
-			Active: &active,
-		}
-	} else if instance.Status.Config.Active == nil {
-		ConfigActive = false
-		active := true
-		ConfigStatus = *instance.Status.Config
-		ConfigStatus.Active = &active
-
-	}
+	var ConfigStatus contrailv1alpha1.ServiceStatus
 	ControlActive := true
 	if instance.Status.Control == nil {
 		ControlActive = false
@@ -138,6 +126,20 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 		active := true
 		WebuiStatus = *instance.Status.Webui
 		WebuiStatus.Active = &active
+
+	}
+	VrouterActive := true
+	if instance.Status.Vrouter == nil {
+		VrouterActive = false
+		active := true
+		VrouterStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Vrouter.Active == nil {
+		VrouterActive = false
+		active := true
+		VrouterStatus = *instance.Status.Vrouter
+		VrouterStatus.Active = &active
 
 	}
 	CassandraActive := true
@@ -182,17 +184,19 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 		RabbitmqStatus.Active = &active
 
 	}
-	if !ConfigActive{
-		if instance.Spec.Config != nil {
-			ConfigActivated := instance.Spec.Config.Activate
-			if *ConfigActivated{
-				resource := contrailv1alpha1.Config{}
-				err = r.ActivateResource(instance, &resource, crds.GetConfigCrd())
-				if err != nil {
-					return err
-				}
-			}
+	ConfigActive := true
+	if instance.Status.Config == nil {
+		ConfigActive = false
+		active := true
+		ConfigStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
 		}
+	} else if instance.Status.Config.Active == nil {
+		ConfigActive = false
+		active := true
+		ConfigStatus = *instance.Status.Config
+		ConfigStatus.Active = &active
+
 	}
 	if !ControlActive{
 		if instance.Spec.Control != nil {
@@ -224,6 +228,18 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 			if *WebuiActivated{
 				resource := contrailv1alpha1.Webui{}
 				err = r.ActivateResource(instance, &resource, crds.GetWebuiCrd())
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if !VrouterActive{
+		if instance.Spec.Vrouter != nil {
+			VrouterActivated := instance.Spec.Vrouter.Activate
+			if *VrouterActivated{
+				resource := contrailv1alpha1.Vrouter{}
+				err = r.ActivateResource(instance, &resource, crds.GetVrouterCrd())
 				if err != nil {
 					return err
 				}
@@ -270,15 +286,11 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 		if instance.Spec.Config != nil {
 			ConfigActivated := instance.Spec.Config.Activate
 			if *ConfigActivated{
-				err = config.Add(r.manager)
+				resource := contrailv1alpha1.Config{}
+				err = r.ActivateResource(instance, &resource, crds.GetConfigCrd())
 				if err != nil {
 					return err
 				}
-			}
-			instance.Status.Config = &ConfigStatus
-			err := r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				return err
 			}
 		}
 	}
@@ -330,6 +342,22 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 			}
 		}
 	}
+	if !VrouterActive{
+		if instance.Spec.Vrouter != nil {
+			VrouterActivated := instance.Spec.Vrouter.Activate
+			if *VrouterActivated{
+				err = vrouter.Add(r.manager)
+				if err != nil {
+					return err
+				}
+			}
+			instance.Status.Vrouter = &VrouterStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	if !CassandraActive{
 		if instance.Spec.Cassandra != nil {
 			CassandraActivated := instance.Spec.Cassandra.Activate
@@ -372,6 +400,22 @@ func (r *ReconcileManager) ActivateService(instance *contrailv1alpha1.Manager) e
 				}
 			}
 			instance.Status.Rabbitmq = &RabbitmqStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if !ConfigActive{
+		if instance.Spec.Config != nil {
+			ConfigActivated := instance.Spec.Config.Activate
+			if *ConfigActivated{
+				err = config.Add(r.manager)
+				if err != nil {
+					return err
+				}
+			}
+			instance.Status.Config = &ConfigStatus
 			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err
