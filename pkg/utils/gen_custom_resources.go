@@ -84,7 +84,7 @@ import(
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
-	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	cr "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crs"
 )
 
@@ -109,15 +109,29 @@ func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtim
 		switch groupVersionKind.Kind{
 		{{- range .KindList }}
 		case "{{ . }}":
-			var typedObject *v1alpha1.{{ . }}
+			typedObject := &v1alpha1.{{ . }}{}
 			typedObject = newObj.(*v1alpha1.{{ . }})
-			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			controllerutil.SetControllerReference(instance, typedObject, r.scheme)
 			err = r.client.Create(context.TODO(), typedObject)
 			if err != nil{
 				reqLogger.Info("Failed to create CR " + name)
 				return err
 			}
 			reqLogger.Info("CR " + name +" Created.")
+			/*
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, typedObject)
+			if err != nil {
+				reqLogger.Info("Failed to get created CR " + name)
+				return err
+			}
+			
+			err = r.client.Update(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to update created CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" updated.")
+			*/
 		{{- end }}
 		}
 	}

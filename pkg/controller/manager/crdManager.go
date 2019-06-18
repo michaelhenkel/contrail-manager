@@ -9,14 +9,14 @@ import(
 	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"k8s.io/apimachinery/pkg/runtime"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/vrouter"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/zookeeper"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/rabbitmq"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/control"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/kubemanager"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/webui"
-	"github.com/michaelhenkel/contrail-manager/pkg/controller/vrouter"
-	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
 )
 
 func (r *ReconcileManager) createCrd(instance *contrailv1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
@@ -81,14 +81,42 @@ func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
 
 func (r *ReconcileManager) ManageCrd(instance *contrailv1alpha1.Manager) error{
 	var err error
+	var VrouterStatus contrailv1alpha1.ServiceStatus
+	var CassandraStatus contrailv1alpha1.ServiceStatus
 	var ZookeeperStatus contrailv1alpha1.ServiceStatus
 	var RabbitmqStatus contrailv1alpha1.ServiceStatus
 	var ConfigStatus contrailv1alpha1.ServiceStatus
 	var ControlStatus contrailv1alpha1.ServiceStatus
 	var KubemanagerStatus contrailv1alpha1.ServiceStatus
 	var WebuiStatus contrailv1alpha1.ServiceStatus
-	var VrouterStatus contrailv1alpha1.ServiceStatus
-	var CassandraStatus contrailv1alpha1.ServiceStatus
+	VrouterActive := true
+	if instance.Status.Vrouter == nil {
+		VrouterActive = false
+		active := true
+		VrouterStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Vrouter.Active == nil {
+		VrouterActive = false
+		active := true
+		VrouterStatus = *instance.Status.Vrouter
+		VrouterStatus.Active = &active
+
+	}
+	CassandraActive := true
+	if instance.Status.Cassandra == nil {
+		CassandraActive = false
+		active := true
+		CassandraStatus = contrailv1alpha1.ServiceStatus{
+			Active: &active,
+		}
+	} else if instance.Status.Cassandra.Active == nil {
+		CassandraActive = false
+		active := true
+		CassandraStatus = *instance.Status.Cassandra
+		CassandraStatus.Active = &active
+
+	}
 	ZookeeperActive := true
 	if instance.Status.Zookeeper == nil {
 		ZookeeperActive = false
@@ -173,33 +201,29 @@ func (r *ReconcileManager) ManageCrd(instance *contrailv1alpha1.Manager) error{
 		WebuiStatus.Active = &active
 
 	}
-	VrouterActive := true
-	if instance.Status.Vrouter == nil {
-		VrouterActive = false
-		active := true
-		VrouterStatus = contrailv1alpha1.ServiceStatus{
-			Active: &active,
+	if !VrouterActive{
+		if instance.Spec.Vrouter != nil {
+			VrouterActivated := instance.Spec.Vrouter.Activate
+			if *VrouterActivated{
+				resource := contrailv1alpha1.Vrouter{}
+				err = r.ActivateResource(instance, &resource, crds.GetVrouterCrd())
+				if err != nil {
+					return err
+				}
+			}
 		}
-	} else if instance.Status.Vrouter.Active == nil {
-		VrouterActive = false
-		active := true
-		VrouterStatus = *instance.Status.Vrouter
-		VrouterStatus.Active = &active
-
 	}
-	CassandraActive := true
-	if instance.Status.Cassandra == nil {
-		CassandraActive = false
-		active := true
-		CassandraStatus = contrailv1alpha1.ServiceStatus{
-			Active: &active,
+	if !CassandraActive{
+		if instance.Spec.Cassandra != nil {
+			CassandraActivated := instance.Spec.Cassandra.Activate
+			if *CassandraActivated{
+				resource := contrailv1alpha1.Cassandra{}
+				err = r.ActivateResource(instance, &resource, crds.GetCassandraCrd())
+				if err != nil {
+					return err
+				}
+			}
 		}
-	} else if instance.Status.Cassandra.Active == nil {
-		CassandraActive = false
-		active := true
-		CassandraStatus = *instance.Status.Cassandra
-		CassandraStatus.Active = &active
-
 	}
 	if !ZookeeperActive{
 		if instance.Spec.Zookeeper != nil {
@@ -277,11 +301,15 @@ func (r *ReconcileManager) ManageCrd(instance *contrailv1alpha1.Manager) error{
 		if instance.Spec.Vrouter != nil {
 			VrouterActivated := instance.Spec.Vrouter.Activate
 			if *VrouterActivated{
-				resource := contrailv1alpha1.Vrouter{}
-				err = r.ActivateResource(instance, &resource, crds.GetVrouterCrd())
+				err = vrouter.Add(r.manager)
 				if err != nil {
 					return err
 				}
+			}
+			instance.Status.Vrouter = &VrouterStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -289,11 +317,15 @@ func (r *ReconcileManager) ManageCrd(instance *contrailv1alpha1.Manager) error{
 		if instance.Spec.Cassandra != nil {
 			CassandraActivated := instance.Spec.Cassandra.Activate
 			if *CassandraActivated{
-				resource := contrailv1alpha1.Cassandra{}
-				err = r.ActivateResource(instance, &resource, crds.GetCassandraCrd())
+				err = cassandra.Add(r.manager)
 				if err != nil {
 					return err
 				}
+			}
+			instance.Status.Cassandra = &CassandraStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -387,38 +419,6 @@ func (r *ReconcileManager) ManageCrd(instance *contrailv1alpha1.Manager) error{
 				}
 			}
 			instance.Status.Webui = &WebuiStatus
-			err := r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	if !VrouterActive{
-		if instance.Spec.Vrouter != nil {
-			VrouterActivated := instance.Spec.Vrouter.Activate
-			if *VrouterActivated{
-				err = vrouter.Add(r.manager)
-				if err != nil {
-					return err
-				}
-			}
-			instance.Status.Vrouter = &VrouterStatus
-			err := r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	if !CassandraActive{
-		if instance.Spec.Cassandra != nil {
-			CassandraActivated := instance.Spec.Cassandra.Activate
-			if *CassandraActivated{
-				err = cassandra.Add(r.manager)
-				if err != nil {
-					return err
-				}
-			}
-			instance.Status.Cassandra = &CassandraStatus
 			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err

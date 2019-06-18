@@ -8,7 +8,7 @@ import(
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
-	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	cr "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crs"
 )
 
@@ -31,86 +31,198 @@ func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtim
 	if err != nil && errors.IsNotFound(err) {
 
 		switch groupVersionKind.Kind{
-		case "Webui":
-			var typedObject *v1alpha1.Webui
-			typedObject = newObj.(*v1alpha1.Webui)
-			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
-			err = r.client.Create(context.TODO(), typedObject)
-			if err != nil{
-				reqLogger.Info("Failed to create CR " + name)
-				return err
-			}
-			reqLogger.Info("CR " + name +" Created.")
-		case "Vrouter":
-			var typedObject *v1alpha1.Vrouter
-			typedObject = newObj.(*v1alpha1.Vrouter)
-			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
-			err = r.client.Create(context.TODO(), typedObject)
-			if err != nil{
-				reqLogger.Info("Failed to create CR " + name)
-				return err
-			}
-			reqLogger.Info("CR " + name +" Created.")
 		case "Cassandra":
-			var typedObject *v1alpha1.Cassandra
+			typedObject := &v1alpha1.Cassandra{}
 			typedObject = newObj.(*v1alpha1.Cassandra)
-			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			controllerutil.SetControllerReference(instance, typedObject, r.scheme)
 			err = r.client.Create(context.TODO(), typedObject)
 			if err != nil{
 				reqLogger.Info("Failed to create CR " + name)
 				return err
 			}
 			reqLogger.Info("CR " + name +" Created.")
+			/*
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, typedObject)
+			if err != nil {
+				reqLogger.Info("Failed to get created CR " + name)
+				return err
+			}
+			
+			err = r.client.Update(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to update created CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" updated.")
+			*/
 		case "Zookeeper":
-			var typedObject *v1alpha1.Zookeeper
+			typedObject := &v1alpha1.Zookeeper{}
 			typedObject = newObj.(*v1alpha1.Zookeeper)
-			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			controllerutil.SetControllerReference(instance, typedObject, r.scheme)
 			err = r.client.Create(context.TODO(), typedObject)
 			if err != nil{
 				reqLogger.Info("Failed to create CR " + name)
 				return err
 			}
 			reqLogger.Info("CR " + name +" Created.")
+			/*
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, typedObject)
+			if err != nil {
+				reqLogger.Info("Failed to get created CR " + name)
+				return err
+			}
+			
+			err = r.client.Update(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to update created CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" updated.")
+			*/
 		case "Rabbitmq":
-			var typedObject *v1alpha1.Rabbitmq
+			typedObject := &v1alpha1.Rabbitmq{}
 			typedObject = newObj.(*v1alpha1.Rabbitmq)
-			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			controllerutil.SetControllerReference(instance, typedObject, r.scheme)
 			err = r.client.Create(context.TODO(), typedObject)
 			if err != nil{
 				reqLogger.Info("Failed to create CR " + name)
 				return err
 			}
 			reqLogger.Info("CR " + name +" Created.")
+			/*
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, typedObject)
+			if err != nil {
+				reqLogger.Info("Failed to get created CR " + name)
+				return err
+			}
+			
+			err = r.client.Update(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to update created CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" updated.")
+			*/
 		case "Config":
-			var typedObject *v1alpha1.Config
+			typedObject := &v1alpha1.Config{}
 			typedObject = newObj.(*v1alpha1.Config)
-			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			controllerutil.SetControllerReference(instance, typedObject, r.scheme)
 			err = r.client.Create(context.TODO(), typedObject)
 			if err != nil{
 				reqLogger.Info("Failed to create CR " + name)
 				return err
 			}
 			reqLogger.Info("CR " + name +" Created.")
+			/*
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, typedObject)
+			if err != nil {
+				reqLogger.Info("Failed to get created CR " + name)
+				return err
+			}
+			
+			err = r.client.Update(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to update created CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" updated.")
+			*/
 		case "Control":
-			var typedObject *v1alpha1.Control
+			typedObject := &v1alpha1.Control{}
 			typedObject = newObj.(*v1alpha1.Control)
-			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			controllerutil.SetControllerReference(instance, typedObject, r.scheme)
 			err = r.client.Create(context.TODO(), typedObject)
 			if err != nil{
 				reqLogger.Info("Failed to create CR " + name)
 				return err
 			}
 			reqLogger.Info("CR " + name +" Created.")
+			/*
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, typedObject)
+			if err != nil {
+				reqLogger.Info("Failed to get created CR " + name)
+				return err
+			}
+			
+			err = r.client.Update(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to update created CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" updated.")
+			*/
 		case "Kubemanager":
-			var typedObject *v1alpha1.Kubemanager
+			typedObject := &v1alpha1.Kubemanager{}
 			typedObject = newObj.(*v1alpha1.Kubemanager)
-			//controllerutil.SetControllerReference(typedObject, typedObject, r.scheme)
+			controllerutil.SetControllerReference(instance, typedObject, r.scheme)
 			err = r.client.Create(context.TODO(), typedObject)
 			if err != nil{
 				reqLogger.Info("Failed to create CR " + name)
 				return err
 			}
 			reqLogger.Info("CR " + name +" Created.")
+			/*
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, typedObject)
+			if err != nil {
+				reqLogger.Info("Failed to get created CR " + name)
+				return err
+			}
+			
+			err = r.client.Update(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to update created CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" updated.")
+			*/
+		case "Webui":
+			typedObject := &v1alpha1.Webui{}
+			typedObject = newObj.(*v1alpha1.Webui)
+			controllerutil.SetControllerReference(instance, typedObject, r.scheme)
+			err = r.client.Create(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to create CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" Created.")
+			/*
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, typedObject)
+			if err != nil {
+				reqLogger.Info("Failed to get created CR " + name)
+				return err
+			}
+			
+			err = r.client.Update(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to update created CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" updated.")
+			*/
+		case "Vrouter":
+			typedObject := &v1alpha1.Vrouter{}
+			typedObject = newObj.(*v1alpha1.Vrouter)
+			controllerutil.SetControllerReference(instance, typedObject, r.scheme)
+			err = r.client.Create(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to create CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" Created.")
+			/*
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, typedObject)
+			if err != nil {
+				reqLogger.Info("Failed to get created CR " + name)
+				return err
+			}
+			
+			err = r.client.Update(context.TODO(), typedObject)
+			if err != nil{
+				reqLogger.Info("Failed to update created CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name +" updated.")
+			*/
 		}
 	}
 	return nil
@@ -147,66 +259,14 @@ func (r *ReconcileManager) UpdateResource(instance *v1alpha1.Manager, obj runtim
 
 func (r *ReconcileManager) ManageCr(instance *v1alpha1.Manager) error{
 	var err error
-	var WebuiStatus v1alpha1.ServiceStatus
-	var VrouterStatus v1alpha1.ServiceStatus
 	var CassandraStatus v1alpha1.ServiceStatus
 	var ZookeeperStatus v1alpha1.ServiceStatus
 	var RabbitmqStatus v1alpha1.ServiceStatus
 	var ConfigStatus v1alpha1.ServiceStatus
 	var ControlStatus v1alpha1.ServiceStatus
 	var KubemanagerStatus v1alpha1.ServiceStatus
-	WebuiCreated := true
-	if instance.Status.Webui == nil {
-		WebuiCreated = false
-		WebuiStatus = v1alpha1.ServiceStatus{
-			Created: instance.Spec.Webui.Create,
-		}
-	} else if instance.Status.Webui.Created == nil {
-		WebuiCreated = false
-		WebuiStatus = *instance.Status.Webui
-		WebuiStatus.Created = instance.Spec.Webui.Create
-	} else if *instance.Status.Webui.Created && !*instance.Spec.Webui.Create {
-		cr := cr.GetWebuiCr()
-		cr.Name = instance.Name
-		cr.Namespace = instance.Namespace
-		err := r.client.Delete(context.TODO(), cr)
-		if err != nil {
-			return err
-		}
-		instance.Status.Webui.Created = instance.Spec.Webui.Create
-		err = r.client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			return err
-		}
-	} else if !*instance.Status.Webui.Created && *instance.Spec.Webui.Create {
-		WebuiCreated = false
-	}
-	VrouterCreated := true
-	if instance.Status.Vrouter == nil {
-		VrouterCreated = false
-		VrouterStatus = v1alpha1.ServiceStatus{
-			Created: instance.Spec.Vrouter.Create,
-		}
-	} else if instance.Status.Vrouter.Created == nil {
-		VrouterCreated = false
-		VrouterStatus = *instance.Status.Vrouter
-		VrouterStatus.Created = instance.Spec.Vrouter.Create
-	} else if *instance.Status.Vrouter.Created && !*instance.Spec.Vrouter.Create {
-		cr := cr.GetVrouterCr()
-		cr.Name = instance.Name
-		cr.Namespace = instance.Namespace
-		err := r.client.Delete(context.TODO(), cr)
-		if err != nil {
-			return err
-		}
-		instance.Status.Vrouter.Created = instance.Spec.Vrouter.Create
-		err = r.client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			return err
-		}
-	} else if !*instance.Status.Vrouter.Created && *instance.Spec.Vrouter.Create {
-		VrouterCreated = false
-	}
+	var WebuiStatus v1alpha1.ServiceStatus
+	var VrouterStatus v1alpha1.ServiceStatus
 	CassandraCreated := true
 	if instance.Status.Cassandra == nil {
 		CassandraCreated = false
@@ -363,57 +423,57 @@ func (r *ReconcileManager) ManageCr(instance *v1alpha1.Manager) error{
 	} else if !*instance.Status.Kubemanager.Created && *instance.Spec.Kubemanager.Create {
 		KubemanagerCreated = false
 	}
-	if !WebuiCreated{
-		if instance.Spec.Webui != nil{
-			WebuiCreated := instance.Spec.Webui.Create
-			if *WebuiCreated{
-				cr := cr.GetWebuiCr()
-				cr.Spec.Service = instance.Spec.Webui
-				cr.Name = instance.Name
-				cr.Namespace = instance.Namespace
-				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
-				if err != nil {
-					return err
-				}
-				/*
-				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
-				if err != nil {
-					return err
-				}
-				*/	
-			}
-			instance.Status.Webui = &WebuiStatus
-			err := r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				return err
-			}			
+	WebuiCreated := true
+	if instance.Status.Webui == nil {
+		WebuiCreated = false
+		WebuiStatus = v1alpha1.ServiceStatus{
+			Created: instance.Spec.Webui.Create,
 		}
+	} else if instance.Status.Webui.Created == nil {
+		WebuiCreated = false
+		WebuiStatus = *instance.Status.Webui
+		WebuiStatus.Created = instance.Spec.Webui.Create
+	} else if *instance.Status.Webui.Created && !*instance.Spec.Webui.Create {
+		cr := cr.GetWebuiCr()
+		cr.Name = instance.Name
+		cr.Namespace = instance.Namespace
+		err := r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
+		}
+		instance.Status.Webui.Created = instance.Spec.Webui.Create
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	} else if !*instance.Status.Webui.Created && *instance.Spec.Webui.Create {
+		WebuiCreated = false
 	}
-	if !VrouterCreated{
-		if instance.Spec.Vrouter != nil{
-			VrouterCreated := instance.Spec.Vrouter.Create
-			if *VrouterCreated{
-				cr := cr.GetVrouterCr()
-				cr.Spec.Service = instance.Spec.Vrouter
-				cr.Name = instance.Name
-				cr.Namespace = instance.Namespace
-				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
-				if err != nil {
-					return err
-				}
-				/*
-				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
-				if err != nil {
-					return err
-				}
-				*/	
-			}
-			instance.Status.Vrouter = &VrouterStatus
-			err := r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				return err
-			}			
+	VrouterCreated := true
+	if instance.Status.Vrouter == nil {
+		VrouterCreated = false
+		VrouterStatus = v1alpha1.ServiceStatus{
+			Created: instance.Spec.Vrouter.Create,
 		}
+	} else if instance.Status.Vrouter.Created == nil {
+		VrouterCreated = false
+		VrouterStatus = *instance.Status.Vrouter
+		VrouterStatus.Created = instance.Spec.Vrouter.Create
+	} else if *instance.Status.Vrouter.Created && !*instance.Spec.Vrouter.Create {
+		cr := cr.GetVrouterCr()
+		cr.Name = instance.Name
+		cr.Namespace = instance.Namespace
+		err := r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
+		}
+		instance.Status.Vrouter.Created = instance.Spec.Vrouter.Create
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	} else if !*instance.Status.Vrouter.Created && *instance.Spec.Vrouter.Create {
+		VrouterCreated = false
 	}
 	if !CassandraCreated{
 		if instance.Spec.Cassandra != nil{
@@ -565,6 +625,58 @@ func (r *ReconcileManager) ManageCr(instance *v1alpha1.Manager) error{
 				*/	
 			}
 			instance.Status.Kubemanager = &KubemanagerStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}			
+		}
+	}
+	if !WebuiCreated{
+		if instance.Spec.Webui != nil{
+			WebuiCreated := instance.Spec.Webui.Create
+			if *WebuiCreated{
+				cr := cr.GetWebuiCr()
+				cr.Spec.Service = instance.Spec.Webui
+				cr.Name = instance.Name
+				cr.Namespace = instance.Namespace
+				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}
+				/*
+				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}
+				*/	
+			}
+			instance.Status.Webui = &WebuiStatus
+			err := r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return err
+			}			
+		}
+	}
+	if !VrouterCreated{
+		if instance.Spec.Vrouter != nil{
+			VrouterCreated := instance.Spec.Vrouter.Create
+			if *VrouterCreated{
+				cr := cr.GetVrouterCr()
+				cr.Spec.Service = instance.Spec.Vrouter
+				cr.Name = instance.Name
+				cr.Namespace = instance.Namespace
+				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}
+				/*
+				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
+				if err != nil {
+					return err
+				}
+				*/	
+			}
+			instance.Status.Vrouter = &VrouterStatus
 			err := r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return err
