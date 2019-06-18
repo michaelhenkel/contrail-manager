@@ -56,7 +56,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch for changes to secondary resource Pods and requeue the owner Control
 	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Cassandra{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &contrailv1alpha1.Cassandra{},
+		OwnerType:    &contrailv1alpha1.Manager{},
 	})
 	if err != nil {
 		return err
@@ -64,7 +64,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Zookeeper{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &contrailv1alpha1.Zookeeper{},
+		OwnerType:    &contrailv1alpha1.Manager{},
 	})
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Rabbitmq{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &contrailv1alpha1.Rabbitmq{},
+		OwnerType:    &contrailv1alpha1.Manager{},
 	})
 	if err != nil {
 		return err
@@ -80,7 +80,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Config{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &contrailv1alpha1.Config{},
+		OwnerType:    &contrailv1alpha1.Manager{},
 	})
 	if err != nil {
 		return err
@@ -228,6 +228,17 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	// Get default Deployment
 	deployment := GetDeployment()
+
+	if managerInstance.Spec.ImagePullSecrets != nil {
+		var imagePullSecretsList []corev1.LocalObjectReference
+		for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
+			imagePullSecret := corev1.LocalObjectReference{
+				Name: imagePullSecretName,
+			}
+			imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
+		}
+		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
+	}
 
 	if instance.Spec.Service.Configuration == nil {
 		instance.Spec.Service.Configuration = make(map[string]string)

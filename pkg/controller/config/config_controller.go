@@ -203,6 +203,17 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 	// Get default Deployment
 	deployment := GetDeployment()
 
+	if managerInstance.Spec.ImagePullSecrets != nil {
+		var imagePullSecretsList []corev1.LocalObjectReference
+		for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
+			imagePullSecret := corev1.LocalObjectReference{
+				Name: imagePullSecretName,
+			}
+			imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
+		}
+		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
+	}
+
 	// Create initial ConfigMap
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

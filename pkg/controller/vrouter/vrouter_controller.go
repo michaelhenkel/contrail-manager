@@ -57,7 +57,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Config{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &contrailv1alpha1.Config{},
+		OwnerType:    &contrailv1alpha1.Manager{},
 	})
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Control{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &contrailv1alpha1.Control{},
+		OwnerType:    &contrailv1alpha1.Manager{},
 	})
 	if err != nil {
 		return err
@@ -175,6 +175,17 @@ func (r *ReconcileVrouter) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	// Get default Daemonset
 	daemonset := GetDaemonset()
+
+	if managerInstance.Spec.ImagePullSecrets != nil {
+		var imagePullSecretsList []corev1.LocalObjectReference
+		for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
+			imagePullSecret := corev1.LocalObjectReference{
+				Name: imagePullSecretName,
+			}
+			imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
+		}
+		daemonset.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
+	}
 
 	if instance.Spec.Service.Configuration == nil {
 		instance.Spec.Service.Configuration = make(map[string]string)
