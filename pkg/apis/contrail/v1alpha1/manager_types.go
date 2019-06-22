@@ -24,18 +24,18 @@ type ManagerSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Config              *Service          `json:"config,omitempty"`
-	Control             *Service          `json:"control,omitempty"`
-	Kubemanager         *Service          `json:"kubemanager,omitempty"`
-	Webui               *Service          `json:"webui,omitempty"`
-	Vrouter             *Service          `json:"vrouter,omitempty"`
-	Cassandra           *Service          `json:"cassandra,omitempty"`
-	Zookeeper           *Service          `json:"zookeeper,omitempty"`
-	Rabbitmq            *Service          `json:"rabbitmq,omitempty"`
-	Size                *int32            `json:"size,omitempty"`
-	HostNetwork         *bool             `json:"hostNetwork,omitempty"`
-	ContrailStatusImage string            `json:"contrailStatusImage,omitempty"`
-	ImagePullSecrets    map[string]string `json:"imagePullSecrets,omitempty"`
+	Config              *Service `json:"config,omitempty"`
+	Control             *Service `json:"control,omitempty"`
+	Kubemanager         *Service `json:"kubemanager,omitempty"`
+	Webui               *Service `json:"webui,omitempty"`
+	Vrouter             *Service `json:"vrouter,omitempty"`
+	Cassandra           *Service `json:"cassandra,omitempty"`
+	Zookeeper           *Service `json:"zookeeper,omitempty"`
+	Rabbitmq            *Service `json:"rabbitmq,omitempty"`
+	Size                *int32   `json:"size,omitempty"`
+	HostNetwork         *bool    `json:"hostNetwork,omitempty"`
+	ContrailStatusImage string   `json:"contrailStatusImage,omitempty"`
+	ImagePullSecrets    []string `json:"imagePullSecrets,omitempty"`
 }
 
 // ManagerStatus defines the observed state of Manager

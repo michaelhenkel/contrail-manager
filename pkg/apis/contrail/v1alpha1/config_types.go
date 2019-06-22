@@ -18,15 +18,6 @@ type ConfigSpec struct {
 	ContrailStatusImage string   `json:"contrailStatusImage,omitempty"`
 }
 
-// ConfigStatus defines the observed state of Config
-// +k8s:openapi-gen=true
-type ConfigStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Active *bool `json:"active"`
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Config is the Schema for the configs API

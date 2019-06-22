@@ -147,6 +147,17 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 	deployment.ObjectMeta.Name = "zookeeper-" + instance.Name
 	deployment.ObjectMeta.Namespace = instance.Namespace
 
+	if managerInstance.Spec.ImagePullSecrets != nil {
+		var imagePullSecretsList []corev1.LocalObjectReference
+		for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
+			imagePullSecret := corev1.LocalObjectReference{
+				Name: imagePullSecretName,
+			}
+			imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
+		}
+		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
+	}
+
 	//command = []string{"/bin/sh", "-c", "while true; do echo hello; sleep 10;done"}
 
 	//readinessCommand := []string{"/bin/bash", "-c", "OK=$(echo ruok | nc 127.0.0.1 2181); if [[ ${OK} == \"imok\" ]]; then exit 0; else exit 1;fi"}

@@ -4,42 +4,44 @@ kind: Manager
 metadata:
   name: cluster-1
 spec:
-  size: 1
+  size: 3
   hostNetwork: true
-  contrailStatusImage: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
+  contrailStatusImage: hub.juniper.net/contrail-nightly/contrail-status:5.2.0-0.740
+  imagePullSecrets:
+  - contrail-nightly
   config:
     activate: true
     create: true
     configuration:
       CLOUD_ORCHESTRATOR: kubernetes
     images:
-      api: docker.io/michaelhenkel/contrail-controller-config-api:5.2.0-dev1
-      devicemanager: docker.io/michaelhenkel/contrail-controller-config-devicemgr:5.2.0-dev1
-      schematransformer: docker.io/michaelhenkel/contrail-controller-config-schema:5.2.0-dev1
-      servicemonitor: docker.io/michaelhenkel/contrail-controller-config-svcmonitor:5.2.0-dev1
-      analyticsapi: docker.io/michaelhenkel/contrail-analytics-api:5.2.0-dev1
-      collector: docker.io/michaelhenkel/contrail-analytics-collector:5.2.0-dev1
-      redis: docker.io/michaelhenkel/contrail-external-redis:5.2.0-dev1
-      nodemanagerconfig: docker.io/michaelhenkel/contrail-nodemgr:5.2.0-dev1
-      nodemanageranalytics: docker.io/michaelhenkel/contrail-nodemgr:5.2.0-dev1
-      nodeinit: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
+      api: hub.juniper.net/contrail-nightly/contrail-controller-config-api:5.2.0-0.740
+      devicemanager: hub.juniper.net/contrail-nightly/contrail-controller-config-devicemgr:5.2.0-0.740
+      schematransformer: hub.juniper.net/contrail-nightly/contrail-controller-config-schema:5.2.0-0.740
+      servicemonitor: hub.juniper.net/contrail-nightly/contrail-controller-config-svcmonitor:5.2.0-0.740
+      analyticsapi: hub.juniper.net/contrail-nightly/contrail-analytics-api:5.2.0-0.740
+      collector: hub.juniper.net/contrail-nightly/contrail-analytics-collector:5.2.0-0.740
+      redis: hub.juniper.net/contrail-nightly/contrail-external-redis:5.2.0-0.740
+      nodemanagerconfig: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
+      nodemanageranalytics: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
+      nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
       init: busybox
   control:
     activate: true
     create: true
     images:
-      control: docker.io/michaelhenkel/contrail-controller-control-control:5.2.0-dev1
-      dns: docker.io/michaelhenkel/contrail-controller-control-dns:5.2.0-dev1
-      named: docker.io/michaelhenkel/contrail-controller-control-named:5.2.0-dev1
-      nodemanager: docker.io/michaelhenkel/contrail-nodemgr:5.2.0-dev1
-      nodeinit: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
+      control: hub.juniper.net/contrail-nightly/contrail-controller-control-control:5.2.0-0.740
+      dns: hub.juniper.net/contrail-nightly/contrail-controller-control-dns:5.2.0-0.740
+      named: hub.juniper.net/contrail-nightly/contrail-controller-control-named:5.2.0-0.740
+      nodemanager: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
+      nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
       init: busybox
   kubemanager:
     activate: true
     create: true
     images:
-      kubemanager: docker.io/michaelhenkel/contrail-kubernetes-kube-manager:5.2.0-dev1
-      nodeinit: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
+      kubemanager: hub.juniper.net/contrail-nightly/contrail-kubernetes-kube-manager:5.2.0-0.740
+      nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
       init: busybox
     configuration:
       serviceAccount: contrail-service-account
@@ -59,18 +61,18 @@ spec:
     activate: true
     create: true
     images:
-      webuiweb: docker.io/michaelhenkel/contrail-controller-webui-web:5.2.0-dev1
-      webuijob: docker.io/michaelhenkel/contrail-controller-webui-job:5.2.0-dev1
-      nodeinit: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
+      webuiweb: hub.juniper.net/contrail-nightly/contrail-controller-webui-web:5.2.0-0.740
+      webuijob: hub.juniper.net/contrail-nightly/contrail-controller-webui-job:5.2.0-0.740
+      nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
   vrouter:
     activate: true
     create: true
     images:
-      vrouteragent: docker.io/michaelhenkel/contrail-vrouter-agent:5.2.0-dev1
-      vrouterkernelinit: docker.io/michaelhenkel/contrail-vrouter-kernel-init:5.2.0-dev1
-      vroutercni: docker.io/michaelhenkel/contrail-kubernetes-cni-init:5.2.0-dev1
-      nodemanager: docker.io/michaelhenkel/contrail-nodemgr:5.2.0-dev1
-      nodeinit: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
+      vrouteragent: hub.juniper.net/contrail-nightly/contrail-vrouter-agent:5.2.0-0.740
+      vrouterkernelinit: hub.juniper.net/contrail-nightly/contrail-vrouter-kernel-init:5.2.0-0.740
+      vroutercni: hub.juniper.net/contrail-nightly/contrail-kubernetes-cni-init:5.2.0-0.740
+      nodemanager: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
+      nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
   cassandra:
     activate: true
     create: true
@@ -93,7 +95,7 @@ spec:
     activate: true
     create: true
     images:
-      zookeeper: docker.io/michaelhenkel/contrail-external-zookeeper:5.2.0-dev1
+      zookeeper: hub.juniper.net/contrail-nightly/contrail-external-zookeeper:5.2.0-0.740
       init: busybox
     configuration:
       ZOOKEEPER_PORT: "2181"
@@ -103,7 +105,7 @@ spec:
     activate: true
     create: true
     images:
-      rabbitmq: docker.io/michaelhenkel/contrail-external-rabbitmq:5.2.0-dev1
+      rabbitmq: hub.juniper.net/contrail-nightly/contrail-external-rabbitmq:5.2.0-0.740
       init: busybox
     configuration:
       RABBITMQ_ERLANG_COOKIE: "47EFF3BB-4786-46E0-A5BB-58455B3C2CB4"
