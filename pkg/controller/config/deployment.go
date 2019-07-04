@@ -30,7 +30,7 @@ spec:
         name: api
         readinessProbe:
           httpGet:
-            path: /documentation/index.html
+            path: /
             port: 8082
         volumeMounts:
         - mountPath: /var/log/contrail

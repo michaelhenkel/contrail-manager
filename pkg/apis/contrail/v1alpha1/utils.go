@@ -94,6 +94,10 @@ func InitContainerRunning(cl client.Client,
 				status.Active = &active
 			}
 			status.Nodes = podIpMap
+			err = cl.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, ro)
+			if err != nil {
+				return false, err
+			}
 			err = cl.Status().Update(context.TODO(), ro)
 			if err != nil {
 				return false, err

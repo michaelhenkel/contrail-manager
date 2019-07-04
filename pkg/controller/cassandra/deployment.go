@@ -22,6 +22,7 @@ spec:
       labels:
         app: cassandra
         cassandra_cr: cassandra
+        contrail_manager: cassandra
     spec:
       terminationGracePeriodSeconds: 1800
       containers:

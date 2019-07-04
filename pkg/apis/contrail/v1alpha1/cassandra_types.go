@@ -7,17 +7,6 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// CassandraSpec defines the desired state of Cassandra
-// +k8s:openapi-gen=true
-type CassandraSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	HostNetwork         *bool    `json:"hostNetwork,omitempty"`
-	Service             *Service `json:"service,omitempty"`
-	ContrailStatusImage string   `json:"contrailStatusImage,omitempty"`
-}
-
 // CassandraStatus defines the observed state of Cassandra
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -29,8 +18,8 @@ type Cassandra struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CassandraSpec `json:"spec,omitempty"`
-	Status Status        `json:"status,omitempty"`
+	Spec   *Service `json:"spec,omitempty"`
+	Status Status   `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

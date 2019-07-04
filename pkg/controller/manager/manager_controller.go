@@ -2,9 +2,8 @@ package manager
 
 import (
 	"context"
-	//"fmt"
 
-	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	//crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
 	//"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
 	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -65,7 +64,7 @@ func createController(mgr manager.Manager, r reconcile.Reconciler) (controller.C
 }
 
 func addManagerWatch(c controller.Controller) error {
-	err := c.Watch(&source.Kind{Type: &contrailv1alpha1.Manager{}}, &handler.EnqueueRequestForObject{})
+	err := c.Watch(&source.Kind{Type: &v1alpha1.Manager{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -84,7 +83,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) (controller.Controller, er
 	//reconcileManager = r.(ReconcileManager)
 
 	// Watch for changes to primary resource Manager
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Manager{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &v1alpha1.Manager{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return c, err
 	}
@@ -94,10 +93,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) (controller.Controller, er
 func (r *ReconcileManager) addWatch(ro runtime.Object) error {
 
 	controller := r.controller
-	//err := controller.Watch(&source.Kind{Type: &contrailv1alpha1.Config{}}, &handler.EnqueueRequestForOwner{
+	//err := controller.Watch(&source.Kind{Type: &v1alpha1.Config{}}, &handler.EnqueueRequestForOwner{
 	err := controller.Watch(&source.Kind{Type: ro}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &contrailv1alpha1.Manager{},
+		OwnerType:    &v1alpha1.Manager{},
 	})
 	if err != nil {
 		return err
@@ -120,9 +119,9 @@ type ReconcileManager struct {
 }
 
 func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger := log.WithValues("Request.NamespaceX", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Manager")
-	instance := &contrailv1alpha1.Manager{}
+	instance := &v1alpha1.Manager{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -130,12 +129,13 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 		return reconcile.Result{}, err
 	}
-	err = r.ManageCrd(instance)
+
+	err = r.ManageCrd(request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	err = r.ManageCr(instance)
+	err = r.ManageCr(request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
