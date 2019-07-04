@@ -15,6 +15,7 @@ import (
 	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	//"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
@@ -38,7 +39,7 @@ var log = logf.Log.WithName("controller_manager")
 func Add(mgr manager.Manager) error {
 	apiextensionsv1beta1.AddToScheme(scheme.Scheme)
 	var r reconcile.Reconciler
-	reconcileManager := ReconcileManager{client: mgr.GetClient(), scheme: mgr.GetScheme(), manager: mgr}
+	reconcileManager := ReconcileManager{client: mgr.GetClient(), scheme: mgr.GetScheme(), manager: mgr, cache: mgr.GetCache()}
 	r = &reconcileManager
 	//r := newReconciler(mgr)
 	c, err := createController(mgr, r)
@@ -47,12 +48,6 @@ func Add(mgr manager.Manager) error {
 	}
 	reconcileManager.controller = c
 	return addManagerWatch(c)
-}
-
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	apiextensionsv1beta1.AddToScheme(scheme.Scheme)
-	return &ReconcileManager{client: mgr.GetClient(), scheme: mgr.GetScheme(), manager: mgr}
 }
 
 func createController(mgr manager.Manager, r reconcile.Reconciler) (controller.Controller, error) {
@@ -116,6 +111,7 @@ type ReconcileManager struct {
 	scheme     *runtime.Scheme
 	manager    manager.Manager
 	controller controller.Controller
+	cache      cache.Cache
 }
 
 func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Result, error) {

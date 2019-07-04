@@ -4,8 +4,9 @@ package v1alpha1
 
 // +k8s:openapi-gen=true
 type ServiceStatus struct {
-	Active  *bool `json:"active,omitempty"`
-	Created *bool `json:"created,omitempty"`
+	Active            *bool `json:"active,omitempty"`
+	Created           *bool `json:"created,omitempty"`
+	ControllerRunning *bool `json:"controllerRunning,omitempty"`
 }
 
 // +k8s:openapi-gen=true
