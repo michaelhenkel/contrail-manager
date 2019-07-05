@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,6 +31,14 @@ type CassandraList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Cassandra `json:"items"`
+}
+
+func (c Cassandra) Crd() *apiextensionsv1beta1.CustomResourceDefinition {
+	return crds.GetCassandraCrd()
+}
+
+func (c Cassandra) GetCrd() *apiextensionsv1beta1.CustomResourceDefinition {
+	return crds.GetCassandraCrd()
 }
 
 func init() {

@@ -162,11 +162,11 @@ func (r *ReconcileVrouter) Reconcile(request reconcile.Request) (reconcile.Resul
 			reqLogger.Info("No Manager Instance")
 		}
 	} else {
-		instance.Spec.Service = managerInstance.Spec.Vrouter
-		if managerInstance.Spec.Vrouter.Size != nil {
-			instance.Spec.Service.Size = managerInstance.Spec.Vrouter.Size
+		instance.Spec = managerInstance.Spec.Services.Vrouter
+		if managerInstance.Spec.Services.Vrouter.Size != nil {
+			instance.Spec.Size = managerInstance.Spec.Services.Vrouter.Size
 		} else {
-			instance.Spec.Service.Size = managerInstance.Spec.Size
+			instance.Spec.Size = managerInstance.Spec.Size
 		}
 		if managerInstance.Spec.HostNetwork != nil {
 			instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
@@ -187,14 +187,14 @@ func (r *ReconcileVrouter) Reconcile(request reconcile.Request) (reconcile.Resul
 		daemonset.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
 	}
 
-	if instance.Spec.Service.Configuration == nil {
-		instance.Spec.Service.Configuration = make(map[string]string)
+	if instance.Spec.Configuration == nil {
+		instance.Spec.Configuration = make(map[string]string)
 		reqLogger.Info("config map empty, initializing it")
 	}
 
-	instance.Spec.Service.Configuration["CONFIG_NODES"] = configNodeList
-	instance.Spec.Service.Configuration["ANALYTICS_NODES"] = configNodeList
-	instance.Spec.Service.Configuration["CONTROL_NODES"] = controlNodeList
+	instance.Spec.Configuration["CONFIG_NODES"] = configNodeList
+	instance.Spec.Configuration["ANALYTICS_NODES"] = configNodeList
+	instance.Spec.Configuration["CONTROL_NODES"] = controlNodeList
 
 	// Create initial ConfigMap
 	configMap := corev1.ConfigMap{
@@ -202,7 +202,7 @@ func (r *ReconcileVrouter) Reconcile(request reconcile.Request) (reconcile.Resul
 			Name:      "vrouter-" + instance.Name,
 			Namespace: instance.Namespace,
 		},
-		Data: instance.Spec.Service.Configuration,
+		Data: instance.Spec.Configuration,
 	}
 	controllerutil.SetControllerReference(instance, &configMap, r.scheme)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "vrouter-" + instance.Name, Namespace: instance.Namespace}, &configMap)
@@ -221,7 +221,7 @@ func (r *ReconcileVrouter) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	// Configure Containers
 	for idx, container := range daemonset.Spec.Template.Spec.Containers {
-		for containerName, image := range instance.Spec.Service.Images {
+		for containerName, image := range instance.Spec.Images {
 			if containerName == container.Name {
 				(&daemonset.Spec.Template.Spec.Containers[idx]).Image = image
 				(&daemonset.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "vrouter-" + instance.Name
@@ -231,7 +231,7 @@ func (r *ReconcileVrouter) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	// Configure InitContainers
 	for idx, container := range daemonset.Spec.Template.Spec.InitContainers {
-		for containerName, image := range instance.Spec.Service.Images {
+		for containerName, image := range instance.Spec.Images {
 			if containerName == container.Name {
 				(&daemonset.Spec.Template.Spec.InitContainers[idx]).Image = image
 				(&daemonset.Spec.Template.Spec.InitContainers[idx]).EnvFrom[0].ConfigMapRef.Name = "vrouter-" + instance.Name

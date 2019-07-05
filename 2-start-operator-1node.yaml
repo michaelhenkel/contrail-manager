@@ -1,0 +1,114 @@
+---
+apiVersion: contrail.juniper.net/v1alpha1
+kind: Manager
+metadata:
+  name: cluster-1
+spec:
+  size: 1
+  hostNetwork: false
+  contrailStatusImage: hub.juniper.net/contrail-nightly/contrail-status:5.2.0-0.740
+  imagePullSecrets:
+  - contrail-nightly
+  services:
+    config:
+      activate: false
+      create: false
+      configuration:
+        CLOUD_ORCHESTRATOR: kubernetes
+      images:
+        api: hub.juniper.net/contrail-nightly/contrail-controller-config-api:5.2.0-0.740
+        devicemanager: hub.juniper.net/contrail-nightly/contrail-controller-config-devicemgr:5.2.0-0.740
+        schematransformer: hub.juniper.net/contrail-nightly/contrail-controller-config-schema:5.2.0-0.740
+        servicemonitor: hub.juniper.net/contrail-nightly/contrail-controller-config-svcmonitor:5.2.0-0.740
+        analyticsapi: hub.juniper.net/contrail-nightly/contrail-analytics-api:5.2.0-0.740
+        collector: hub.juniper.net/contrail-nightly/contrail-analytics-collector:5.2.0-0.740
+        redis: hub.juniper.net/contrail-nightly/contrail-external-redis:5.2.0-0.740
+        nodemanagerconfig: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
+        nodemanageranalytics: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
+        nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
+        init: busybox
+    control:
+      activate: false
+      create: false
+      images:
+        control: hub.juniper.net/contrail-nightly/contrail-controller-control-control:5.2.0-0.740
+        dns: hub.juniper.net/contrail-nightly/contrail-controller-control-dns:5.2.0-0.740
+        named: hub.juniper.net/contrail-nightly/contrail-controller-control-named:5.2.0-0.740
+        nodemanager: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
+        nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
+        init: busybox
+    kubemanager:
+      activate: false
+      create: false
+      images:
+        kubemanager: hub.juniper.net/contrail-nightly/contrail-kubernetes-kube-manager:5.2.0-0.740
+        nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
+        init: busybox
+      configuration:
+        serviceAccount: contrail-service-account
+        clusterRoleBinding: contrail-cluster-role-binding
+        clusterRole: contrail-cluster-role
+        CLOUD_ORCHESTRATOR: kubernetes
+        #USE_KUBEADM_CONFIG: "true"
+        KUBERNETES_API_SERVER: "10.96.0.1"
+        KUBERNETES_API_SECURE_PORT: "443"
+        KUBERNETES_POD_SUBNETS: 10.32.0.0/12
+        KUBERNETES_SERVICE_SUBNETS: 10.96.0.0/12
+        KUBERNETES_CLUSTER_NAME: kubernetes
+        KUBERNETES_IP_FABRIC_FORWARDING: "true"
+        KUBERNETES_IP_FABRIC_SNAT: "true"
+        K8S_TOKEN_FILE: /var/run/secrets/kubernetes.io/serviceaccount/token
+    webui:
+      activate: false
+      create: false
+      images:
+        webuiweb: hub.juniper.net/contrail-nightly/contrail-controller-webui-web:5.2.0-0.740
+        webuijob: hub.juniper.net/contrail-nightly/contrail-controller-webui-job:5.2.0-0.740
+        nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
+    vrouter:
+      activate: false
+      create: false
+      images:
+        vrouteragent: hub.juniper.net/contrail-nightly/contrail-vrouter-agent:5.2.0-0.740
+        vrouterkernelinit: hub.juniper.net/contrail-nightly/contrail-vrouter-kernel-init:5.2.0-0.740
+        vroutercni: hub.juniper.net/contrail-nightly/contrail-kubernetes-cni-init:5.2.0-0.740
+        nodemanager: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
+        nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
+    cassandra:
+      activate: true
+      create: true
+      images:
+        cassandra: gcr.io/google-samples/cassandra:v13
+        init: busybox
+      configuration:
+        CASSANDRA_LISTEN_ADDRESS: "auto"
+        CASSANDRA_PORT: "9160"
+        CASSANDRA_CQL_PORT: "9042"
+        CASSANDRA_SSL_STORAGE_PORT: "7001"
+        CASSANDRA_STORAGE_PORT: "7000"
+        CASSANDRA_JMX_LOCAL_PORT: "7199"
+        CASSANDRA_START_RPC: "true"
+        CASSANDRA_CLUSTER_NAME: "ContrailConfigDB"
+        MAX_HEAP_SIZE: 512M
+        HEAP_NEWSIZE: 100M
+        NODE_TYPE: "config-database"
+    zookeeper:
+      activate: false
+      create: false
+      images:
+        zookeeper: hub.juniper.net/contrail-nightly/contrail-external-zookeeper:5.2.0-0.740
+        init: busybox
+      configuration:
+        ZOOKEEPER_PORT: "2181"
+        ZOOKEEPER_PORTS: "2888:3888"
+        NODE_TYPE: "config-database"
+    rabbitmq:
+      activate: false
+      create: false
+      images:
+        rabbitmq: hub.juniper.net/contrail-nightly/contrail-external-rabbitmq:5.2.0-0.740
+        init: busybox
+      configuration:
+        RABBITMQ_ERLANG_COOKIE: "47EFF3BB-4786-46E0-A5BB-58455B3C2CB4"
+        RABBITMQ_NODE_PORT: "5673"
+        NODE_TYPE: "config-database"

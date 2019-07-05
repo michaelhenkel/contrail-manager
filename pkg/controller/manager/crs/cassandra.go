@@ -10,6 +10,8 @@ apiVersion: contrail.juniper.net/v1alpha1
 kind: Cassandra
 metadata:
   name: example-cassandra
+  labels:
+    contrail_manager: cassandra
 `
 
 func GetCassandraCr() *contrailv1alpha1.Cassandra{

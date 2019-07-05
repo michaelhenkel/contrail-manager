@@ -189,11 +189,11 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 			reqLogger.Info("No Manager Instance")
 		}
 	} else {
-		instance.Spec.Service = managerInstance.Spec.Config
-		if managerInstance.Spec.Config.Size != nil {
-			instance.Spec.Service.Size = managerInstance.Spec.Config.Size
+		instance.Spec = managerInstance.Spec.Services.Config
+		if managerInstance.Spec.Services.Config.Size != nil {
+			instance.Spec.Size = managerInstance.Spec.Services.Config.Size
 		} else {
-			instance.Spec.Service.Size = managerInstance.Spec.Size
+			instance.Spec.Size = managerInstance.Spec.Size
 		}
 		if managerInstance.Spec.HostNetwork != nil {
 			instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
@@ -220,7 +220,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 			Name:      "config-" + instance.Name,
 			Namespace: instance.Namespace,
 		},
-		Data: instance.Spec.Service.Configuration,
+		Data: instance.Spec.Configuration,
 	}
 	controllerutil.SetControllerReference(instance, &configMap, r.scheme)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "config-" + instance.Name, Namespace: instance.Namespace}, &configMap)
@@ -239,7 +239,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 
 	// Configure Containers
 	for idx, container := range deployment.Spec.Template.Spec.Containers {
-		for containerName, image := range instance.Spec.Service.Images {
+		for containerName, image := range instance.Spec.Images {
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
 				(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "config-" + instance.Name
@@ -249,7 +249,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 
 	// Configure InitContainers
 	for idx, container := range deployment.Spec.Template.Spec.InitContainers {
-		for containerName, image := range instance.Spec.Service.Images {
+		for containerName, image := range instance.Spec.Images {
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.InitContainers[idx]).Image = image
 				(&deployment.Spec.Template.Spec.InitContainers[idx]).EnvFrom[0].ConfigMapRef.Name = "config-" + instance.Name
@@ -265,7 +265,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 	deployment.Spec.Template.ObjectMeta.Labels["app"] = "config-" + instance.Name
 
 	// Set Size
-	deployment.Spec.Replicas = instance.Spec.Service.Size
+	deployment.Spec.Replicas = instance.Spec.Size
 
 	// Create Deployment
 	controllerutil.SetControllerReference(instance, deployment, r.scheme)
@@ -283,7 +283,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 		instance.ObjectMeta,
 		"config",
 		instance,
-		*instance.Spec.Service,
+		*instance.Spec,
 		&instance.Status)
 
 	if err != nil {

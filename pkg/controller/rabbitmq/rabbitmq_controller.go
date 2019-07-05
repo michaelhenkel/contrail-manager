@@ -98,11 +98,11 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 			reqLogger.Info("No Manager Instance")
 		}
 	} else {
-		instance.Spec.Service = managerInstance.Spec.Rabbitmq
-		if managerInstance.Spec.Rabbitmq.Size != nil {
-			instance.Spec.Service.Size = managerInstance.Spec.Rabbitmq.Size
+		instance.Spec = managerInstance.Spec.Services.Rabbitmq
+		if managerInstance.Spec.Size != nil {
+			instance.Spec.Size = managerInstance.Spec.Services.Rabbitmq.Size
 		} else {
-			instance.Spec.Service.Size = managerInstance.Spec.Size
+			instance.Spec.Size = managerInstance.Spec.Size
 		}
 		if managerInstance.Spec.HostNetwork != nil {
 			instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
@@ -129,7 +129,7 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 			Name:      "rabbitmq-" + instance.Name,
 			Namespace: instance.Namespace,
 		},
-		Data: instance.Spec.Service.Configuration,
+		Data: instance.Spec.Configuration,
 	}
 	controllerutil.SetControllerReference(instance, &configMap, r.scheme)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "rabbitmq-" + instance.Name, Namespace: instance.Namespace}, &configMap)
@@ -152,7 +152,7 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 
 	// Configure Containers
 	for idx, container := range deployment.Spec.Template.Spec.Containers {
-		for containerName, image := range instance.Spec.Service.Images {
+		for containerName, image := range instance.Spec.Images {
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
 			}
@@ -170,7 +170,7 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 
 	// Configure InitContainers
 	for idx, container := range deployment.Spec.Template.Spec.InitContainers {
-		for containerName, image := range instance.Spec.Service.Images {
+		for containerName, image := range instance.Spec.Images {
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.InitContainers[idx]).Image = image
 			}
@@ -185,7 +185,7 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 	deployment.Spec.Template.ObjectMeta.Labels["app"] = "rabbitmq-" + instance.Name
 
 	// Set Size
-	deployment.Spec.Replicas = instance.Spec.Service.Size
+	deployment.Spec.Replicas = instance.Spec.Size
 
 	// Create Deployment
 	controllerutil.SetControllerReference(instance, deployment, r.scheme)
@@ -203,7 +203,7 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 		instance.ObjectMeta,
 		"rabbitmq",
 		instance,
-		*instance.Spec.Service,
+		*instance.Spec,
 		&instance.Status)
 
 	if err != nil {
@@ -246,7 +246,7 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 	} else {
 		reqLogger.Info("set service status")
 	}
-	portMap := map[string]string{"port": instance.Spec.Service.Configuration["RABBITMQ_NODE_PORT"]}
+	portMap := map[string]string{"port": instance.Spec.Configuration["RABBITMQ_NODE_PORT"]}
 	instance.Status.Ports = portMap
 	err = r.client.Status().Update(context.TODO(), instance)
 	if err != nil {

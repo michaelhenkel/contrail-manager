@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,8 +43,12 @@ type Zookeeper struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ZookeeperSpec `json:"spec,omitempty"`
-	Status Status        `json:"status,omitempty"`
+	Spec   *Service `json:"spec,omitempty"`
+	Status Status   `json:"status,omitempty"`
+}
+
+func (z Zookeeper) GetCrd() *apiextensionsv1beta1.CustomResourceDefinition {
+	return crds.GetZookeeperCrd()
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -121,13 +121,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			oldManager := e.ObjectOld.(*v1alpha1.Manager)
 			newManager := e.ObjectNew.(*v1alpha1.Manager)
 			var oldSize, newSize int32
-			if oldManager.Spec.Cassandra.Size != nil {
-				oldSize = *oldManager.Spec.Cassandra.Size
+			if oldManager.Spec.Services.Cassandra.Size != nil {
+				oldSize = *oldManager.Spec.Services.Cassandra.Size
 			} else {
 				oldSize = *oldManager.Spec.Size
 			}
-			if newManager.Spec.Cassandra.Size != nil {
-				newSize = *newManager.Spec.Cassandra.Size
+			if newManager.Spec.Services.Cassandra.Size != nil {
+				newSize = *newManager.Spec.Services.Cassandra.Size
 			} else {
 				newSize = *newManager.Spec.Size
 			}
@@ -226,9 +226,9 @@ func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reco
 			reqLogger.Info("No Manager Instance")
 		}
 	} else {
-		cassandraInstance.Spec = managerInstance.Spec.Cassandra
-		if managerInstance.Spec.Cassandra.Size != nil {
-			cassandraInstance.Spec.Size = managerInstance.Spec.Cassandra.Size
+		cassandraInstance.Spec = managerInstance.Spec.Services.Cassandra
+		if managerInstance.Spec.Services.Cassandra.Size != nil {
+			cassandraInstance.Spec.Size = managerInstance.Spec.Services.Cassandra.Size
 		} else {
 			cassandraInstance.Spec.Size = managerInstance.Spec.Size
 		}

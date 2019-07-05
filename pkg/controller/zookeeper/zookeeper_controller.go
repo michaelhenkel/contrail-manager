@@ -99,11 +99,11 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 			reqLogger.Info("No Manager Instance")
 		}
 	} else {
-		instance.Spec.Service = managerInstance.Spec.Zookeeper
-		if managerInstance.Spec.Zookeeper.Size != nil {
-			instance.Spec.Service.Size = managerInstance.Spec.Zookeeper.Size
+		instance.Spec = managerInstance.Spec.Services.Zookeeper
+		if managerInstance.Spec.Services.Zookeeper.Size != nil {
+			instance.Spec.Size = managerInstance.Spec.Services.Zookeeper.Size
 		} else {
-			instance.Spec.Service.Size = managerInstance.Spec.Size
+			instance.Spec.Size = managerInstance.Spec.Size
 		}
 		if managerInstance.Spec.HostNetwork != nil {
 			instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
@@ -130,7 +130,7 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 			Name:      "zookeeper-" + instance.Name,
 			Namespace: instance.Namespace,
 		},
-		Data: instance.Spec.Service.Configuration,
+		Data: instance.Spec.Configuration,
 	}
 	controllerutil.SetControllerReference(instance, &configMap, r.scheme)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "zookeeper-" + instance.Name, Namespace: instance.Namespace}, &configMap)
@@ -164,7 +164,7 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// Configure Containers
 	for idx, container := range deployment.Spec.Template.Spec.Containers {
-		for containerName, image := range instance.Spec.Service.Images {
+		for containerName, image := range instance.Spec.Images {
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
 			}
@@ -182,7 +182,7 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// Configure InitContainers
 	for idx, container := range deployment.Spec.Template.Spec.InitContainers {
-		for containerName, image := range instance.Spec.Service.Images {
+		for containerName, image := range instance.Spec.Images {
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.InitContainers[idx]).Image = image
 			}
@@ -197,7 +197,7 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 	deployment.Spec.Template.ObjectMeta.Labels["app"] = "zookeeper-" + instance.Name
 
 	// Set Size
-	deployment.Spec.Replicas = instance.Spec.Service.Size
+	deployment.Spec.Replicas = instance.Spec.Size
 
 	// Create Deployment
 	controllerutil.SetControllerReference(instance, deployment, r.scheme)
@@ -215,7 +215,7 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 		instance.ObjectMeta,
 		"zookeeper",
 		instance,
-		*instance.Spec.Service,
+		*instance.Spec,
 		&instance.Status)
 
 	if err != nil {
@@ -258,7 +258,7 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 	} else {
 		reqLogger.Info("set service status")
 	}
-	portMap := map[string]string{"port": instance.Spec.Service.Configuration["ZOOKEEPER_PORT"]}
+	portMap := map[string]string{"port": instance.Spec.Configuration["ZOOKEEPER_PORT"]}
 	instance.Status.Ports = portMap
 	err = r.client.Status().Update(context.TODO(), instance)
 	if err != nil {

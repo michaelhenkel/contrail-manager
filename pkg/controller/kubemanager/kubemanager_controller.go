@@ -221,11 +221,11 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 			reqLogger.Info("No Manager Instance")
 		}
 	} else {
-		instance.Spec.Service = managerInstance.Spec.Kubemanager
-		if managerInstance.Spec.Kubemanager.Size != nil {
-			instance.Spec.Service.Size = managerInstance.Spec.Kubemanager.Size
+		instance.Spec = managerInstance.Spec.Services.Kubemanager
+		if managerInstance.Spec.Services.Kubemanager.Size != nil {
+			instance.Spec.Size = managerInstance.Spec.Services.Kubemanager.Size
 		} else {
-			instance.Spec.Service.Size = managerInstance.Spec.Size
+			instance.Spec.Size = managerInstance.Spec.Size
 		}
 		if managerInstance.Spec.HostNetwork != nil {
 			instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
@@ -246,23 +246,23 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
 	}
 
-	if instance.Spec.Service.Configuration == nil {
-		instance.Spec.Service.Configuration = make(map[string]string)
+	if instance.Spec.Configuration == nil {
+		instance.Spec.Configuration = make(map[string]string)
 		reqLogger.Info("config map empty, initializing it")
 	}
 
-	instance.Spec.Service.Configuration["RABBITMQ_NODES"] = rabbitmqNodeList
-	instance.Spec.Service.Configuration["ZOOKEEPER_NODES"] = zookeeperNodeList
-	instance.Spec.Service.Configuration["CONFIGDB_NODES"] = cassandraNodeList
-	instance.Spec.Service.Configuration["CONFIG_NODES"] = configNodeList
-	instance.Spec.Service.Configuration["CONTROLLER_NODES"] = configNodeList
-	instance.Spec.Service.Configuration["ANALYTICS_NODES"] = configNodeList
-	instance.Spec.Service.Configuration["CONFIGDB_CQL_PORT"] = cassandraInstance.Status.Ports["cqlPort"]
-	instance.Spec.Service.Configuration["CONFIGDB_PORT"] = cassandraInstance.Status.Ports["port"]
-	instance.Spec.Service.Configuration["RABBITMQ_NODE_PORT"] = rabbitmqInstance.Status.Ports["port"]
-	instance.Spec.Service.Configuration["ZOOKEEPER_NODE_PORT"] = zookeeperInstance.Status.Ports["port"]
+	instance.Spec.Configuration["RABBITMQ_NODES"] = rabbitmqNodeList
+	instance.Spec.Configuration["ZOOKEEPER_NODES"] = zookeeperNodeList
+	instance.Spec.Configuration["CONFIGDB_NODES"] = cassandraNodeList
+	instance.Spec.Configuration["CONFIG_NODES"] = configNodeList
+	instance.Spec.Configuration["CONTROLLER_NODES"] = configNodeList
+	instance.Spec.Configuration["ANALYTICS_NODES"] = configNodeList
+	instance.Spec.Configuration["CONFIGDB_CQL_PORT"] = cassandraInstance.Status.Ports["cqlPort"]
+	instance.Spec.Configuration["CONFIGDB_PORT"] = cassandraInstance.Status.Ports["port"]
+	instance.Spec.Configuration["RABBITMQ_NODE_PORT"] = rabbitmqInstance.Status.Ports["port"]
+	instance.Spec.Configuration["ZOOKEEPER_NODE_PORT"] = zookeeperInstance.Status.Ports["port"]
 
-	if instance.Spec.Service.Configuration["USE_KUBEADM_CONFIG"] == "true" {
+	if instance.Spec.Configuration["USE_KUBEADM_CONFIG"] == "true" {
 		controlPlaneEndpoint := ""
 		clusterName := "kubernetes"
 		podSubnet := "10.32.0.0/12"
@@ -292,30 +292,30 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 				serviceSubnet = networkConfig["serviceSubnet"].(string)
 			}
 		}
-		if kubeApiServer, ok := instance.Spec.Service.Configuration["KUBERNETES_API_SERVER"]; ok {
-			instance.Spec.Service.Configuration["KUBERNETES_API_SERVER"] = kubeApiServer
+		if kubeApiServer, ok := instance.Spec.Configuration["KUBERNETES_API_SERVER"]; ok {
+			instance.Spec.Configuration["KUBERNETES_API_SERVER"] = kubeApiServer
 		} else {
-			instance.Spec.Service.Configuration["KUBERNETES_API_SERVER"] = controlPlaneEndpointHost
+			instance.Spec.Configuration["KUBERNETES_API_SERVER"] = controlPlaneEndpointHost
 		}
-		if kubeApiSecurePort, ok := instance.Spec.Service.Configuration["KUBERNETES_API_SECURE_PORT"]; ok {
-			instance.Spec.Service.Configuration["KUBERNETES_API_SECURE_PORT"] = kubeApiSecurePort
+		if kubeApiSecurePort, ok := instance.Spec.Configuration["KUBERNETES_API_SECURE_PORT"]; ok {
+			instance.Spec.Configuration["KUBERNETES_API_SECURE_PORT"] = kubeApiSecurePort
 		} else {
-			instance.Spec.Service.Configuration["KUBERNETES_API_SECURE_PORT"] = controlPlaneEndpointPort
+			instance.Spec.Configuration["KUBERNETES_API_SECURE_PORT"] = controlPlaneEndpointPort
 		}
-		if kubePodSubnets, ok := instance.Spec.Service.Configuration["KUBERNETES_POD_SUBNETS"]; ok {
-			instance.Spec.Service.Configuration["KUBERNETES_POD_SUBNETS"] = kubePodSubnets
+		if kubePodSubnets, ok := instance.Spec.Configuration["KUBERNETES_POD_SUBNETS"]; ok {
+			instance.Spec.Configuration["KUBERNETES_POD_SUBNETS"] = kubePodSubnets
 		} else {
-			instance.Spec.Service.Configuration["KUBERNETES_POD_SUBNETS"] = podSubnet
+			instance.Spec.Configuration["KUBERNETES_POD_SUBNETS"] = podSubnet
 		}
-		if kubeServiceSubnets, ok := instance.Spec.Service.Configuration["KUBERNETES_SERVICE_SUBNETS"]; ok {
-			instance.Spec.Service.Configuration["KUBERNETES_SERVICE_SUBNETS"] = kubeServiceSubnets
+		if kubeServiceSubnets, ok := instance.Spec.Configuration["KUBERNETES_SERVICE_SUBNETS"]; ok {
+			instance.Spec.Configuration["KUBERNETES_SERVICE_SUBNETS"] = kubeServiceSubnets
 		} else {
-			instance.Spec.Service.Configuration["KUBERNETES_SERVICE_SUBNETS"] = serviceSubnet
+			instance.Spec.Configuration["KUBERNETES_SERVICE_SUBNETS"] = serviceSubnet
 		}
-		if kubeClusterName, ok := instance.Spec.Service.Configuration["KUBERNETES_CLUSTER_NAME"]; ok {
-			instance.Spec.Service.Configuration["KUBERNETES_CLUSTER_NAME"] = kubeClusterName
+		if kubeClusterName, ok := instance.Spec.Configuration["KUBERNETES_CLUSTER_NAME"]; ok {
+			instance.Spec.Configuration["KUBERNETES_CLUSTER_NAME"] = kubeClusterName
 		} else {
-			instance.Spec.Service.Configuration["KUBERNETES_CLUSTER_NAME"] = clusterName
+			instance.Spec.Configuration["KUBERNETES_CLUSTER_NAME"] = clusterName
 		}
 	}
 
@@ -325,7 +325,7 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 			Name:      "kubemanager-" + instance.Name,
 			Namespace: instance.Namespace,
 		},
-		Data: instance.Spec.Service.Configuration,
+		Data: instance.Spec.Configuration,
 	}
 	controllerutil.SetControllerReference(instance, &configMap, r.scheme)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "kubemanager-" + instance.Name, Namespace: instance.Namespace}, &configMap)
@@ -337,21 +337,21 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 		}
 	}
 	var serviceAccountName string
-	if serviceAccount, ok := instance.Spec.Service.Configuration["serviceAccount"]; ok {
+	if serviceAccount, ok := instance.Spec.Configuration["serviceAccount"]; ok {
 		serviceAccountName = serviceAccount
 	} else {
 		serviceAccountName = "contrail-service-account"
 	}
 
 	var clusterRoleName string
-	if clusterRole, ok := instance.Spec.Service.Configuration["clusterRole"]; ok {
+	if clusterRole, ok := instance.Spec.Configuration["clusterRole"]; ok {
 		clusterRoleName = clusterRole
 	} else {
 		clusterRoleName = "contrail-cluster-role"
 	}
 
 	var clusterRoleBindingName string
-	if clusterRoleBinding, ok := instance.Spec.Service.Configuration["clusterRoleBinding"]; ok {
+	if clusterRoleBinding, ok := instance.Spec.Configuration["clusterRoleBinding"]; ok {
 		clusterRoleBindingName = clusterRoleBinding
 	} else {
 		clusterRoleBindingName = "contrail-cluster-role-binding"
@@ -446,7 +446,7 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 
 	// Configure Containers
 	for idx, container := range deployment.Spec.Template.Spec.Containers {
-		for containerName, image := range instance.Spec.Service.Images {
+		for containerName, image := range instance.Spec.Images {
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
 				(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "kubemanager-" + instance.Name
@@ -456,7 +456,7 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 
 	// Configure InitContainers
 	for idx, container := range deployment.Spec.Template.Spec.InitContainers {
-		for containerName, image := range instance.Spec.Service.Images {
+		for containerName, image := range instance.Spec.Images {
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.InitContainers[idx]).Image = image
 				(&deployment.Spec.Template.Spec.InitContainers[idx]).EnvFrom[0].ConfigMapRef.Name = "kubemanager-" + instance.Name
@@ -472,7 +472,7 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 	deployment.Spec.Template.ObjectMeta.Labels["app"] = "kubemanager-" + instance.Name
 
 	// Set Size
-	deployment.Spec.Replicas = instance.Spec.Service.Size
+	deployment.Spec.Replicas = instance.Spec.Size
 
 	// Create Deployment
 	controllerutil.SetControllerReference(instance, deployment, r.scheme)
@@ -490,7 +490,7 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 		instance.ObjectMeta,
 		"kubemanager",
 		instance,
-		*instance.Spec.Service,
+		*instance.Spec,
 		&instance.Status)
 
 	if err != nil {

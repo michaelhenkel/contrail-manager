@@ -5,7 +5,13 @@ import (
 
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
-	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/control"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/kubemanager"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/rabbitmq"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/vrouter"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/webui"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/zookeeper"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,37 +47,332 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 	if err != nil {
 		return err
 	}
-	activationStatus := false
-	if instance.Status.Cassandra != nil {
-		if instance.Status.Cassandra.Active != nil {
-			activationStatus = *instance.Status.Cassandra.Active
+	configActivationStatus := false
+	if instance.Status.Config != nil {
+		if instance.Status.Config.Active != nil {
+			configActivationStatus = *instance.Status.Config.Active
 		}
 	}
 
-	activationIntent := false
-	if instance.Spec.Cassandra != nil {
-		if instance.Spec.Cassandra.Activate != nil {
-			activationIntent = *instance.Spec.Cassandra.Activate
+	configActivationIntent := false
+	if instance.Spec.Services.Config != nil {
+		if instance.Spec.Services.Config.Activate != nil {
+			configActivationIntent = *instance.Spec.Services.Config.Activate
 		}
 	}
-	if activationIntent && !activationStatus {
-		crd := crds.GetCassandraCrd()
-
-		err = r.createCrd(instance, crd)
+	configResource := v1alpha1.Config{}
+	configCrd := configResource.GetCrd()
+	if configActivationIntent && !configActivationStatus {
+		err = r.createCrd(instance, configCrd)
 		if err != nil {
 			return err
 		}
 
 		controllerRunning := false
-		sharedIndexInformer, err := r.cache.GetInformerForKind(crd.GroupVersionKind())
+		sharedIndexInformer, err := r.cache.GetInformerForKind(configResource.GroupVersionKind())
 		if err == nil {
 			controller := sharedIndexInformer.GetController()
 			if controller != nil {
 				controllerRunning = true
 			}
 		}
-
 		if !controllerRunning {
+
+			err = config.Add(r.manager)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Config{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &v1alpha1.Manager{},
+		})
+		if err != nil {
+			return err
+		}
+		active := true
+		if instance.Status.Config == nil {
+			status := &v1alpha1.ServiceStatus{
+				Active: &active,
+			}
+			instance.Status.Config = status
+		} else {
+			instance.Status.Config.Active = &active
+		}
+
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	}
+	controlActivationStatus := false
+	if instance.Status.Control != nil {
+		if instance.Status.Control.Active != nil {
+			controlActivationStatus = *instance.Status.Control.Active
+		}
+	}
+
+	controlActivationIntent := false
+	if instance.Spec.Services.Control != nil {
+		if instance.Spec.Services.Control.Activate != nil {
+			controlActivationIntent = *instance.Spec.Services.Control.Activate
+		}
+	}
+	controlResource := v1alpha1.Control{}
+	controlCrd := controlResource.GetCrd()
+	if controlActivationIntent && !controlActivationStatus {
+		err = r.createCrd(instance, controlCrd)
+		if err != nil {
+			return err
+		}
+
+		controllerRunning := false
+		sharedIndexInformer, err := r.cache.GetInformerForKind(controlResource.GroupVersionKind())
+		if err == nil {
+			controller := sharedIndexInformer.GetController()
+			if controller != nil {
+				controllerRunning = true
+			}
+		}
+		if !controllerRunning {
+
+			err = control.Add(r.manager)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Control{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &v1alpha1.Manager{},
+		})
+		if err != nil {
+			return err
+		}
+		active := true
+		if instance.Status.Control == nil {
+			status := &v1alpha1.ServiceStatus{
+				Active: &active,
+			}
+			instance.Status.Control = status
+		} else {
+			instance.Status.Control.Active = &active
+		}
+
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	}
+	kubemanagerActivationStatus := false
+	if instance.Status.Kubemanager != nil {
+		if instance.Status.Kubemanager.Active != nil {
+			kubemanagerActivationStatus = *instance.Status.Kubemanager.Active
+		}
+	}
+
+	kubemanagerActivationIntent := false
+	if instance.Spec.Services.Kubemanager != nil {
+		if instance.Spec.Services.Kubemanager.Activate != nil {
+			kubemanagerActivationIntent = *instance.Spec.Services.Kubemanager.Activate
+		}
+	}
+	kubemanagerResource := v1alpha1.Kubemanager{}
+	kubemanagerCrd := kubemanagerResource.GetCrd()
+	if kubemanagerActivationIntent && !kubemanagerActivationStatus {
+		err = r.createCrd(instance, kubemanagerCrd)
+		if err != nil {
+			return err
+		}
+
+		controllerRunning := false
+		sharedIndexInformer, err := r.cache.GetInformerForKind(kubemanagerResource.GroupVersionKind())
+		if err == nil {
+			controller := sharedIndexInformer.GetController()
+			if controller != nil {
+				controllerRunning = true
+			}
+		}
+		if !controllerRunning {
+
+			err = kubemanager.Add(r.manager)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Kubemanager{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &v1alpha1.Manager{},
+		})
+		if err != nil {
+			return err
+		}
+		active := true
+		if instance.Status.Kubemanager == nil {
+			status := &v1alpha1.ServiceStatus{
+				Active: &active,
+			}
+			instance.Status.Kubemanager = status
+		} else {
+			instance.Status.Kubemanager.Active = &active
+		}
+
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	}
+	webuiActivationStatus := false
+	if instance.Status.Webui != nil {
+		if instance.Status.Webui.Active != nil {
+			webuiActivationStatus = *instance.Status.Webui.Active
+		}
+	}
+
+	webuiActivationIntent := false
+	if instance.Spec.Services.Webui != nil {
+		if instance.Spec.Services.Webui.Activate != nil {
+			webuiActivationIntent = *instance.Spec.Services.Webui.Activate
+		}
+	}
+	webuiResource := v1alpha1.Webui{}
+	webuiCrd := webuiResource.GetCrd()
+	if webuiActivationIntent && !webuiActivationStatus {
+		err = r.createCrd(instance, webuiCrd)
+		if err != nil {
+			return err
+		}
+
+		controllerRunning := false
+		sharedIndexInformer, err := r.cache.GetInformerForKind(webuiResource.GroupVersionKind())
+		if err == nil {
+			controller := sharedIndexInformer.GetController()
+			if controller != nil {
+				controllerRunning = true
+			}
+		}
+		if !controllerRunning {
+
+			err = webui.Add(r.manager)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Webui{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &v1alpha1.Manager{},
+		})
+		if err != nil {
+			return err
+		}
+		active := true
+		if instance.Status.Webui == nil {
+			status := &v1alpha1.ServiceStatus{
+				Active: &active,
+			}
+			instance.Status.Webui = status
+		} else {
+			instance.Status.Webui.Active = &active
+		}
+
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	}
+	vrouterActivationStatus := false
+	if instance.Status.Vrouter != nil {
+		if instance.Status.Vrouter.Active != nil {
+			vrouterActivationStatus = *instance.Status.Vrouter.Active
+		}
+	}
+
+	vrouterActivationIntent := false
+	if instance.Spec.Services.Vrouter != nil {
+		if instance.Spec.Services.Vrouter.Activate != nil {
+			vrouterActivationIntent = *instance.Spec.Services.Vrouter.Activate
+		}
+	}
+	vrouterResource := v1alpha1.Vrouter{}
+	vrouterCrd := vrouterResource.GetCrd()
+	if vrouterActivationIntent && !vrouterActivationStatus {
+		err = r.createCrd(instance, vrouterCrd)
+		if err != nil {
+			return err
+		}
+
+		controllerRunning := false
+		sharedIndexInformer, err := r.cache.GetInformerForKind(vrouterResource.GroupVersionKind())
+		if err == nil {
+			controller := sharedIndexInformer.GetController()
+			if controller != nil {
+				controllerRunning = true
+			}
+		}
+		if !controllerRunning {
+
+			err = vrouter.Add(r.manager)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Vrouter{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &v1alpha1.Manager{},
+		})
+		if err != nil {
+			return err
+		}
+		active := true
+		if instance.Status.Vrouter == nil {
+			status := &v1alpha1.ServiceStatus{
+				Active: &active,
+			}
+			instance.Status.Vrouter = status
+		} else {
+			instance.Status.Vrouter.Active = &active
+		}
+
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	}
+	cassandraActivationStatus := false
+	if instance.Status.Cassandra != nil {
+		if instance.Status.Cassandra.Active != nil {
+			cassandraActivationStatus = *instance.Status.Cassandra.Active
+		}
+	}
+
+	cassandraActivationIntent := false
+	if instance.Spec.Services.Cassandra != nil {
+		if instance.Spec.Services.Cassandra.Activate != nil {
+			cassandraActivationIntent = *instance.Spec.Services.Cassandra.Activate
+		}
+	}
+	cassandraResource := v1alpha1.Cassandra{}
+	cassandraCrd := cassandraResource.GetCrd()
+	if cassandraActivationIntent && !cassandraActivationStatus {
+		err = r.createCrd(instance, cassandraCrd)
+		if err != nil {
+			return err
+		}
+
+		controllerRunning := false
+		sharedIndexInformer, err := r.cache.GetInformerForKind(cassandraResource.GroupVersionKind())
+		if err == nil {
+			controller := sharedIndexInformer.GetController()
+			if controller != nil {
+				controllerRunning = true
+			}
+		}
+		if !controllerRunning {
+
 			err = cassandra.Add(r.manager)
 			if err != nil {
 				return err
@@ -100,5 +401,124 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 			return err
 		}
 	}
+	zookeeperActivationStatus := false
+	if instance.Status.Zookeeper != nil {
+		if instance.Status.Zookeeper.Active != nil {
+			zookeeperActivationStatus = *instance.Status.Zookeeper.Active
+		}
+	}
+
+	zookeeperActivationIntent := false
+	if instance.Spec.Services.Zookeeper != nil {
+		if instance.Spec.Services.Zookeeper.Activate != nil {
+			zookeeperActivationIntent = *instance.Spec.Services.Zookeeper.Activate
+		}
+	}
+	zookeeperResource := v1alpha1.Zookeeper{}
+	zookeeperCrd := zookeeperResource.GetCrd()
+	if zookeeperActivationIntent && !zookeeperActivationStatus {
+		err = r.createCrd(instance, zookeeperCrd)
+		if err != nil {
+			return err
+		}
+
+		controllerRunning := false
+		sharedIndexInformer, err := r.cache.GetInformerForKind(zookeeperResource.GroupVersionKind())
+		if err == nil {
+			controller := sharedIndexInformer.GetController()
+			if controller != nil {
+				controllerRunning = true
+			}
+		}
+		if !controllerRunning {
+
+			err = zookeeper.Add(r.manager)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Zookeeper{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &v1alpha1.Manager{},
+		})
+		if err != nil {
+			return err
+		}
+		active := true
+		if instance.Status.Zookeeper == nil {
+			status := &v1alpha1.ServiceStatus{
+				Active: &active,
+			}
+			instance.Status.Zookeeper = status
+		} else {
+			instance.Status.Zookeeper.Active = &active
+		}
+
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	}
+	rabbitmqActivationStatus := false
+	if instance.Status.Rabbitmq != nil {
+		if instance.Status.Rabbitmq.Active != nil {
+			rabbitmqActivationStatus = *instance.Status.Rabbitmq.Active
+		}
+	}
+
+	rabbitmqActivationIntent := false
+	if instance.Spec.Services.Rabbitmq != nil {
+		if instance.Spec.Services.Rabbitmq.Activate != nil {
+			rabbitmqActivationIntent = *instance.Spec.Services.Rabbitmq.Activate
+		}
+	}
+	rabbitmqResource := v1alpha1.Rabbitmq{}
+	rabbitmqCrd := rabbitmqResource.GetCrd()
+	if rabbitmqActivationIntent && !rabbitmqActivationStatus {
+		err = r.createCrd(instance, rabbitmqCrd)
+		if err != nil {
+			return err
+		}
+
+		controllerRunning := false
+		sharedIndexInformer, err := r.cache.GetInformerForKind(rabbitmqResource.GroupVersionKind())
+		if err == nil {
+			controller := sharedIndexInformer.GetController()
+			if controller != nil {
+				controllerRunning = true
+			}
+		}
+		if !controllerRunning {
+
+			err = rabbitmq.Add(r.manager)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Rabbitmq{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &v1alpha1.Manager{},
+		})
+		if err != nil {
+			return err
+		}
+		active := true
+		if instance.Status.Rabbitmq == nil {
+			status := &v1alpha1.ServiceStatus{
+				Active: &active,
+			}
+			instance.Status.Rabbitmq = status
+		} else {
+			instance.Status.Rabbitmq.Active = &active
+		}
+
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

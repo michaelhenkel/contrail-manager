@@ -215,11 +215,11 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 			reqLogger.Info("No Manager Instance")
 		}
 	} else {
-		instance.Spec.Service = managerInstance.Spec.Control
-		if managerInstance.Spec.Control.Size != nil {
-			instance.Spec.Service.Size = managerInstance.Spec.Control.Size
+		instance.Spec = managerInstance.Spec.Services.Control
+		if managerInstance.Spec.Services.Control.Size != nil {
+			instance.Spec.Size = managerInstance.Spec.Services.Control.Size
 		} else {
-			instance.Spec.Service.Size = managerInstance.Spec.Size
+			instance.Spec.Size = managerInstance.Spec.Size
 		}
 		if managerInstance.Spec.HostNetwork != nil {
 			instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
@@ -240,21 +240,21 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
 	}
 
-	if instance.Spec.Service.Configuration == nil {
-		instance.Spec.Service.Configuration = make(map[string]string)
+	if instance.Spec.Configuration == nil {
+		instance.Spec.Configuration = make(map[string]string)
 		reqLogger.Info("config map empty, initializing it")
 	}
 
-	instance.Spec.Service.Configuration["RABBITMQ_NODES"] = rabbitmqNodeList
-	instance.Spec.Service.Configuration["ZOOKEEPER_NODES"] = zookeeperNodeList
-	instance.Spec.Service.Configuration["CONFIGDB_NODES"] = cassandraNodeList
-	instance.Spec.Service.Configuration["CONFIG_NODES"] = configNodeList
-	instance.Spec.Service.Configuration["CONTROLLER_NODES"] = configNodeList
-	instance.Spec.Service.Configuration["ANALYTICS_NODES"] = configNodeList
-	instance.Spec.Service.Configuration["CONFIGDB_CQL_PORT"] = cassandraInstance.Status.Ports["cqlPort"]
-	instance.Spec.Service.Configuration["CONFIGDB_PORT"] = cassandraInstance.Status.Ports["port"]
-	instance.Spec.Service.Configuration["RABBITMQ_NODE_PORT"] = rabbitmqInstance.Status.Ports["port"]
-	instance.Spec.Service.Configuration["ZOOKEEPER_NODE_PORT"] = zookeeperInstance.Status.Ports["port"]
+	instance.Spec.Configuration["RABBITMQ_NODES"] = rabbitmqNodeList
+	instance.Spec.Configuration["ZOOKEEPER_NODES"] = zookeeperNodeList
+	instance.Spec.Configuration["CONFIGDB_NODES"] = cassandraNodeList
+	instance.Spec.Configuration["CONFIG_NODES"] = configNodeList
+	instance.Spec.Configuration["CONTROLLER_NODES"] = configNodeList
+	instance.Spec.Configuration["ANALYTICS_NODES"] = configNodeList
+	instance.Spec.Configuration["CONFIGDB_CQL_PORT"] = cassandraInstance.Status.Ports["cqlPort"]
+	instance.Spec.Configuration["CONFIGDB_PORT"] = cassandraInstance.Status.Ports["port"]
+	instance.Spec.Configuration["RABBITMQ_NODE_PORT"] = rabbitmqInstance.Status.Ports["port"]
+	instance.Spec.Configuration["ZOOKEEPER_NODE_PORT"] = zookeeperInstance.Status.Ports["port"]
 
 	// Create initial ConfigMap
 	configMap := corev1.ConfigMap{
@@ -262,7 +262,7 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 			Name:      "control-" + instance.Name,
 			Namespace: instance.Namespace,
 		},
-		Data: instance.Spec.Service.Configuration,
+		Data: instance.Spec.Configuration,
 	}
 	controllerutil.SetControllerReference(instance, &configMap, r.scheme)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "control-" + instance.Name, Namespace: instance.Namespace}, &configMap)
@@ -281,7 +281,7 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	// Configure Containers
 	for idx, container := range deployment.Spec.Template.Spec.Containers {
-		for containerName, image := range instance.Spec.Service.Images {
+		for containerName, image := range instance.Spec.Images {
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
 				(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "control-" + instance.Name
@@ -291,7 +291,7 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	// Configure InitContainers
 	for idx, container := range deployment.Spec.Template.Spec.InitContainers {
-		for containerName, image := range instance.Spec.Service.Images {
+		for containerName, image := range instance.Spec.Images {
 			if containerName == container.Name {
 				(&deployment.Spec.Template.Spec.InitContainers[idx]).Image = image
 				(&deployment.Spec.Template.Spec.InitContainers[idx]).EnvFrom[0].ConfigMapRef.Name = "control-" + instance.Name
@@ -307,7 +307,7 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 	deployment.Spec.Template.ObjectMeta.Labels["app"] = "control-" + instance.Name
 
 	// Set Size
-	deployment.Spec.Replicas = instance.Spec.Service.Size
+	deployment.Spec.Replicas = instance.Spec.Size
 
 	// Create Deployment
 	controllerutil.SetControllerReference(instance, deployment, r.scheme)
@@ -325,7 +325,7 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 		instance.ObjectMeta,
 		"control",
 		instance,
-		*instance.Spec.Service,
+		*instance.Spec,
 		&instance.Status)
 
 	if err != nil {
