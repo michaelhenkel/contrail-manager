@@ -225,11 +225,11 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// Update ConfigMap
 
-	var podIpList []string
+	var podIPList []string
 	for _, ip := range instance.Status.Nodes {
-		podIpList = append(podIpList, ip)
+		podIPList = append(podIPList, ip)
 	}
-	nodeList := strings.Join(podIpList, ",")
+	nodeList := strings.Join(podIPList, ",")
 	configMap.Data["ZOOKEEPER_NODES"] = nodeList
 	configMap.Data["CONTROLLER_NODES"] = nodeList
 	err = r.client.Update(context.TODO(), &configMap)
@@ -255,9 +255,9 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 	if err != nil {
 		reqLogger.Error(err, "Failed to set Service status")
 		return reconcile.Result{}, err
-	} else {
-		reqLogger.Info("set service status")
 	}
+	reqLogger.Info("set service status")
+
 	portMap := map[string]string{"port": instance.Spec.Configuration["ZOOKEEPER_PORT"]}
 	instance.Status.Ports = portMap
 	err = r.client.Status().Update(context.TODO(), instance)
