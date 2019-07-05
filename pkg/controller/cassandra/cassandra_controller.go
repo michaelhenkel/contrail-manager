@@ -320,7 +320,7 @@ func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reco
 			reqLogger.Error(err, "Failed to create Deployment", "Namespace", cassandraInstance.Namespace, "Name", "cassandra-"+cassandraInstance.Name)
 			return reconcile.Result{}, err
 		}
-	} else if err == nil && deployment.Spec.Replicas != cassandraInstance.Spec.Size {
+	} else if err == nil && *deployment.Spec.Replicas != *cassandraInstance.Spec.Size {
 		deployment.Spec.Replicas = cassandraInstance.Spec.Size
 		err = r.Client.Update(context.TODO(), deployment)
 		if err != nil {

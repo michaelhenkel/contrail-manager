@@ -7,6 +7,8 @@ metadata:
   labels:
     app: zookeeper
 spec:
+  strategy:
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:
@@ -15,6 +17,7 @@ spec:
     metadata:
       labels:
         app: zookeeper
+        contrail_manager: zookeeper
     spec:
       nodeSelector:
         node-role.kubernetes.io/master: ''

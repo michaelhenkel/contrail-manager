@@ -1,11 +1,11 @@
 package config
-
-import (
-	"github.com/ghodss/yaml"
+	
+import(
 	appsv1 "k8s.io/api/apps/v1"
+	"github.com/ghodss/yaml"
 )
 
-var yamlDataconfig = `
+var yamlDataconfig= `
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,6 +20,7 @@ spec:
     metadata:
       labels:
         app: config
+        contrail_manager: config
     spec:
       containers:
       - envFrom:
@@ -193,7 +194,7 @@ spec:
             path: pod_labelsx
         name: status`
 
-func GetDeployment() *appsv1.Deployment {
+func GetDeployment() *appsv1.Deployment{
 	deployment := appsv1.Deployment{}
 	err := yaml.Unmarshal([]byte(yamlDataconfig), &deployment)
 	if err != nil {
@@ -209,3 +210,4 @@ func GetDeployment() *appsv1.Deployment {
 	}
 	return &deployment
 }
+	

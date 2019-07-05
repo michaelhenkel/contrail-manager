@@ -1,11 +1,11 @@
 package zookeeper
-
-import (
-	"github.com/ghodss/yaml"
+	
+import(
 	appsv1 "k8s.io/api/apps/v1"
+	"github.com/ghodss/yaml"
 )
 
-var yamlDatazookeeper = `
+var yamlDatazookeeper= `
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -15,6 +15,8 @@ metadata:
   labels:
     app: zookeeper
 spec:
+  strategy:
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:
@@ -23,6 +25,7 @@ spec:
     metadata:
       labels:
         app: zookeeper
+        contrail_manager: zookeeper
     spec:
       nodeSelector:
         node-role.kubernetes.io/master: ''
@@ -108,8 +111,7 @@ spec:
             path: pod_labelsx
         name: status`
 
-// GetDeployment gets Deployment
-func GetDeployment() *appsv1.Deployment {
+func GetDeployment() *appsv1.Deployment{
 	deployment := appsv1.Deployment{}
 	err := yaml.Unmarshal([]byte(yamlDatazookeeper), &deployment)
 	if err != nil {
@@ -125,3 +127,4 @@ func GetDeployment() *appsv1.Deployment {
 	}
 	return &deployment
 }
+	

@@ -12,6 +12,7 @@ spec:
     metadata:
       labels:
         app: config
+        contrail_manager: config
     spec:
       containers:
       - envFrom:

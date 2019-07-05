@@ -23,6 +23,7 @@ spec:
     metadata:
       labels:
         app: rabbitmq
+        contrail_manager: rabbitmq
     spec:
       nodeSelector:
         node-role.kubernetes.io/master: ''

@@ -19,6 +19,7 @@ spec:
     metadata:
       labels:
         app: webui
+        contrail_manager: webui
     spec:
       containers:
       - envFrom:

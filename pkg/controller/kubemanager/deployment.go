@@ -19,6 +19,7 @@ spec:
     metadata:
       labels:
         app: kubemanager
+        contrail_manager: kubemanager
     spec:
       containers:
       - envFrom:

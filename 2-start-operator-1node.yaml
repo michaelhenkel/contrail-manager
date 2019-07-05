@@ -75,8 +75,8 @@ spec:
         nodemanager: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
         nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
     cassandra:
-      activate: true
-      create: true
+      activate: false
+      create: false
       images:
         cassandra: gcr.io/google-samples/cassandra:v13
         init: busybox
@@ -93,8 +93,8 @@ spec:
         HEAP_NEWSIZE: 100M
         NODE_TYPE: "config-database"
     zookeeper:
-      activate: false
-      create: false
+      activate: true
+      create: true
       images:
         zookeeper: hub.juniper.net/contrail-nightly/contrail-external-zookeeper:5.2.0-0.740
         init: busybox

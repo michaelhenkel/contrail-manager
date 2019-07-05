@@ -20,6 +20,7 @@ spec:
     metadata:
       labels:
         app: control
+        contrail_manager: control
     spec:
       containers:
       - envFrom:
