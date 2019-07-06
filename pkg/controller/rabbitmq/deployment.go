@@ -15,6 +15,8 @@ metadata:
   labels:
     app: rabbitmq
 spec:
+  strategy:
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:

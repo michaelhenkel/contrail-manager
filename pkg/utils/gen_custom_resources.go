@@ -375,6 +375,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 	}
 	{{ . | ToLower }}Resource := v1alpha1.{{ . }}{}
 	{{ . | ToLower }}Crd := {{ . | ToLower }}Resource.GetCrd()
+	{{ . | ToLower }}ControllerActivate := false
 	if {{ . | ToLower }}ActivationIntent && !{{ . | ToLower }}ActivationStatus {
 		err = r.createCrd(instance, {{ . | ToLower }}Crd)
 		if err != nil {
@@ -390,11 +391,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 			}
 		}
 		if !controllerRunning {
-
-			err = {{ . | ToLower }}.Add(r.manager)
-			if err != nil {
-				return err
-			}
+			{{ . | ToLower }}ControllerActivate = true
 		}
 
 		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.{{ . }}{}}, &handler.EnqueueRequestForOwner{
@@ -415,6 +412,14 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 		}
 
 		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	}
+	{{- end }}
+	{{- range .KindList }}
+	if {{ . | ToLower }}ControllerActivate{
+		err = {{ . | ToLower }}.Add(r.manager)
 		if err != nil {
 			return err
 		}

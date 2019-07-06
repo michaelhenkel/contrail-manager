@@ -33,19 +33,6 @@ func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtim
 	if err != nil && errors.IsNotFound(err) {
 
 		switch groupVersionKind.Kind {
-		case "Control":
-			typedObject := &v1alpha1.Control{}
-			typedObject = newObj.(*v1alpha1.Control)
-			controllerutil.SetControllerReference(instance, typedObject, r.scheme)
-			crLabel := map[string]string{"contrail_manager": "control"}
-			typedObject.ObjectMeta.SetLabels(crLabel)
-			err = r.client.Create(context.TODO(), typedObject)
-			if err != nil {
-				reqLogger.Info("Failed to create CR " + name)
-				return err
-			}
-			reqLogger.Info("CR " + name + " Created.")
-			return nil
 		case "Kubemanager":
 			typedObject := &v1alpha1.Kubemanager{}
 			typedObject = newObj.(*v1alpha1.Kubemanager)
@@ -137,6 +124,19 @@ func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtim
 			}
 			reqLogger.Info("CR " + name + " Created.")
 			return nil
+		case "Control":
+			typedObject := &v1alpha1.Control{}
+			typedObject = newObj.(*v1alpha1.Control)
+			controllerutil.SetControllerReference(instance, typedObject, r.scheme)
+			crLabel := map[string]string{"contrail_manager": "control"}
+			typedObject.ObjectMeta.SetLabels(crLabel)
+			err = r.client.Create(context.TODO(), typedObject)
+			if err != nil {
+				reqLogger.Info("Failed to create CR " + name)
+				return err
+			}
+			reqLogger.Info("CR " + name + " Created.")
+			return nil
 
 		}
 	}
@@ -152,95 +152,6 @@ func (r *ReconcileManager) ManageCr(request reconcile.Request) error {
 			return err
 		}
 		return err
-	}
-	controlCreationStatus := false
-	if instance.Status.Control != nil {
-		if instance.Status.Control.Created != nil {
-			controlCreationStatus = *instance.Status.Control.Created
-		}
-	}
-
-	controlCreationIntent := false
-	if instance.Spec.Services.Control != nil {
-		if instance.Spec.Services.Control.Create != nil {
-			controlCreationIntent = *instance.Spec.Services.Control.Create
-		}
-	}
-	if controlCreationIntent && !controlCreationStatus {
-		//Create Control
-		cr := cr.GetControlCr()
-		cr.Spec = instance.Spec.Services.Control
-		cr.Name = instance.Name
-		cr.Namespace = instance.Namespace
-		if instance.Spec.Size != nil && cr.Spec.Size == nil {
-			cr.Spec.Size = instance.Spec.Size
-		}
-		if instance.Spec.HostNetwork != nil && cr.Spec.HostNetwork == nil {
-			cr.Spec.HostNetwork = instance.Spec.HostNetwork
-		}
-		err := r.CreateResource(instance, cr, cr.Name, cr.Namespace)
-		if err != nil {
-			return err
-		}
-		created := true
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, instance)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return err
-			}
-			return err
-		}
-		if instance.Status.Control == nil {
-			status := &v1alpha1.ServiceStatus{
-				Created: &created,
-			}
-			instance.Status.Control = status
-		} else {
-			instance.Status.Control.Created = &created
-		}
-		err = r.client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			return err
-		}
-		err = r.client.Update(context.TODO(), instance)
-		if err != nil {
-			return err
-		}
-
-	}
-
-	if !controlCreationIntent && controlCreationStatus {
-		//Delete Control
-		cr := cr.GetControlCr()
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, cr)
-		if err != nil && errors.IsNotFound(err) {
-			return nil
-		}
-		err = r.client.Delete(context.TODO(), cr)
-		if err != nil {
-			return err
-		}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, instance)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return err
-			}
-			return err
-		}
-		created := false
-		if instance.Status.Control == nil {
-			status := &v1alpha1.ServiceStatus{
-				Created: &created,
-			}
-			instance.Status.Control = status
-		} else {
-			instance.Status.Control.Created = &created
-		}
-		err = r.client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			return err
-		}
-
 	}
 	kubemanagerCreationStatus := false
 	if instance.Status.Kubemanager != nil {
@@ -858,6 +769,95 @@ func (r *ReconcileManager) ManageCr(request reconcile.Request) error {
 			instance.Status.Config = status
 		} else {
 			instance.Status.Config.Created = &created
+		}
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+
+	}
+	controlCreationStatus := false
+	if instance.Status.Control != nil {
+		if instance.Status.Control.Created != nil {
+			controlCreationStatus = *instance.Status.Control.Created
+		}
+	}
+
+	controlCreationIntent := false
+	if instance.Spec.Services.Control != nil {
+		if instance.Spec.Services.Control.Create != nil {
+			controlCreationIntent = *instance.Spec.Services.Control.Create
+		}
+	}
+	if controlCreationIntent && !controlCreationStatus {
+		//Create Control
+		cr := cr.GetControlCr()
+		cr.Spec = instance.Spec.Services.Control
+		cr.Name = instance.Name
+		cr.Namespace = instance.Namespace
+		if instance.Spec.Size != nil && cr.Spec.Size == nil {
+			cr.Spec.Size = instance.Spec.Size
+		}
+		if instance.Spec.HostNetwork != nil && cr.Spec.HostNetwork == nil {
+			cr.Spec.HostNetwork = instance.Spec.HostNetwork
+		}
+		err := r.CreateResource(instance, cr, cr.Name, cr.Namespace)
+		if err != nil {
+			return err
+		}
+		created := true
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, instance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return err
+			}
+			return err
+		}
+		if instance.Status.Control == nil {
+			status := &v1alpha1.ServiceStatus{
+				Created: &created,
+			}
+			instance.Status.Control = status
+		} else {
+			instance.Status.Control.Created = &created
+		}
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+		err = r.client.Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	if !controlCreationIntent && controlCreationStatus {
+		//Delete Control
+		cr := cr.GetControlCr()
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, cr)
+		if err != nil && errors.IsNotFound(err) {
+			return nil
+		}
+		err = r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
+		}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, instance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return err
+			}
+			return err
+		}
+		created := false
+		if instance.Status.Control == nil {
+			status := &v1alpha1.ServiceStatus{
+				Created: &created,
+			}
+			instance.Status.Control = status
+		} else {
+			instance.Status.Control.Created = &created
 		}
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {

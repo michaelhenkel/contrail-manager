@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
@@ -314,6 +315,7 @@ func (r *ReconcileRabbitmq) RabbitmqReconcile(request reconcile.Request) (reconc
 	controllerutil.SetControllerReference(rabbitmqInstance, deployment, r.Scheme)
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "rabbitmq-" + rabbitmqInstance.Name, Namespace: rabbitmqInstance.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
+		deployment.Spec.Template.ObjectMeta.Labels["version"] = "1"
 		err = r.Client.Create(context.TODO(), deployment)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create Deployment", "Namespace", rabbitmqInstance.Namespace, "Name", "rabbitmq-"+rabbitmqInstance.Name)
@@ -321,6 +323,10 @@ func (r *ReconcileRabbitmq) RabbitmqReconcile(request reconcile.Request) (reconc
 		}
 	} else if err == nil && *deployment.Spec.Replicas != *rabbitmqInstance.Spec.Size {
 		deployment.Spec.Replicas = rabbitmqInstance.Spec.Size
+		versionInt, _ := strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels["version"])
+		newVersion := versionInt + 1
+		newVersionString := strconv.Itoa(newVersion)
+		deployment.Spec.Template.ObjectMeta.Labels["version"] = newVersionString
 		err = r.Client.Update(context.TODO(), deployment)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Deployment", "Namespace", rabbitmqInstance.Namespace, "Name", "rabbitmq-"+rabbitmqInstance.Name)
@@ -342,18 +348,19 @@ func (r *ReconcileRabbitmq) DeploymentReconcile(request reconcile.Request) (reco
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if deployment.Status.ReadyReplicas == deployment.Status.Replicas {
-		var ownerName string
-		for _, owner := range deployment.ObjectMeta.OwnerReferences {
-			if owner.Kind == "Rabbitmq" {
-				ownerName = owner.Name
-			}
+	var ownerName string
+	for _, owner := range deployment.ObjectMeta.OwnerReferences {
+		if owner.Kind == "Rabbitmq" {
+			ownerName = owner.Name
 		}
-		owner := &v1alpha1.Rabbitmq{}
-		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: ownerName, Namespace: request.Namespace}, owner)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+	}
+	owner := &v1alpha1.Rabbitmq{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: ownerName, Namespace: request.Namespace}, owner)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
+
 		active := true
 		owner.Status.Active = &active
 		err = r.Client.Status().Update(context.TODO(), owner)
@@ -362,6 +369,12 @@ func (r *ReconcileRabbitmq) DeploymentReconcile(request reconcile.Request) (reco
 		}
 		reqLogger.Info("Rabbitmq Deployment is ready")
 
+	} else {
+		owner.Status.Active = nil
+		err = r.Client.Status().Update(context.TODO(), owner)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 	return reconcile.Result{}, nil
 }

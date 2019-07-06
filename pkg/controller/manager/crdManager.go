@@ -6,11 +6,7 @@ import (
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
-	"github.com/michaelhenkel/contrail-manager/pkg/controller/control"
-	"github.com/michaelhenkel/contrail-manager/pkg/controller/kubemanager"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/rabbitmq"
-	"github.com/michaelhenkel/contrail-manager/pkg/controller/vrouter"
-	"github.com/michaelhenkel/contrail-manager/pkg/controller/webui"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/zookeeper"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -62,6 +58,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 	}
 	configResource := v1alpha1.Config{}
 	configCrd := configResource.GetCrd()
+	configControllerActivate := false
 	if configActivationIntent && !configActivationStatus {
 		err = r.createCrd(instance, configCrd)
 		if err != nil {
@@ -77,11 +74,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 			}
 		}
 		if !controllerRunning {
-
-			err = config.Add(r.manager)
-			if err != nil {
-				return err
-			}
+			configControllerActivate = true
 		}
 
 		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Config{}}, &handler.EnqueueRequestForOwner{
@@ -91,6 +84,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 		if err != nil {
 			return err
 		}
+
 		active := true
 		if instance.Status.Config == nil {
 			status := &v1alpha1.ServiceStatus{
@@ -121,6 +115,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 	}
 	controlResource := v1alpha1.Control{}
 	controlCrd := controlResource.GetCrd()
+	controlControllerActivate := false
 	if controlActivationIntent && !controlActivationStatus {
 		err = r.createCrd(instance, controlCrd)
 		if err != nil {
@@ -136,11 +131,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 			}
 		}
 		if !controllerRunning {
-
-			err = control.Add(r.manager)
-			if err != nil {
-				return err
-			}
+			controlControllerActivate = true
 		}
 
 		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Control{}}, &handler.EnqueueRequestForOwner{
@@ -180,6 +171,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 	}
 	kubemanagerResource := v1alpha1.Kubemanager{}
 	kubemanagerCrd := kubemanagerResource.GetCrd()
+	kubemanagerControllerActivate := false
 	if kubemanagerActivationIntent && !kubemanagerActivationStatus {
 		err = r.createCrd(instance, kubemanagerCrd)
 		if err != nil {
@@ -195,11 +187,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 			}
 		}
 		if !controllerRunning {
-
-			err = kubemanager.Add(r.manager)
-			if err != nil {
-				return err
-			}
+			kubemanagerControllerActivate = true
 		}
 
 		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Kubemanager{}}, &handler.EnqueueRequestForOwner{
@@ -239,6 +227,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 	}
 	webuiResource := v1alpha1.Webui{}
 	webuiCrd := webuiResource.GetCrd()
+	webuiControllerActivate := false
 	if webuiActivationIntent && !webuiActivationStatus {
 		err = r.createCrd(instance, webuiCrd)
 		if err != nil {
@@ -254,11 +243,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 			}
 		}
 		if !controllerRunning {
-
-			err = webui.Add(r.manager)
-			if err != nil {
-				return err
-			}
+			webuiControllerActivate = true
 		}
 
 		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Webui{}}, &handler.EnqueueRequestForOwner{
@@ -298,6 +283,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 	}
 	vrouterResource := v1alpha1.Vrouter{}
 	vrouterCrd := vrouterResource.GetCrd()
+	vrouterControllerActivate := false
 	if vrouterActivationIntent && !vrouterActivationStatus {
 		err = r.createCrd(instance, vrouterCrd)
 		if err != nil {
@@ -313,11 +299,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 			}
 		}
 		if !controllerRunning {
-
-			err = vrouter.Add(r.manager)
-			if err != nil {
-				return err
-			}
+			vrouterControllerActivate = true
 		}
 
 		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Vrouter{}}, &handler.EnqueueRequestForOwner{
@@ -357,6 +339,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 	}
 	cassandraResource := v1alpha1.Cassandra{}
 	cassandraCrd := cassandraResource.GetCrd()
+	cassandraControllerActivate := false
 	if cassandraActivationIntent && !cassandraActivationStatus {
 		err = r.createCrd(instance, cassandraCrd)
 		if err != nil {
@@ -372,11 +355,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 			}
 		}
 		if !controllerRunning {
-
-			err = cassandra.Add(r.manager)
-			if err != nil {
-				return err
-			}
+			cassandraControllerActivate = true
 		}
 
 		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Cassandra{}}, &handler.EnqueueRequestForOwner{
@@ -416,6 +395,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 	}
 	zookeeperResource := v1alpha1.Zookeeper{}
 	zookeeperCrd := zookeeperResource.GetCrd()
+	zookeeperControllerActivate := false
 	if zookeeperActivationIntent && !zookeeperActivationStatus {
 		err = r.createCrd(instance, zookeeperCrd)
 		if err != nil {
@@ -431,11 +411,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 			}
 		}
 		if !controllerRunning {
-
-			err = zookeeper.Add(r.manager)
-			if err != nil {
-				return err
-			}
+			zookeeperControllerActivate = true
 		}
 
 		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Zookeeper{}}, &handler.EnqueueRequestForOwner{
@@ -475,6 +451,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 	}
 	rabbitmqResource := v1alpha1.Rabbitmq{}
 	rabbitmqCrd := rabbitmqResource.GetCrd()
+	rabbitmqControllerActivate := false
 	if rabbitmqActivationIntent && !rabbitmqActivationStatus {
 		err = r.createCrd(instance, rabbitmqCrd)
 		if err != nil {
@@ -490,11 +467,7 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 			}
 		}
 		if !controllerRunning {
-
-			err = rabbitmq.Add(r.manager)
-			if err != nil {
-				return err
-			}
+			rabbitmqControllerActivate = true
 		}
 
 		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Rabbitmq{}}, &handler.EnqueueRequestForOwner{
@@ -515,6 +488,55 @@ func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 		}
 
 		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+	}
+
+	if configControllerActivate {
+		err = config.Add(r.manager)
+		if err != nil {
+			return err
+		}
+	}
+	if controlControllerActivate {
+		//err = control.Add(r.manager)
+		if err != nil {
+			return err
+		}
+	}
+	if kubemanagerControllerActivate {
+		//err = kubemanager.Add(r.manager)
+		if err != nil {
+			return err
+		}
+	}
+	if webuiControllerActivate {
+		//err = webui.Add(r.manager)
+		if err != nil {
+			return err
+		}
+	}
+	if vrouterControllerActivate {
+		//err = vrouter.Add(r.manager)
+		if err != nil {
+			return err
+		}
+	}
+	if cassandraControllerActivate {
+		err = cassandra.Add(r.manager)
+		if err != nil {
+			return err
+		}
+	}
+	if zookeeperControllerActivate {
+		err = zookeeper.Add(r.manager)
+		if err != nil {
+			return err
+		}
+	}
+	if rabbitmqControllerActivate {
+		err = rabbitmq.Add(r.manager)
 		if err != nil {
 			return err
 		}

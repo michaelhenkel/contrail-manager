@@ -11,8 +11,8 @@ spec:
   - contrail-nightly
   services:
     config:
-      activate: false
-      create: false
+      activate: true
+      create: true
       configuration:
         CLOUD_ORCHESTRATOR: kubernetes
       images:
@@ -28,7 +28,7 @@ spec:
         nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
         init: busybox
     control:
-      activate: false
+      activate: true
       create: false
       images:
         control: hub.juniper.net/contrail-nightly/contrail-controller-control-control:5.2.0-0.740
@@ -38,7 +38,7 @@ spec:
         nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
         init: busybox
     kubemanager:
-      activate: false
+      activate: true
       create: false
       images:
         kubemanager: hub.juniper.net/contrail-nightly/contrail-kubernetes-kube-manager:5.2.0-0.740
@@ -59,14 +59,14 @@ spec:
         KUBERNETES_IP_FABRIC_SNAT: "true"
         K8S_TOKEN_FILE: /var/run/secrets/kubernetes.io/serviceaccount/token
     webui:
-      activate: false
+      activate: true
       create: false
       images:
         webuiweb: hub.juniper.net/contrail-nightly/contrail-controller-webui-web:5.2.0-0.740
         webuijob: hub.juniper.net/contrail-nightly/contrail-controller-webui-job:5.2.0-0.740
         nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
     vrouter:
-      activate: false
+      activate: true
       create: false
       images:
         vrouteragent: hub.juniper.net/contrail-nightly/contrail-vrouter-agent:5.2.0-0.740
@@ -75,8 +75,8 @@ spec:
         nodemanager: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
         nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
     cassandra:
-      activate: false
-      create: false
+      activate: true
+      create: true
       images:
         cassandra: gcr.io/google-samples/cassandra:v13
         init: busybox
@@ -94,7 +94,7 @@ spec:
         NODE_TYPE: "config-database"
     zookeeper:
       activate: true
-      create: true
+      create: false
       images:
         zookeeper: hub.juniper.net/contrail-nightly/contrail-external-zookeeper:5.2.0-0.740
         init: busybox
@@ -103,7 +103,7 @@ spec:
         ZOOKEEPER_PORTS: "2888:3888"
         NODE_TYPE: "config-database"
     rabbitmq:
-      activate: false
+      activate: true
       create: false
       images:
         rabbitmq: hub.juniper.net/contrail-nightly/contrail-external-rabbitmq:5.2.0-0.740

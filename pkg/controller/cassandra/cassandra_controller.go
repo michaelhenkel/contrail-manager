@@ -2,6 +2,7 @@ package cassandra
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
@@ -342,7 +343,7 @@ func (r *ReconcileCassandra) DeploymentReconcile(request reconcile.Request) (rec
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if deployment.Status.ReadyReplicas == deployment.Status.Replicas {
+	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
 		var ownerName string
 		for _, owner := range deployment.ObjectMeta.OwnerReferences {
 			if owner.Kind == "Cassandra" {
@@ -360,6 +361,8 @@ func (r *ReconcileCassandra) DeploymentReconcile(request reconcile.Request) (rec
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+		fmt.Println("Ready Replicas: ", deployment.Status.ReadyReplicas)
+		fmt.Println("Spec Replicas: ", *deployment.Spec.Replicas)
 		reqLogger.Info("Cassandra Deployment is ready")
 
 	}

@@ -359,7 +359,7 @@ func (r *ReconcileZookeeper) DeploymentReconcile(request reconcile.Request) (rec
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if deployment.Status.ReadyReplicas == deployment.Status.Replicas {
+	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
 
 		active := true
 		owner.Status.Active = &active
