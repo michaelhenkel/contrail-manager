@@ -2,7 +2,7 @@ package zookeeper
 
 import (
 	"context"
-	"strconv"
+	"fmt"
 	"strings"
 
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
@@ -34,6 +34,8 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileZookeeper{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}
 }
+
+// add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New("zookeeper-controller", mgr, controller.Options{Reconciler: r})
@@ -207,7 +209,6 @@ func (r *ReconcileZookeeper) GetRequestObject(request reconcile.Request) (ro run
 
 	return nil
 }
-
 func (r *ReconcileZookeeper) ZookeeperReconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Zookeeper Object")
@@ -315,7 +316,6 @@ func (r *ReconcileZookeeper) ZookeeperReconcile(request reconcile.Request) (reco
 	controllerutil.SetControllerReference(zookeeperInstance, deployment, r.Scheme)
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "zookeeper-" + zookeeperInstance.Name, Namespace: zookeeperInstance.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
-		deployment.Spec.Template.ObjectMeta.Labels["version"] = "1"
 		err = r.Client.Create(context.TODO(), deployment)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create Deployment", "Namespace", zookeeperInstance.Namespace, "Name", "zookeeper-"+zookeeperInstance.Name)
@@ -323,13 +323,15 @@ func (r *ReconcileZookeeper) ZookeeperReconcile(request reconcile.Request) (reco
 		}
 	} else if err == nil && *deployment.Spec.Replicas != *zookeeperInstance.Spec.Size {
 		deployment.Spec.Replicas = zookeeperInstance.Spec.Size
-		versionInt, _ := strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels["version"])
-		newVersion := versionInt + 1
-		newVersionString := strconv.Itoa(newVersion)
-		deployment.Spec.Template.ObjectMeta.Labels["version"] = newVersionString
 		err = r.Client.Update(context.TODO(), deployment)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Deployment", "Namespace", zookeeperInstance.Namespace, "Name", "zookeeper-"+zookeeperInstance.Name)
+			return reconcile.Result{}, err
+		}
+		active := false
+		zookeeperInstance.Status.Active = &active
+		err = r.Client.Status().Update(context.TODO(), zookeeperInstance)
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
@@ -339,7 +341,6 @@ func (r *ReconcileZookeeper) ZookeeperReconcile(request reconcile.Request) (reco
 func (r *ReconcileZookeeper) ManagerReconcile(instance *v1alpha1.Manager) (reconcile.Result, error) {
 	return reconcile.Result{}, nil
 }
-
 func (r *ReconcileZookeeper) DeploymentReconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Zookeeper due to Deployment changes")
@@ -348,108 +349,105 @@ func (r *ReconcileZookeeper) DeploymentReconcile(request reconcile.Request) (rec
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	var ownerName string
-	for _, owner := range deployment.ObjectMeta.OwnerReferences {
-		if owner.Kind == "Zookeeper" {
-			ownerName = owner.Name
-		}
-	}
-	owner := &v1alpha1.Zookeeper{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: ownerName, Namespace: request.Namespace}, owner)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
 	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
-
+		var ownerName string
+		for _, owner := range deployment.ObjectMeta.OwnerReferences {
+			if owner.Kind == "Zookeeper" {
+				ownerName = owner.Name
+			}
+		}
+		owner := &v1alpha1.Zookeeper{}
+		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: ownerName, Namespace: request.Namespace}, owner)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		active := true
 		owner.Status.Active = &active
 		err = r.Client.Status().Update(context.TODO(), owner)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+		fmt.Println("Ready Replicas: ", deployment.Status.ReadyReplicas)
+		fmt.Println("Spec Replicas: ", *deployment.Spec.Replicas)
 		reqLogger.Info("Zookeeper Deployment is ready")
-	} else {
-		owner.Status.Active = nil
-		err = r.Client.Status().Update(context.TODO(), owner)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+
 	}
 	return reconcile.Result{}, nil
 }
-
 func (r *ReconcileZookeeper) ReplicaSetReconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Zookeeper due to ReplicaSet changes")
-	replicaSet := &appsv1.ReplicaSet{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, replicaSet)
+	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_manager": "zookeeper"})
+	listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+	replicaSetList := &appsv1.ReplicaSetList{}
+	err := r.Client.List(context.TODO(), listOps, replicaSetList)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	podList := &corev1.PodList{}
-	if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
-		labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		err := r.Client.List(context.TODO(), listOps, podList)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-	var podNameIpMap = make(map[string]string)
-	if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
-		for _, pod := range podList.Items {
-			if pod.Status.PodIP != "" {
-				podNameIpMap[pod.Name] = pod.Status.PodIP
-			}
-		}
-	}
-
-	if int32(len(podNameIpMap)) == *replicaSet.Spec.Replicas {
-
-		configMapList := &corev1.ConfigMapList{}
-		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_manager": "zookeeper"})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		err := r.Client.List(context.TODO(), listOps, configMapList)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		configMap := configMapList.Items[0]
-		var podIpList []string
-		for _, ip := range podNameIpMap {
-			podIpList = append(podIpList, ip)
-		}
-		nodeList := strings.Join(podIpList, ",")
-		configMap.Data["ZOOKEEPER_NODES"] = nodeList
-		configMap.Data["CONTROLLER_NODES"] = nodeList
-		err = r.Client.Update(context.TODO(), &configMap)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		for _, pod := range podList.Items {
-			pod.ObjectMeta.Labels["status"] = "ready"
-			err = r.Client.Update(context.TODO(), &pod)
+	if len(replicaSetList.Items) > 0 {
+		replicaSet := &replicaSetList.Items[0]
+		podList := &corev1.PodList{}
+		if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
+			labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
+			listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+			err := r.Client.List(context.TODO(), listOps, podList)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
 		}
-		zookeeperList := &v1alpha1.ZookeeperList{}
-		zookeeperListOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		err = r.Client.List(context.TODO(), zookeeperListOps, zookeeperList)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		zookeeper := zookeeperList.Items[0]
-		zookeeper.Status.Nodes = podNameIpMap
-
-		portMap := map[string]string{"port": zookeeper.Spec.Configuration["ZOOKEEPER_PORT"]}
-		zookeeper.Status.Ports = portMap
-		err = r.Client.Status().Update(context.TODO(), &zookeeper)
-		if err != nil {
-			return reconcile.Result{}, err
+		var podNameIpMap = make(map[string]string)
+		if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
+			for _, pod := range podList.Items {
+				if pod.Status.PodIP != "" {
+					podNameIpMap[pod.Name] = pod.Status.PodIP
+				}
+			}
 		}
 
-		reqLogger.Info("All POD IPs available")
+		if int32(len(podNameIpMap)) == *replicaSet.Spec.Replicas {
 
+			configMapList := &corev1.ConfigMapList{}
+
+			err := r.Client.List(context.TODO(), listOps, configMapList)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			configMap := configMapList.Items[0]
+			var podIpList []string
+			for _, ip := range podNameIpMap {
+				podIpList = append(podIpList, ip)
+			}
+			nodeList := strings.Join(podIpList, ",")
+			configMap.Data["ZOOKEEPER_NODES"] = nodeList
+			configMap.Data["CONTROLLER_NODES"] = nodeList
+			err = r.Client.Update(context.TODO(), &configMap)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			for _, pod := range podList.Items {
+				pod.ObjectMeta.Labels["status"] = "ready"
+				err = r.Client.Update(context.TODO(), &pod)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+			zookeeperList := &v1alpha1.ZookeeperList{}
+			zookeeperListOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+			err = r.Client.List(context.TODO(), zookeeperListOps, zookeeperList)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			zookeeper := zookeeperList.Items[0]
+			zookeeper.Status.Nodes = podNameIpMap
+			portMap := map[string]string{"port": zookeeper.Spec.Configuration["ZOOKEEPER_PORT"]}
+			zookeeper.Status.Ports = portMap
+			err = r.Client.Status().Update(context.TODO(), &zookeeper)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("All POD IPs available CASSANDRA: " + replicaSet.ObjectMeta.Labels["contrail_manager"])
+
+		}
 	}
 	return reconcile.Result{}, nil
 }

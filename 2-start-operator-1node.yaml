@@ -94,7 +94,7 @@ spec:
         NODE_TYPE: "config-database"
     zookeeper:
       activate: true
-      create: false
+      create: true
       images:
         zookeeper: hub.juniper.net/contrail-nightly/contrail-external-zookeeper:5.2.0-0.740
         init: busybox
@@ -104,7 +104,7 @@ spec:
         NODE_TYPE: "config-database"
     rabbitmq:
       activate: true
-      create: false
+      create: true
       images:
         rabbitmq: hub.juniper.net/contrail-nightly/contrail-external-rabbitmq:5.2.0-0.740
         init: busybox

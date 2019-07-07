@@ -12,6 +12,8 @@ metadata:
   name: tfcassandra-cluster-1
   namespace: default
 spec:
+  strategy:
+    type: Recreate
   replicas: 3
   selector:
     matchLabels:

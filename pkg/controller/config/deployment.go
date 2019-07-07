@@ -13,6 +13,8 @@ metadata:
   name: config
   namespace: default
 spec:
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: config

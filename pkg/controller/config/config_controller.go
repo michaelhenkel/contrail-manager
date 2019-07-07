@@ -3,6 +3,8 @@ package config
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -96,8 +98,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 					oldPod := e.ObjectOld.(*corev1.Pod)
 					newPod := e.ObjectNew.(*corev1.Pod)
 					if oldPod.Status.PodIP != newPod.Status.PodIP {
-						fmt.Println("oldPod IP: ", oldPod.Status.PodIP)
-						fmt.Println("newPod IP: ", newPod.Status.PodIP)
 						return true
 					}
 				}
@@ -492,23 +492,12 @@ func (r *ReconcileConfig) finalize(request reconcile.Request) (reconcile.Result,
 	}
 	configMap := configMapList.Items[0]
 
-	podList := &corev1.PodList{}
-	err = r.Client.List(context.TODO(), listOps, podList)
+	configInstance := &v1alpha1.Config{}
+	err = r.Client.Get(context.TODO(), request.NamespacedName, configInstance)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	var podNameIpMap = make(map[string]string)
-	for _, pod := range podList.Items {
-		if pod.Status.PodIP != "" {
-			podNameIpMap[pod.Name] = pod.Status.PodIP
-		}
-	}
-
-	var podIpList []string
-	for _, ip := range podNameIpMap {
-		podIpList = append(podIpList, ip)
-	}
 	cassandraInstance := &v1alpha1.Cassandra{}
 	err = r.Client.Get(context.TODO(), request.NamespacedName, cassandraInstance)
 	if err != nil {
@@ -541,6 +530,23 @@ func (r *ReconcileConfig) finalize(request reconcile.Request) (reconcile.Result,
 		cassandraNodes = append(cassandraNodes, ip)
 	}
 	cassandraNodeList := strings.Join(cassandraNodes, ",")
+
+	serviceChanged := false
+	if v, ok := configMap.Data["CONFIGDB_NODES"]; ok {
+		cassandraNodeSlice := strings.Split(cassandraNodeList, ",")
+		configDBSlice := strings.Split(v, ",")
+		sort.Strings(cassandraNodeSlice)
+		sort.Strings(configDBSlice)
+		reflect.DeepEqual(cassandraNodeSlice, configDBSlice)
+		if !reflect.DeepEqual(cassandraNodeSlice, configDBSlice) {
+			serviceChanged = true
+		}
+		fmt.Println("cassandraNodeList", cassandraNodeList)
+		fmt.Println("CONFIGDB_NODES", configMap.Data["CONFIGDB_NODES"])
+
+	} else {
+		configMap.Data["CONFIGDB_NODES"] = cassandraNodeList
+	}
 	configMap.Data["RABBITMQ_NODES"] = rabbitmqNodeList
 	configMap.Data["ZOOKEEPER_NODES"] = zookeeperNodeList
 	configMap.Data["CONFIGDB_NODES"] = cassandraNodeList
@@ -549,7 +555,52 @@ func (r *ReconcileConfig) finalize(request reconcile.Request) (reconcile.Result,
 	configMap.Data["RABBITMQ_NODE_PORT"] = rabbitmqInstance.Status.Ports["port"]
 	configMap.Data["ZOOKEEPER_NODE_PORT"] = zookeeperInstance.Status.Ports["port"]
 
-	nodeList := strings.Join(podIpList, ",")
+	fmt.Println("############################### 1")
+	if serviceChanged {
+		fmt.Println("############################### 2")
+		err = r.Client.Update(context.TODO(), &configMap)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		fmt.Println("############################### 3")
+		deployment := &appsv1.Deployment{}
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "config-" + configInstance.Name, Namespace: configInstance.Namespace}, deployment)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		versionInt, _ := strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels["version"])
+		newVersion := versionInt + 1
+		newVersionString := strconv.Itoa(newVersion)
+		deployment.Spec.Template.ObjectMeta.Labels["version"] = newVersionString
+		err = r.Client.Update(context.TODO(), deployment)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil
+		fmt.Println("############################### 4")
+
+	}
+
+	podList := &corev1.PodList{}
+	err = r.Client.List(context.TODO(), listOps, podList)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	var podNameIPMap = make(map[string]string)
+	for _, pod := range podList.Items {
+		if pod.Status.PodIP != "" {
+			podNameIPMap[pod.Name] = pod.Status.PodIP
+		}
+	}
+
+	var podIPList []string
+	for _, ip := range podNameIPMap {
+		podIPList = append(podIPList, ip)
+	}
+
+	nodeList := strings.Join(podIPList, ",")
 	configMap.Data["CONTROLLER_NODES"] = nodeList
 	err = r.Client.Update(context.TODO(), &configMap)
 	if err != nil {
@@ -569,7 +620,7 @@ func (r *ReconcileConfig) finalize(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 	config := configList.Items[0]
-	config.Status.Nodes = podNameIpMap
+	config.Status.Nodes = podNameIPMap
 	err = r.Client.Status().Update(context.TODO(), &config)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -759,44 +810,45 @@ func (r *ReconcileConfig) ZookeeperReconcile(request reconcile.Request) (reconci
 func (r *ReconcileConfig) ReplicaSetReconcile(request reconcile.Request) error {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Config due to ReplicaSet changes")
-
-	var podNameIpMap = make(map[string]string)
-	podList := &corev1.PodList{}
-	replicaSet := &appsv1.ReplicaSet{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, replicaSet)
+	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_manager": "config"})
+	listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+	replicaSetList := &appsv1.ReplicaSetList{}
+	err := r.Client.List(context.TODO(), listOps, replicaSetList)
 	if err != nil {
 		return err
 	}
-	reqLogger.Info("Reconciling Config due to ReplicaSet changes 3")
-	if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
-		labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		err := r.Client.List(context.TODO(), listOps, podList)
+	if len(replicaSetList.Items) > 0 {
+		replicaSet := &replicaSetList.Items[0]
+		var podNameIpMap = make(map[string]string)
+		podList := &corev1.PodList{}
+
+		err := r.Client.Get(context.TODO(), request.NamespacedName, replicaSet)
 		if err != nil {
 			return err
 		}
-	}
-	reqLogger.Info("Reconciling Config due to ReplicaSet changes 4")
-	if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
-		reqLogger.Info("Reconciling Config due to ReplicaSet changes 5")
-		for _, pod := range podList.Items {
-			reqLogger.Info("Reconciling Config due to ReplicaSet changes 4", pod.Name, pod.Status.PodIP)
-			if pod.Status.PodIP != "" {
-				podNameIpMap[pod.Name] = pod.Status.PodIP
+		if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
+			labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
+			listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+			err := r.Client.List(context.TODO(), listOps, podList)
+			if err != nil {
+				return err
 			}
 		}
+		if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
+			for _, pod := range podList.Items {
+				if pod.Status.PodIP != "" {
+					podNameIpMap[pod.Name] = pod.Status.PodIP
+				}
+			}
+		}
+		if int32(len(podNameIpMap)) == *replicaSet.Spec.Replicas {
+			ready := true
+			r.podsReady = &ready
+		} else {
+			ready := false
+			r.podsReady = &ready
+		}
 	}
-	if int32(len(podNameIpMap)) == *replicaSet.Spec.Replicas {
-		reqLogger.Info("Reconciling Config due to ReplicaSet changes 6")
-		reqLogger.Info("All CONFIG POD IPs available")
-		ready := true
-		r.podsReady = &ready
-	} else {
-		ready := false
-		r.podsReady = &ready
-	}
-	reqLogger.Info("Reconciling Config due to ReplicaSet changes 7")
-
 	return nil
 }
 
@@ -812,34 +864,43 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 	objectKind := requestObject.GetObjectKind()
 	objectGVK := objectKind.GroupVersionKind()
 	kind := objectGVK.Kind
-	fmt.Println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", kind)
 	switch kind {
 	case "ReplicaSet":
-		err := r.ReplicaSetReconcile(request)
+		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_manager": "config"})
+		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+		replicaSetList := &appsv1.ReplicaSetList{}
+		err := r.Client.List(context.TODO(), listOps, replicaSetList)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		replicaSetInstance := &appsv1.ReplicaSet{}
-		err = r.Client.Get(context.TODO(), request.NamespacedName, replicaSetInstance)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		for _, deploymentOwner := range replicaSetInstance.OwnerReferences {
-			if *deploymentOwner.Controller {
-				deploymentInstance := &appsv1.Deployment{}
-				err = r.Client.Get(context.TODO(), types.NamespacedName{Name: deploymentOwner.Name, Namespace: request.Namespace}, deploymentInstance)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-				for _, configOwner := range deploymentInstance.OwnerReferences {
-					if *configOwner.Controller {
-						configInstance := &v1alpha1.Config{}
-						err = r.Client.Get(context.TODO(), types.NamespacedName{Name: configOwner.Name, Namespace: request.Namespace}, configInstance)
-						if err != nil {
-							return reconcile.Result{}, err
+		if len(replicaSetList.Items) > 0 {
+
+			err := r.ReplicaSetReconcile(request)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			replicaSetInstance := &replicaSetList.Items[0]
+			err = r.Client.Get(context.TODO(), request.NamespacedName, replicaSetInstance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			for _, deploymentOwner := range replicaSetInstance.OwnerReferences {
+				if *deploymentOwner.Controller {
+					deploymentInstance := &appsv1.Deployment{}
+					err = r.Client.Get(context.TODO(), types.NamespacedName{Name: deploymentOwner.Name, Namespace: request.Namespace}, deploymentInstance)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+					for _, configOwner := range deploymentInstance.OwnerReferences {
+						if *configOwner.Controller {
+							configInstance := &v1alpha1.Config{}
+							err = r.Client.Get(context.TODO(), types.NamespacedName{Name: configOwner.Name, Namespace: request.Namespace}, configInstance)
+							if err != nil {
+								return reconcile.Result{}, err
+							}
+							request.Name = configOwner.Name
+							r.ConfigReconcile(request)
 						}
-						request.Name = configOwner.Name
-						r.ConfigReconcile(request)
 					}
 				}
 			}

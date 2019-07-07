@@ -316,18 +316,32 @@ func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reco
 	controllerutil.SetControllerReference(cassandraInstance, deployment, r.Scheme)
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "cassandra-" + cassandraInstance.Name, Namespace: cassandraInstance.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
+		deployment.Spec.Template.ObjectMeta.Labels["version"] = "1"
 		err = r.Client.Create(context.TODO(), deployment)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create Deployment", "Namespace", cassandraInstance.Namespace, "Name", "cassandra-"+cassandraInstance.Name)
 			return reconcile.Result{}, err
 		}
 	} else if err == nil && *deployment.Spec.Replicas != *cassandraInstance.Spec.Size {
+		active := false
+		cassandraInstance.Status.Active = &active
+		err = r.Client.Status().Update(context.TODO(), cassandraInstance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		deployment.Spec.Replicas = cassandraInstance.Spec.Size
+		/*
+			versionInt, _ := strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels["version"])
+			newVersion := versionInt + 1
+			newVersionString := strconv.Itoa(newVersion)
+			deployment.Spec.Template.ObjectMeta.Labels["version"] = newVersionString
+		*/
 		err = r.Client.Update(context.TODO(), deployment)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Deployment", "Namespace", cassandraInstance.Namespace, "Name", "cassandra-"+cassandraInstance.Name)
 			return reconcile.Result{}, err
 		}
+
 	}
 	return reconcile.Result{}, nil
 }
@@ -371,74 +385,85 @@ func (r *ReconcileCassandra) DeploymentReconcile(request reconcile.Request) (rec
 func (r *ReconcileCassandra) ReplicaSetReconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Cassandra due to ReplicaSet changes")
-	replicaSet := &appsv1.ReplicaSet{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, replicaSet)
+	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_manager": "cassandra"})
+	listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+	replicaSetList := &appsv1.ReplicaSetList{}
+	err := r.Client.List(context.TODO(), listOps, replicaSetList)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	podList := &corev1.PodList{}
-	if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
-		labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		err := r.Client.List(context.TODO(), listOps, podList)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-	var podNameIpMap = make(map[string]string)
-	if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
-		for _, pod := range podList.Items {
-			if pod.Status.PodIP != "" {
-				podNameIpMap[pod.Name] = pod.Status.PodIP
-			}
-		}
-	}
-
-	if int32(len(podNameIpMap)) == *replicaSet.Spec.Replicas {
-
-		configMapList := &corev1.ConfigMapList{}
-		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_manager": "cassandra"})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		err := r.Client.List(context.TODO(), listOps, configMapList)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		configMap := configMapList.Items[0]
-		var podIpList []string
-		for _, ip := range podNameIpMap {
-			podIpList = append(podIpList, ip)
-		}
-		nodeList := strings.Join(podIpList, ",")
-		configMap.Data["CASSANDRA_SEEDS"] = nodeList
-		configMap.Data["CONTROLLER_NODES"] = nodeList
-		err = r.Client.Update(context.TODO(), &configMap)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		for _, pod := range podList.Items {
-			pod.ObjectMeta.Labels["status"] = "ready"
-			err = r.Client.Update(context.TODO(), &pod)
+	if len(replicaSetList.Items) > 0 {
+		replicaSet := &replicaSetList.Items[0]
+		podList := &corev1.PodList{}
+		if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
+			labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
+			listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+			err := r.Client.List(context.TODO(), listOps, podList)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
 		}
-		cassandraList := &v1alpha1.CassandraList{}
-		cassandraListOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		err = r.Client.List(context.TODO(), cassandraListOps, cassandraList)
-		if err != nil {
-			return reconcile.Result{}, err
+		var podNameIpMap = make(map[string]string)
+		if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
+			for _, pod := range podList.Items {
+				if pod.Status.PodIP != "" {
+					podNameIpMap[pod.Name] = pod.Status.PodIP
+				}
+			}
 		}
-		cassandra := cassandraList.Items[0]
-		cassandra.Status.Nodes = podNameIpMap
-		portMap := map[string]string{"port": cassandra.Spec.Configuration["CASSANDRA_PORT"],
-			"cqlPort": cassandra.Spec.Configuration["CASSANDRA_CQL_PORT"]}
-		cassandra.Status.Ports = portMap
-		err = r.Client.Status().Update(context.TODO(), &cassandra)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("All POD IPs available")
 
+		if int32(len(podNameIpMap)) == *replicaSet.Spec.Replicas {
+
+			configMapList := &corev1.ConfigMapList{}
+
+			err := r.Client.List(context.TODO(), listOps, configMapList)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			configMap := configMapList.Items[0]
+			var podIpList []string
+			for _, ip := range podNameIpMap {
+				podIpList = append(podIpList, ip)
+			}
+			if len(podIpList) > 1 {
+				podIpList = podIpList[:len(podIpList)-1]
+			}
+			nodeList := strings.Join(podIpList, ",")
+			if seed, ok := configMap.Data["CASSANDRA_SEEDS"]; ok {
+				configMap.Data["CASSANDRA_SEEDS"] = seed
+			} else {
+				configMap.Data["CASSANDRA_SEEDS"] = nodeList
+			}
+			configMap.Data["CONTROLLER_NODES"] = nodeList
+			err = r.Client.Update(context.TODO(), &configMap)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			for _, pod := range podList.Items {
+				pod.ObjectMeta.Labels["status"] = "ready"
+				err = r.Client.Update(context.TODO(), &pod)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+			cassandraList := &v1alpha1.CassandraList{}
+			cassandraListOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+			err = r.Client.List(context.TODO(), cassandraListOps, cassandraList)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			cassandra := cassandraList.Items[0]
+			cassandra.Status.Nodes = podNameIpMap
+			portMap := map[string]string{"port": cassandra.Spec.Configuration["CASSANDRA_PORT"],
+				"cqlPort": cassandra.Spec.Configuration["CASSANDRA_CQL_PORT"]}
+			cassandra.Status.Ports = portMap
+			err = r.Client.Status().Update(context.TODO(), &cassandra)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("All POD IPs available CASSANDRA: " + replicaSet.ObjectMeta.Labels["contrail_manager"])
+
+		}
 	}
 	return reconcile.Result{}, nil
 }

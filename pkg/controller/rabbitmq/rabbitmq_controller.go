@@ -2,7 +2,7 @@ package rabbitmq
 
 import (
 	"context"
-	"strconv"
+	"fmt"
 	"strings"
 
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
@@ -34,6 +34,8 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileRabbitmq{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}
 }
+
+// add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New("rabbitmq-controller", mgr, controller.Options{Reconciler: r})
@@ -207,7 +209,6 @@ func (r *ReconcileRabbitmq) GetRequestObject(request reconcile.Request) (ro runt
 
 	return nil
 }
-
 func (r *ReconcileRabbitmq) RabbitmqReconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Rabbitmq Object")
@@ -315,7 +316,6 @@ func (r *ReconcileRabbitmq) RabbitmqReconcile(request reconcile.Request) (reconc
 	controllerutil.SetControllerReference(rabbitmqInstance, deployment, r.Scheme)
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "rabbitmq-" + rabbitmqInstance.Name, Namespace: rabbitmqInstance.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
-		deployment.Spec.Template.ObjectMeta.Labels["version"] = "1"
 		err = r.Client.Create(context.TODO(), deployment)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create Deployment", "Namespace", rabbitmqInstance.Namespace, "Name", "rabbitmq-"+rabbitmqInstance.Name)
@@ -323,13 +323,15 @@ func (r *ReconcileRabbitmq) RabbitmqReconcile(request reconcile.Request) (reconc
 		}
 	} else if err == nil && *deployment.Spec.Replicas != *rabbitmqInstance.Spec.Size {
 		deployment.Spec.Replicas = rabbitmqInstance.Spec.Size
-		versionInt, _ := strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels["version"])
-		newVersion := versionInt + 1
-		newVersionString := strconv.Itoa(newVersion)
-		deployment.Spec.Template.ObjectMeta.Labels["version"] = newVersionString
 		err = r.Client.Update(context.TODO(), deployment)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Deployment", "Namespace", rabbitmqInstance.Namespace, "Name", "rabbitmq-"+rabbitmqInstance.Name)
+			return reconcile.Result{}, err
+		}
+		active := false
+		rabbitmqInstance.Status.Active = &active
+		err = r.Client.Status().Update(context.TODO(), rabbitmqInstance)
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
@@ -339,7 +341,6 @@ func (r *ReconcileRabbitmq) RabbitmqReconcile(request reconcile.Request) (reconc
 func (r *ReconcileRabbitmq) ManagerReconcile(instance *v1alpha1.Manager) (reconcile.Result, error) {
 	return reconcile.Result{}, nil
 }
-
 func (r *ReconcileRabbitmq) DeploymentReconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Rabbitmq due to Deployment changes")
@@ -348,109 +349,105 @@ func (r *ReconcileRabbitmq) DeploymentReconcile(request reconcile.Request) (reco
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	var ownerName string
-	for _, owner := range deployment.ObjectMeta.OwnerReferences {
-		if owner.Kind == "Rabbitmq" {
-			ownerName = owner.Name
-		}
-	}
-	owner := &v1alpha1.Rabbitmq{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: ownerName, Namespace: request.Namespace}, owner)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
 	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
-
+		var ownerName string
+		for _, owner := range deployment.ObjectMeta.OwnerReferences {
+			if owner.Kind == "Rabbitmq" {
+				ownerName = owner.Name
+			}
+		}
+		owner := &v1alpha1.Rabbitmq{}
+		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: ownerName, Namespace: request.Namespace}, owner)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		active := true
 		owner.Status.Active = &active
 		err = r.Client.Status().Update(context.TODO(), owner)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+		fmt.Println("Ready Replicas: ", deployment.Status.ReadyReplicas)
+		fmt.Println("Spec Replicas: ", *deployment.Spec.Replicas)
 		reqLogger.Info("Rabbitmq Deployment is ready")
 
-	} else {
-		owner.Status.Active = nil
-		err = r.Client.Status().Update(context.TODO(), owner)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
 	}
 	return reconcile.Result{}, nil
 }
-
 func (r *ReconcileRabbitmq) ReplicaSetReconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Rabbitmq due to ReplicaSet changes")
-	replicaSet := &appsv1.ReplicaSet{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, replicaSet)
+	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_manager": "rabbitmq"})
+	listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+	replicaSetList := &appsv1.ReplicaSetList{}
+	err := r.Client.List(context.TODO(), listOps, replicaSetList)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	podList := &corev1.PodList{}
-	if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
-		labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		err := r.Client.List(context.TODO(), listOps, podList)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-	var podNameIpMap = make(map[string]string)
-	if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
-		for _, pod := range podList.Items {
-			if pod.Status.PodIP != "" {
-				podNameIpMap[pod.Name] = pod.Status.PodIP
-			}
-		}
-	}
-
-	if int32(len(podNameIpMap)) == *replicaSet.Spec.Replicas {
-
-		configMapList := &corev1.ConfigMapList{}
-		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_manager": "rabbitmq"})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		err := r.Client.List(context.TODO(), listOps, configMapList)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		configMap := configMapList.Items[0]
-		var podIpList []string
-		for _, ip := range podNameIpMap {
-			podIpList = append(podIpList, ip)
-		}
-		nodeList := strings.Join(podIpList, ",")
-		configMap.Data["RABBITMQ_NODES"] = nodeList
-		configMap.Data["CONTROLLER_NODES"] = nodeList
-		err = r.Client.Update(context.TODO(), &configMap)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		for _, pod := range podList.Items {
-			pod.ObjectMeta.Labels["status"] = "ready"
-			err = r.Client.Update(context.TODO(), &pod)
+	if len(replicaSetList.Items) > 0 {
+		replicaSet := &replicaSetList.Items[0]
+		podList := &corev1.PodList{}
+		if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
+			labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
+			listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+			err := r.Client.List(context.TODO(), listOps, podList)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
 		}
-		rabbitmqList := &v1alpha1.RabbitmqList{}
-		rabbitmqListOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		err = r.Client.List(context.TODO(), rabbitmqListOps, rabbitmqList)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		rabbitmq := rabbitmqList.Items[0]
-		rabbitmq.Status.Nodes = podNameIpMap
-
-		portMap := map[string]string{"port": rabbitmq.Spec.Configuration["RABBITMQ_NODE_PORT"]}
-		rabbitmq.Status.Ports = portMap
-		err = r.Client.Status().Update(context.TODO(), &rabbitmq)
-		if err != nil {
-			return reconcile.Result{}, err
+		var podNameIpMap = make(map[string]string)
+		if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
+			for _, pod := range podList.Items {
+				if pod.Status.PodIP != "" {
+					podNameIpMap[pod.Name] = pod.Status.PodIP
+				}
+			}
 		}
 
-		reqLogger.Info("All POD IPs available")
+		if int32(len(podNameIpMap)) == *replicaSet.Spec.Replicas {
 
+			configMapList := &corev1.ConfigMapList{}
+
+			err := r.Client.List(context.TODO(), listOps, configMapList)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			configMap := configMapList.Items[0]
+			var podIpList []string
+			for _, ip := range podNameIpMap {
+				podIpList = append(podIpList, ip)
+			}
+			nodeList := strings.Join(podIpList, ",")
+			configMap.Data["RABBITMQ_NODES"] = nodeList
+			configMap.Data["CONTROLLER_NODES"] = nodeList
+			err = r.Client.Update(context.TODO(), &configMap)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			for _, pod := range podList.Items {
+				pod.ObjectMeta.Labels["status"] = "ready"
+				err = r.Client.Update(context.TODO(), &pod)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+			rabbitmqList := &v1alpha1.RabbitmqList{}
+			rabbitmqListOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+			err = r.Client.List(context.TODO(), rabbitmqListOps, rabbitmqList)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			rabbitmq := rabbitmqList.Items[0]
+			rabbitmq.Status.Nodes = podNameIpMap
+			portMap := map[string]string{"port": rabbitmq.Spec.Configuration["RABBITMQ_NODE_PORT"]}
+			rabbitmq.Status.Ports = portMap
+			err = r.Client.Status().Update(context.TODO(), &rabbitmq)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("All POD IPs available CASSANDRA: " + replicaSet.ObjectMeta.Labels["contrail_manager"])
+
+		}
 	}
 	return reconcile.Result{}, nil
 }
