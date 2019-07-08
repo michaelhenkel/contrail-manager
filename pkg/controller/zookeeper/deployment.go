@@ -15,8 +15,6 @@ metadata:
   labels:
     app: zookeeper
 spec:
-  strategy:
-    type: Recreate
   replicas: 1
   selector:
     matchLabels:
@@ -57,9 +55,6 @@ spec:
           name: status
       containers:
       - name: zookeeper
-        envFrom:
-        - configMapRef:
-            name: zookeeper
         env:
         - name: POD_IP
           valueFrom:
@@ -87,6 +82,8 @@ spec:
           initialDelaySeconds: 30
           timeoutSeconds: 5
         volumeMounts:
+        - mountPath: /tmp/conf
+          name: conf
         - mountPath: /var/lib/zookeeper
           name: zookeeper-data
         - mountPath: /var/log/zookeeper
@@ -109,7 +106,31 @@ spec:
               apiVersion: v1
               fieldPath: metadata.labels
             path: pod_labelsx
-        name: status`
+          #- fieldRef:
+          #    apiVersion: v1
+          #    fieldPath: metadata.labels
+          #  path: zoo.cfg
+          #- fieldRef:
+          #    apiVersion: v1
+          #    fieldPath: metadata.labels
+          #  path: zoo.cfg.dynamic.100000000
+          #- fieldRef:
+          #    apiVersion: v1
+          #    fieldPath: metadata.labels
+          #  path: log4j.properties
+          #- fieldRef:
+          #    apiVersion: v1
+          #    fieldPath: metadata.labels
+          #  path: configuration.xsl
+        name: status
+      - downwardAPI:
+          defaultMode: 420
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.labels
+            path: zoo.cfg
+        name: conf`
 
 func GetDeployment() *appsv1.Deployment{
 	deployment := appsv1.Deployment{}

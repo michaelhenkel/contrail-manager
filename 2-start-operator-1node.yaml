@@ -12,7 +12,7 @@ spec:
   services:
     config:
       activate: true
-      create: true
+      create: false
       configuration:
         CLOUD_ORCHESTRATOR: kubernetes
       images:
@@ -76,7 +76,7 @@ spec:
         nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
     cassandra:
       activate: true
-      create: true
+      create: false
       images:
         cassandra: gcr.io/google-samples/cassandra:v13
         init: busybox
@@ -93,10 +93,11 @@ spec:
         HEAP_NEWSIZE: 100M
         NODE_TYPE: "config-database"
     zookeeper:
+      size: 1
       activate: true
       create: true
       images:
-        zookeeper: hub.juniper.net/contrail-nightly/contrail-external-zookeeper:5.2.0-0.740
+        zookeeper: docker.io/zookeeper:3.5.5
         init: busybox
       configuration:
         ZOOKEEPER_PORT: "2181"
@@ -104,7 +105,7 @@ spec:
         NODE_TYPE: "config-database"
     rabbitmq:
       activate: true
-      create: true
+      create: false
       images:
         rabbitmq: hub.juniper.net/contrail-nightly/contrail-external-rabbitmq:5.2.0-0.740
         init: busybox
