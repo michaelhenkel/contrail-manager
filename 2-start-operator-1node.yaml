@@ -78,7 +78,8 @@ spec:
       activate: true
       create: false
       images:
-        cassandra: gcr.io/google-samples/cassandra:v13
+        cassandra: cassandra:3.11.4
+        #cassandra: gcr.io/google-samples/cassandra:v13
         init: busybox
       configuration:
         CASSANDRA_LISTEN_ADDRESS: "auto"
@@ -93,9 +94,8 @@ spec:
         HEAP_NEWSIZE: 100M
         NODE_TYPE: "config-database"
     zookeeper:
-      size: 1
       activate: true
-      create: true
+      create: false
       images:
         zookeeper: docker.io/zookeeper:3.5.5
         init: busybox
@@ -104,12 +104,17 @@ spec:
         ZOOKEEPER_PORTS: "2888:3888"
         NODE_TYPE: "config-database"
     rabbitmq:
+      size: 3
       activate: true
-      create: false
+      create: true
       images:
-        rabbitmq: hub.juniper.net/contrail-nightly/contrail-external-rabbitmq:5.2.0-0.740
+        rabbitmq: rabbitmq:3.7
         init: busybox
       configuration:
         RABBITMQ_ERLANG_COOKIE: "47EFF3BB-4786-46E0-A5BB-58455B3C2CB4"
         RABBITMQ_NODE_PORT: "5673"
         NODE_TYPE: "config-database"
+        RABBITMQ_USE_LONGNAME: "true"
+        RABBITMQ_CONFIG_FILE: /etc/rabbitmq/rabbitmq.conf
+        RABBITMQ_PID_FILE: /var/run/rabbitmq.pid
+        RABBITMQ_CONF_ENV_FILE: /var/lib/rabbitmq/rabbitmq.env

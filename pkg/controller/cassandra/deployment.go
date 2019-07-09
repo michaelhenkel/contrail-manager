@@ -26,10 +26,7 @@ spec:
     spec:
       terminationGracePeriodSeconds: 1800
       containers:
-      - envFrom:
-        - configMapRef:
-            name: tfcassandracmv1
-        image: hub.juniper.net/contrail-nightly/contrail-external-cassandra:5.2.0-0.740
+      - image: hub.juniper.net/contrail-nightly/contrail-external-cassandra:5.2.0-0.740
         imagePullPolicy: Always
         env:
         - name: POD_IP
@@ -48,7 +45,7 @@ spec:
             command:
             - /bin/bash
             - -c
-            - /ready-probe.sh
+            - "seeds=$(grep -r '  - seeds:' /mydata/${POD_IP}.yaml |awk -F'  - seeds: ' '{print $2}'|tr  ',' ' ') &&  for seed in $(echo $seeds); do if [[ $(nodetool status | grep $seed |awk '{print $1}') != 'UN' ]]; then exit -1; fi; done"
           initialDelaySeconds: 15
           timeoutSeconds: 5
         name: cassandra

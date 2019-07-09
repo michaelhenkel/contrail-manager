@@ -3,6 +3,7 @@ package cassandra
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
@@ -257,7 +258,9 @@ func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reco
 		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
 	}
 
-	// Create initial ConfigMap
+	// Create initial ConfigMaps
+	volumeList := deployment.Spec.Template.Spec.Volumes
+
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cassandra-" + cassandraInstance.Name,
@@ -276,6 +279,20 @@ func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reco
 		}
 	}
 
+	volume := corev1.Volume{
+		Name: "cassandra-" + cassandraInstance.Name,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "cassandra-" + cassandraInstance.Name,
+				},
+			},
+		},
+	}
+	volumeList = append(volumeList, volume)
+
+	deployment.Spec.Template.Spec.Volumes = volumeList
+
 	// Set Deployment Name & Namespace
 
 	deployment.ObjectMeta.Name = "cassandra-" + cassandraInstance.Name
@@ -288,7 +305,19 @@ func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reco
 				(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
 			}
 			if containerName == "cassandra" {
-				(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "cassandra-" + cassandraInstance.Name
+				command := []string{"bash", "-c", "/docker-entrypoint.sh cassandra -f -Dcassandra.config=file:///mydata/${POD_IP}.yaml"}
+				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+				(&deployment.Spec.Template.Spec.Containers[idx]).Command = command
+				volumeMountList := []corev1.VolumeMount{}
+
+				volumeMount := corev1.VolumeMount{
+					Name:      "cassandra-" + cassandraInstance.Name,
+					MountPath: "/mydata",
+				}
+				volumeMountList = append(volumeMountList, volumeMount)
+
+				(&deployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+
 			}
 		}
 	}
@@ -312,10 +341,11 @@ func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reco
 	// Set Size
 	deployment.Spec.Replicas = cassandraInstance.Spec.Size
 	// Create Deployment
-
+	fmt.Println("Creating or Updating Cassandra")
 	controllerutil.SetControllerReference(cassandraInstance, deployment, r.Scheme)
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "cassandra-" + cassandraInstance.Name, Namespace: cassandraInstance.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
+		fmt.Println("Creating Cassandra")
 		deployment.Spec.Template.ObjectMeta.Labels["version"] = "1"
 		err = r.Client.Create(context.TODO(), deployment)
 		if err != nil {
@@ -323,25 +353,19 @@ func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reco
 			return reconcile.Result{}, err
 		}
 	} else if err == nil && *deployment.Spec.Replicas != *cassandraInstance.Spec.Size {
+		fmt.Println("Updating Cassandra")
+		deployment.Spec.Replicas = cassandraInstance.Spec.Size
+		err = r.Client.Update(context.TODO(), deployment)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Deployment", "Namespace", cassandraInstance.Namespace, "Name", "cassandra-"+cassandraInstance.Name)
+			return reconcile.Result{}, err
+		}
 		active := false
 		cassandraInstance.Status.Active = &active
 		err = r.Client.Status().Update(context.TODO(), cassandraInstance)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		deployment.Spec.Replicas = cassandraInstance.Spec.Size
-		/*
-			versionInt, _ := strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels["version"])
-			newVersion := versionInt + 1
-			newVersionString := strconv.Itoa(newVersion)
-			deployment.Spec.Template.ObjectMeta.Labels["version"] = newVersionString
-		*/
-		err = r.Client.Update(context.TODO(), deployment)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update Deployment", "Namespace", cassandraInstance.Namespace, "Name", "cassandra-"+cassandraInstance.Name)
-			return reconcile.Result{}, err
-		}
-
 	}
 	return reconcile.Result{}, nil
 }
@@ -392,8 +416,22 @@ func (r *ReconcileCassandra) ReplicaSetReconcile(request reconcile.Request) (rec
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if len(replicaSetList.Items) > 0 {
-		replicaSet := &replicaSetList.Items[0]
+		replicaSet := &appsv1.ReplicaSet{}
+		for _, rs := range replicaSetList.Items {
+			if *rs.Spec.Replicas > 0 {
+				replicaSet = &rs
+			} else {
+				replicaSet = &rs
+			}
+		}
+		cassandraInstanceList := &v1alpha1.CassandraList{}
+		err := r.Client.List(context.TODO(), listOps, cassandraInstanceList)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		cassandraInstance := cassandraInstanceList.Items[0]
 		podList := &corev1.PodList{}
 		if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
 			labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
@@ -404,6 +442,7 @@ func (r *ReconcileCassandra) ReplicaSetReconcile(request reconcile.Request) (rec
 			}
 		}
 		var podNameIpMap = make(map[string]string)
+
 		if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
 			for _, pod := range podList.Items {
 				if pod.Status.PodIP != "" {
@@ -414,38 +453,166 @@ func (r *ReconcileCassandra) ReplicaSetReconcile(request reconcile.Request) (rec
 
 		if int32(len(podNameIpMap)) == *replicaSet.Spec.Replicas {
 
-			configMapList := &corev1.ConfigMapList{}
-
-			err := r.Client.List(context.TODO(), listOps, configMapList)
+			configMapInstanceDynamicConfig := &corev1.ConfigMap{}
+			err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "cassandra-" + cassandraInstance.Name, Namespace: request.Namespace}, configMapInstanceDynamicConfig)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			configMap := configMapList.Items[0]
+
+			sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
+
+			for idx := range podList.Items {
+				fmt.Println("############## POD NAME ############# ", podList.Items[idx].Status.PodIP)
+
+				var seeds []string
+				for idx2 := range podList.Items {
+					seeds = append(seeds, podList.Items[idx2].Status.PodIP)
+				}
+				cassandraConfigString := `cluster_name: ` + cassandraInstance.Spec.Configuration["CASSANDRA_CLUSTER_NAME"] + `
+num_tokens: 32
+hinted_handoff_enabled: true
+max_hint_window_in_ms: 10800000 # 3 hours
+hinted_handoff_throttle_in_kb: 1024
+max_hints_delivery_threads: 2
+hints_directory: /var/lib/cassandra/hints
+hints_flush_period_in_ms: 10000
+max_hints_file_size_in_mb: 128
+batchlog_replay_throttle_in_kb: 1024
+authenticator: AllowAllAuthenticator
+authorizer: AllowAllAuthorizer
+role_manager: CassandraRoleManager
+roles_validity_in_ms: 2000
+permissions_validity_in_ms: 2000
+credentials_validity_in_ms: 2000
+partitioner: org.apache.cassandra.dht.Murmur3Partitioner
+data_file_directories:
+- /var/lib/cassandra/data
+commitlog_directory: /var/lib/cassandra/commitlog
+disk_failure_policy: stop
+commit_failure_policy: stop
+key_cache_size_in_mb:
+key_cache_save_period: 14400
+row_cache_size_in_mb: 0
+row_cache_save_period: 0
+counter_cache_size_in_mb:
+counter_cache_save_period: 7200
+saved_caches_directory: /var/lib/cassandra/saved_caches
+commitlog_sync: periodic
+commitlog_sync_period_in_ms: 10000
+commitlog_segment_size_in_mb: 32
+seed_provider:
+- class_name: org.apache.cassandra.locator.SimpleSeedProvider
+  parameters:
+  - seeds: ` + strings.Join(seeds, ",") + `
+concurrent_reads: 32
+concurrent_writes: 32
+concurrent_counter_writes: 32
+concurrent_materialized_view_writes: 32
+disk_optimization_strategy: ssd
+memtable_allocation_type: heap_buffers
+index_summary_capacity_in_mb:
+index_summary_resize_interval_in_minutes: 60
+trickle_fsync: false
+trickle_fsync_interval_in_kb: 10240
+storage_port: ` + cassandraInstance.Spec.Configuration["CASSANDRA_STORAGE_PORT"] + `
+ssl_storage_port: ` + cassandraInstance.Spec.Configuration["CASSANDRA_SSL_STORAGE_PORT"] + `
+listen_address: ` + podList.Items[idx].Status.PodIP + `
+broadcast_address: ` + podList.Items[idx].Status.PodIP + `
+start_native_transport: true
+native_transport_port: ` + cassandraInstance.Spec.Configuration["CASSANDRA_CQL_PORT"] + `
+start_rpc: true
+rpc_address: 0.0.0.0
+rpc_port: ` + cassandraInstance.Spec.Configuration["CASSANDRA_PORT"] + `
+broadcast_rpc_address: ` + podList.Items[idx].Status.PodIP + `
+rpc_keepalive: true
+rpc_server_type: sync
+thrift_framed_transport_size_in_mb: 15
+incremental_backups: false
+snapshot_before_compaction: false
+auto_snapshot: true
+tombstone_warn_threshold: 1000
+tombstone_failure_threshold: 100000
+column_index_size_in_kb: 64
+batch_size_warn_threshold_in_kb: 5
+batch_size_fail_threshold_in_kb: 50
+compaction_throughput_mb_per_sec: 16
+compaction_large_partition_warning_threshold_mb: 100
+sstable_preemptive_open_interval_in_mb: 50
+read_request_timeout_in_ms: 5000
+range_request_timeout_in_ms: 10000
+write_request_timeout_in_ms: 2000
+counter_write_request_timeout_in_ms: 5000
+cas_contention_timeout_in_ms: 1000
+truncate_request_timeout_in_ms: 60000
+request_timeout_in_ms: 10000
+cross_node_timeout: false
+endpoint_snitch: SimpleSnitch
+dynamic_snitch_update_interval_in_ms: 100
+dynamic_snitch_reset_interval_in_ms: 600000
+dynamic_snitch_badness_threshold: 0.1
+request_scheduler: org.apache.cassandra.scheduler.NoScheduler
+server_encryption_options:
+  internode_encryption: none
+  keystore: conf/.keystore
+  keystore_password: cassandra
+  truststore: conf/.truststore
+  truststore_password: cassandra
+client_encryption_options:
+  enabled: false
+  optional: false
+  keystore: conf/.keystore
+  keystore_password: cassandra
+internode_compression: all
+inter_dc_tcp_nodelay: false
+tracetype_query_ttl: 86400
+tracetype_repair_ttl: 604800
+gc_warn_threshold_in_ms: 1000
+enable_user_defined_functions: false
+enable_scripted_user_defined_functions: false
+windows_timer_interval: 1
+transparent_data_encryption_options:
+  enabled: false
+  chunk_length_kb: 64
+  cipher: AES/CBC/PKCS5Padding
+  key_alias: testing:1
+  key_provider:
+  - class_name: org.apache.cassandra.security.JKSKeyProvider
+    parameters:
+    - keystore: conf/.keystore
+      keystore_password: cassandra
+      store_type: JCEKS
+      key_password: cassandra
+auto_bootstrap: true
+`
+				if configMapInstanceDynamicConfig.Data == nil {
+					data := map[string]string{podList.Items[idx].Status.PodIP + ".yaml": cassandraConfigString}
+					configMapInstanceDynamicConfig.Data = data
+				} else {
+					configMapInstanceDynamicConfig.Data[podList.Items[idx].Status.PodIP+".yaml"] = cassandraConfigString
+				}
+				err = r.Client.Update(context.TODO(), configMapInstanceDynamicConfig)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+
+			}
+
 			var podIpList []string
 			for _, ip := range podNameIpMap {
 				podIpList = append(podIpList, ip)
 			}
-			if len(podIpList) > 1 {
-				podIpList = podIpList[:len(podIpList)-1]
-			}
-			nodeList := strings.Join(podIpList, ",")
-			if seed, ok := configMap.Data["CASSANDRA_SEEDS"]; ok {
-				configMap.Data["CASSANDRA_SEEDS"] = seed
-			} else {
-				configMap.Data["CASSANDRA_SEEDS"] = nodeList
-			}
-			configMap.Data["CONTROLLER_NODES"] = nodeList
-			err = r.Client.Update(context.TODO(), &configMap)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
+			fmt.Println("LABELING PODS ############################# podList length ", len(podList.Items))
+			fmt.Println("LABELING PODS ############################# replicas  ", *replicaSet.Spec.Replicas)
+			fmt.Println("LABELING PODS ############################# 0 ", podNameIpMap)
 			for _, pod := range podList.Items {
 				pod.ObjectMeta.Labels["status"] = "ready"
+				fmt.Println("LABELING PODS ############################# 1 ")
 				err = r.Client.Update(context.TODO(), &pod)
 				if err != nil {
 					return reconcile.Result{}, err
 				}
 			}
+			fmt.Println("LABELING PODS ############################# 2 ")
 			cassandraList := &v1alpha1.CassandraList{}
 			cassandraListOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
 			err = r.Client.List(context.TODO(), cassandraListOps, cassandraList)
@@ -454,14 +621,13 @@ func (r *ReconcileCassandra) ReplicaSetReconcile(request reconcile.Request) (rec
 			}
 			cassandra := cassandraList.Items[0]
 			cassandra.Status.Nodes = podNameIpMap
-			portMap := map[string]string{"port": cassandra.Spec.Configuration["CASSANDRA_PORT"],
-				"cqlPort": cassandra.Spec.Configuration["CASSANDRA_CQL_PORT"]}
+			portMap := map[string]string{"port": cassandra.Spec.Configuration["ZOOKEEPER_PORT"]}
 			cassandra.Status.Ports = portMap
 			err = r.Client.Status().Update(context.TODO(), &cassandra)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("All POD IPs available CASSANDRA: " + replicaSet.ObjectMeta.Labels["contrail_manager"])
+			reqLogger.Info("All POD IPs available ZOOKEEPER: " + replicaSet.ObjectMeta.Labels["contrail_manager"])
 
 		}
 	}

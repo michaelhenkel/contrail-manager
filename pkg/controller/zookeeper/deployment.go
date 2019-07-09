@@ -102,26 +102,6 @@ spec:
               apiVersion: v1
               fieldPath: metadata.labels
             path: pod_labels
-          - fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.labels
-            path: pod_labelsx
-          #- fieldRef:
-          #    apiVersion: v1
-          #    fieldPath: metadata.labels
-          #  path: zoo.cfg
-          #- fieldRef:
-          #    apiVersion: v1
-          #    fieldPath: metadata.labels
-          #  path: zoo.cfg.dynamic.100000000
-          #- fieldRef:
-          #    apiVersion: v1
-          #    fieldPath: metadata.labels
-          #  path: log4j.properties
-          #- fieldRef:
-          #    apiVersion: v1
-          #    fieldPath: metadata.labels
-          #  path: configuration.xsl
         name: status
       - downwardAPI:
           defaultMode: 420

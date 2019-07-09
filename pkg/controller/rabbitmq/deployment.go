@@ -57,11 +57,17 @@ spec:
           name: status
       containers:
       - name: rabbitmq
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         image: docker.io/michaelhenkel/contrail-external-rabbitmq:5.2.0-dev1
         imagePullPolicy: ""
-        envFrom:
-        - configMapRef:
-            name: rabbitmq-config
         volumeMounts:
         - mountPath: /var/lib/rabbitmq
           name: rabbitmq-data
