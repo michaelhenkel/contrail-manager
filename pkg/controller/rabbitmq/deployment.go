@@ -15,8 +15,6 @@ metadata:
   labels:
     app: rabbitmq
 spec:
-  strategy:
-    type: Recreate
   replicas: 1
   selector:
     matchLabels:
@@ -78,7 +76,7 @@ spec:
             command:
             - /bin/bash
             - -c
-            - "cluster_status=$(rabbitmqctl cluster_status);cluster_status=$(echo $cluster_status| sed -e 's/.*disc,\\[\\(.*\\)\\]}\\]},.*/\\1/' | tr -d '[:space:]'|tr \",\" \"\\n\");hosts=$(cat /etc/rabbitmq/rabbitmq.config |grep cluster_nodes |sed -e 's/.*\\[\\(.*\\)\\].*/\\1/' | tr \",\" \"\\n\");for i in $cluster_status; do echo $hosts |grep $i; if [[ $? -ne 0 ]]; then exit -1;  fi; done"
+            - "export RABBITMQ_NODENAME=rabbit@$POD_IP; cluster_status=$(rabbitmqctl cluster_status);nodes=$(echo $cluster_status | sed -e 's/.*disc,\\[\\(.*\\)]}]}, {.*/\\1/' | grep -oP \"(?<=rabbit@).*?(?=')\"); for node in $(cat /etc/rabbitmq/rabbitmq.nodes); do echo ${nodes} |grep ${node}; if [[ $? -ne 0 ]]; then exit -1; fi; done"
           initialDelaySeconds: 15
           timeoutSeconds: 5
       volumes:
