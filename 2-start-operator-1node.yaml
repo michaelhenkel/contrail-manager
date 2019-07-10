@@ -117,5 +117,5 @@ spec:
         RABBITMQ_CONFIG_FILE: /etc/rabbitmq/rabbitmq.conf
         RABBITMQ_PID_FILE: /var/run/rabbitmq.pid
         RABBITMQ_CONF_ENV_FILE: /var/lib/rabbitmq/rabbitmq.env
-        RABBITMQ_USER: contrail
-        RABBITMQ_PASSWORD: contrail
+        #RABBITMQ_USER: contrail
+        #RABBITMQ_PASSWORD: contrail

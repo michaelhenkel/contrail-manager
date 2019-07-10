@@ -621,13 +621,14 @@ auto_bootstrap: true
 			}
 			cassandra := cassandraList.Items[0]
 			cassandra.Status.Nodes = podNameIpMap
-			portMap := map[string]string{"port": cassandra.Spec.Configuration["ZOOKEEPER_PORT"]}
+			portMap := map[string]string{"port": cassandra.Spec.Configuration["CASSANDRA_PORT"], "cqlPort": cassandra.Spec.Configuration["CASSANDRA_CQL_PORT"]}
+
 			cassandra.Status.Ports = portMap
 			err = r.Client.Status().Update(context.TODO(), &cassandra)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("All POD IPs available ZOOKEEPER: " + replicaSet.ObjectMeta.Labels["contrail_manager"])
+			reqLogger.Info("All POD IPs available CASSANDRA: " + replicaSet.ObjectMeta.Labels["contrail_manager"])
 
 		}
 	}
