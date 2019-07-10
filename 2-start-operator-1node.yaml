@@ -12,7 +12,7 @@ spec:
   services:
     config:
       activate: true
-      create: false
+      create: true
       configuration:
         CLOUD_ORCHESTRATOR: kubernetes
       images:
@@ -76,7 +76,7 @@ spec:
         nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
     cassandra:
       activate: true
-      create: false
+      create: true
       images:
         cassandra: cassandra:3.11.4
         #cassandra: gcr.io/google-samples/cassandra:v13
@@ -95,7 +95,7 @@ spec:
         NODE_TYPE: "config-database"
     zookeeper:
       activate: true
-      create: false
+      create: true
       images:
         zookeeper: docker.io/zookeeper:3.5.5
         init: busybox
@@ -104,7 +104,6 @@ spec:
         ZOOKEEPER_PORTS: "2888:3888"
         NODE_TYPE: "config-database"
     rabbitmq:
-      size: 3
       activate: true
       create: true
       images:
@@ -118,3 +117,5 @@ spec:
         RABBITMQ_CONFIG_FILE: /etc/rabbitmq/rabbitmq.conf
         RABBITMQ_PID_FILE: /var/run/rabbitmq.pid
         RABBITMQ_CONF_ENV_FILE: /var/lib/rabbitmq/rabbitmq.env
+        RABBITMQ_USER: contrail
+        RABBITMQ_PASSWORD: contrail

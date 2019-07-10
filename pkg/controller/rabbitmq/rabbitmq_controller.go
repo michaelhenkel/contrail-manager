@@ -507,7 +507,9 @@ func (r *ReconcileRabbitmq) ReplicaSetReconcile(request reconcile.Request) (reco
 
 			sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 
-			rabbitmqConfigString := "listeners.tcp.default = " + rabbitmqInstance.Spec.Configuration["RABBITMQ_NODE_PORT"]
+			rabbitmqConfigString := fmt.Sprintf("listeners.tcp.default = %s\n", rabbitmqInstance.Spec.Configuration["RABBITMQ_NODE_PORT"])
+			rabbitmqConfigString = rabbitmqConfigString + fmt.Sprintf("default_user = %s\n", rabbitmqInstance.Spec.Configuration["RABBITMQ_USER"])
+			rabbitmqConfigString = rabbitmqConfigString + fmt.Sprintf("default_pass = %s\n", rabbitmqInstance.Spec.Configuration["RABBITMQ_PASSWORD"])
 			if configMapInstanceDynamicConfig.Data == nil {
 				data := map[string]string{"rabbitmq.conf": rabbitmqConfigString}
 				configMapInstanceDynamicConfig.Data = data
