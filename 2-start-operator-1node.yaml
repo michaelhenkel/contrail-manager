@@ -15,6 +15,7 @@ spec:
       create: true
       configuration:
         CLOUD_ORCHESTRATOR: kubernetes
+        CASSANDRA_PORT: "9160"
       images:
         api: hub.juniper.net/contrail-nightly/contrail-controller-config-api:5.2.0-0.740
         devicemanager: hub.juniper.net/contrail-nightly/contrail-controller-config-devicemgr:5.2.0-0.740
@@ -95,7 +96,7 @@ spec:
         NODE_TYPE: "config-database"
     zookeeper:
       activate: true
-      create: true
+      create: false
       images:
         zookeeper: docker.io/zookeeper:3.5.5
         init: busybox

@@ -445,8 +445,6 @@ func (r *ReconcileZookeeper) DeploymentReconcile(request reconcile.Request) (rec
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		fmt.Println("Ready Replicas: ", deployment.Status.ReadyReplicas)
-		fmt.Println("Spec Replicas: ", *deployment.Spec.Replicas)
 		reqLogger.Info("Zookeeper Deployment is ready")
 
 	}
@@ -517,7 +515,6 @@ func (r *ReconcileZookeeper) ReplicaSetReconcile(request reconcile.Request) (rec
 			sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 
 			for idx, _ := range podList.Items {
-				fmt.Println("############## POD NAME ############# ", podList.Items[idx].Status.PodIP)
 				if configMapInstanceDynamicConfig.Data == nil {
 					data := map[string]string{podList.Items[idx].Status.PodIP: strconv.Itoa(idx + 1)}
 					configMapInstanceDynamicConfig.Data = data
@@ -630,18 +627,13 @@ log4j.appender.TRACEFILE.layout.ConversionPattern=%d{ISO8601} [myid:%X{myid}] - 
 			for _, ip := range podNameIpMap {
 				podIpList = append(podIpList, ip)
 			}
-			fmt.Println("LABELING PODS ############################# podList length ", len(podList.Items))
-			fmt.Println("LABELING PODS ############################# replicas  ", *replicaSet.Spec.Replicas)
-			fmt.Println("LABELING PODS ############################# 0 ", podNameIpMap)
 			for _, pod := range podList.Items {
 				pod.ObjectMeta.Labels["status"] = "ready"
-				fmt.Println("LABELING PODS ############################# 1 ")
 				err = r.Client.Update(context.TODO(), &pod)
 				if err != nil {
 					return reconcile.Result{}, err
 				}
 			}
-			fmt.Println("LABELING PODS ############################# 2 ")
 			zookeeperList := &v1alpha1.ZookeeperList{}
 			zookeeperListOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
 			err = r.Client.List(context.TODO(), zookeeperListOps, zookeeperList)

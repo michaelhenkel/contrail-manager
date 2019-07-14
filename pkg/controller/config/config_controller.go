@@ -205,26 +205,69 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		},
 	}
 	// Watch for Manager events.
+
+	/*
+			srcCassandra := &source.Kind{Type: &v1alpha1.Cassandra{}}
+		cassandraHandler := &handler.EnqueueRequestForOwner{
+			OwnerType:    &v1alpha1.Manager{},
+			IsController: true,
+		}
+		cassandraPred := predicate.Funcs{
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				//return true
+				oldCassandra := e.ObjectOld.(*v1alpha1.Cassandra)
+				newCassandra := e.ObjectNew.(*v1alpha1.Cassandra)
+				oldCassandraActive := false
+				newCassandraActive := false
+				if oldCassandra.Status.Active != nil {
+					if *oldCassandra.Status.Active {
+						oldCassandraActive = true
+					}
+				}
+				if newCassandra.Status.Active != nil {
+					if *newCassandra.Status.Active {
+						newCassandraActive = true
+					}
+				}
+				if oldCassandraActive != newCassandraActive {
+					return true
+				}
+				return false
+			},
+		}
+		// Watch for Manager events.
+		err = c.Watch(srcCassandra, cassandraHandler, cassandraPred)
+		if err != nil {
+			return err
+		}
+	*/
 	err = c.Watch(srcDeployment, deploymentHandler, deploymentPred)
 	if err != nil {
 		return err
 	}
 
 	srcRabbitmq := &source.Kind{Type: &v1alpha1.Rabbitmq{}}
-	rabbitmqHandler := &handler.EnqueueRequestForObject{}
+	rabbitmqHandler := &handler.EnqueueRequestForOwner{
+		OwnerType:    &v1alpha1.Manager{},
+		IsController: true,
+	}
 	rabbitmqPred := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldRabbitmq := e.ObjectOld.(*v1alpha1.Rabbitmq)
 			newRabbitmq := e.ObjectNew.(*v1alpha1.Rabbitmq)
-			oldActiveStatus := false
-			newActiveStatus := false
+			oldRabbitmqActive := false
+			newRabbitmqActive := false
 			if oldRabbitmq.Status.Active != nil {
-				oldActiveStatus = *oldRabbitmq.Status.Active
+				if *oldRabbitmq.Status.Active {
+					oldRabbitmqActive = true
+				}
 			}
 			if newRabbitmq.Status.Active != nil {
-				newActiveStatus = *newRabbitmq.Status.Active
+				if *newRabbitmq.Status.Active {
+					newRabbitmqActive = true
+				}
 			}
-			if oldActiveStatus != newActiveStatus {
+			if oldRabbitmqActive != newRabbitmqActive {
 				return true
 			}
 			return false
@@ -237,7 +280,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	srcZookeeper := &source.Kind{Type: &v1alpha1.Zookeeper{}}
-	zookeeperHandler := &handler.EnqueueRequestForObject{}
+	zookeeperHandler := &handler.EnqueueRequestForOwner{
+		OwnerType:    &v1alpha1.Manager{},
+		IsController: true,
+	}
 	zookeeperPred := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldZookeeper := e.ObjectOld.(*v1alpha1.Zookeeper)
@@ -544,8 +590,30 @@ func (r *ReconcileConfig) finalize(request reconcile.Request) (reconcile.Result,
 		fmt.Println("cassandraNodeList", cassandraNodeList)
 		fmt.Println("CONFIGDB_NODES", configMap.Data["CONFIGDB_NODES"])
 
-	} else {
-		configMap.Data["CONFIGDB_NODES"] = cassandraNodeList
+	}
+	if v, ok := configMap.Data["ZOOKEEPER_NODES"]; ok {
+		zookeeperNodeSlice := strings.Split(zookeeperNodeList, ",")
+		configDBSlice := strings.Split(v, ",")
+		sort.Strings(zookeeperNodeSlice)
+		sort.Strings(configDBSlice)
+		reflect.DeepEqual(zookeeperNodeSlice, configDBSlice)
+		if !reflect.DeepEqual(zookeeperNodeSlice, configDBSlice) {
+			serviceChanged = true
+		}
+		fmt.Println("zkNodeList", zookeeperNodeList)
+		fmt.Println("ZOOKEEPER_NODES", configMap.Data["ZOOKEEPER_NODES"])
+	}
+	if v, ok := configMap.Data["RABBITMQ_NODES"]; ok {
+		rabbitmqNodeSlice := strings.Split(rabbitmqNodeList, ",")
+		configDBSlice := strings.Split(v, ",")
+		sort.Strings(rabbitmqNodeSlice)
+		sort.Strings(configDBSlice)
+		reflect.DeepEqual(rabbitmqNodeSlice, configDBSlice)
+		if !reflect.DeepEqual(rabbitmqNodeSlice, configDBSlice) {
+			serviceChanged = true
+		}
+		fmt.Println("rmqNodeList", zookeeperNodeList)
+		fmt.Println("RABBITMQ_NODES", configMap.Data["RABBITMQ_NODES"])
 	}
 	configMap.Data["RABBITMQ_NODES"] = rabbitmqNodeList
 	configMap.Data["ZOOKEEPER_NODES"] = zookeeperNodeList
@@ -555,20 +623,16 @@ func (r *ReconcileConfig) finalize(request reconcile.Request) (reconcile.Result,
 	configMap.Data["RABBITMQ_NODE_PORT"] = rabbitmqInstance.Status.Ports["port"]
 	configMap.Data["ZOOKEEPER_NODE_PORT"] = zookeeperInstance.Status.Ports["port"]
 
-	fmt.Println("############################### 1")
 	if serviceChanged {
-		fmt.Println("############################### 2")
 		err = r.Client.Update(context.TODO(), &configMap)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		fmt.Println("############################### 3")
 		deployment := &appsv1.Deployment{}
 		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "config-" + configInstance.Name, Namespace: configInstance.Namespace}, deployment)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-
 		versionInt, _ := strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels["version"])
 		newVersion := versionInt + 1
 		newVersionString := strconv.Itoa(newVersion)
@@ -578,8 +642,6 @@ func (r *ReconcileConfig) finalize(request reconcile.Request) (reconcile.Result,
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{}, nil
-		fmt.Println("############################### 4")
-
 	}
 
 	podList := &corev1.PodList{}

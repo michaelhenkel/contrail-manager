@@ -381,11 +381,9 @@ func (r *ReconcileRabbitmq) RabbitmqReconcile(request reconcile.Request) (reconc
 	// Set Size
 	deployment.Spec.Replicas = rabbitmqInstance.Spec.Size
 	// Create Deployment
-	fmt.Println("Creating or Updating Rabbitmq")
 	controllerutil.SetControllerReference(rabbitmqInstance, deployment, r.Scheme)
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "rabbitmq-" + rabbitmqInstance.Name, Namespace: rabbitmqInstance.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
-		fmt.Println("Creating Rabbitmq")
 		deployment.Spec.Template.ObjectMeta.Labels["version"] = "1"
 		err = r.Client.Create(context.TODO(), deployment)
 		if err != nil {
@@ -393,7 +391,6 @@ func (r *ReconcileRabbitmq) RabbitmqReconcile(request reconcile.Request) (reconc
 			return reconcile.Result{}, err
 		}
 	} else if err == nil && *deployment.Spec.Replicas != *rabbitmqInstance.Spec.Size {
-		fmt.Println("Updating Rabbitmq")
 		deployment.Spec.Replicas = rabbitmqInstance.Spec.Size
 		err = r.Client.Update(context.TODO(), deployment)
 		if err != nil {
@@ -439,8 +436,6 @@ func (r *ReconcileRabbitmq) DeploymentReconcile(request reconcile.Request) (reco
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		fmt.Println("Ready Replicas: ", deployment.Status.ReadyReplicas)
-		fmt.Println("Spec Replicas: ", *deployment.Spec.Replicas)
 		reqLogger.Info("Rabbitmq Deployment is ready")
 
 	}
@@ -492,7 +487,6 @@ func (r *ReconcileRabbitmq) ReplicaSetReconcile(request reconcile.Request) (reco
 		}
 
 		if int32(len(podNameIpMap)) == *replicaSet.Spec.Replicas {
-			fmt.Println("LABELING PODS ############################# podList length ", len(podList.Items))
 			configMapInstanceDynamicConfig := &corev1.ConfigMap{}
 			err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "rabbitmq-" + rabbitmqInstance.Name, Namespace: request.Namespace}, configMapInstanceDynamicConfig)
 			if err != nil {
@@ -568,18 +562,13 @@ fi
 			for _, ip := range podNameIpMap {
 				podIpList = append(podIpList, ip)
 			}
-			fmt.Println("LABELING PODS ############################# podList length ", len(podList.Items))
-			fmt.Println("LABELING PODS ############################# replicas  ", *replicaSet.Spec.Replicas)
-			fmt.Println("LABELING PODS ############################# 0 ", podNameIpMap)
 			for _, pod := range podList.Items {
 				pod.ObjectMeta.Labels["status"] = "ready"
-				fmt.Println("LABELING PODS ############################# 1 ")
 				err = r.Client.Update(context.TODO(), &pod)
 				if err != nil {
 					return reconcile.Result{}, err
 				}
 			}
-			fmt.Println("LABELING PODS ############################# 2 ")
 			rabbitmqList := &v1alpha1.RabbitmqList{}
 			rabbitmqListOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
 			err = r.Client.List(context.TODO(), rabbitmqListOps, rabbitmqList)

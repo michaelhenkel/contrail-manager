@@ -2,7 +2,6 @@ package cassandra
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -341,11 +340,9 @@ func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reco
 	// Set Size
 	deployment.Spec.Replicas = cassandraInstance.Spec.Size
 	// Create Deployment
-	fmt.Println("Creating or Updating Cassandra")
 	controllerutil.SetControllerReference(cassandraInstance, deployment, r.Scheme)
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "cassandra-" + cassandraInstance.Name, Namespace: cassandraInstance.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
-		fmt.Println("Creating Cassandra")
 		deployment.Spec.Template.ObjectMeta.Labels["version"] = "1"
 		err = r.Client.Create(context.TODO(), deployment)
 		if err != nil {
@@ -353,7 +350,6 @@ func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reco
 			return reconcile.Result{}, err
 		}
 	} else if err == nil && *deployment.Spec.Replicas != *cassandraInstance.Spec.Size {
-		fmt.Println("Updating Cassandra")
 		deployment.Spec.Replicas = cassandraInstance.Spec.Size
 		err = r.Client.Update(context.TODO(), deployment)
 		if err != nil {
@@ -399,8 +395,6 @@ func (r *ReconcileCassandra) DeploymentReconcile(request reconcile.Request) (rec
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		fmt.Println("Ready Replicas: ", deployment.Status.ReadyReplicas)
-		fmt.Println("Spec Replicas: ", *deployment.Spec.Replicas)
 		reqLogger.Info("Cassandra Deployment is ready")
 
 	}
@@ -462,8 +456,6 @@ func (r *ReconcileCassandra) ReplicaSetReconcile(request reconcile.Request) (rec
 			sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 
 			for idx := range podList.Items {
-				fmt.Println("############## POD NAME ############# ", podList.Items[idx].Status.PodIP)
-
 				var seeds []string
 				for idx2 := range podList.Items {
 					seeds = append(seeds, podList.Items[idx2].Status.PodIP)
@@ -601,18 +593,13 @@ auto_bootstrap: true
 			for _, ip := range podNameIpMap {
 				podIpList = append(podIpList, ip)
 			}
-			fmt.Println("LABELING PODS ############################# podList length ", len(podList.Items))
-			fmt.Println("LABELING PODS ############################# replicas  ", *replicaSet.Spec.Replicas)
-			fmt.Println("LABELING PODS ############################# 0 ", podNameIpMap)
 			for _, pod := range podList.Items {
 				pod.ObjectMeta.Labels["status"] = "ready"
-				fmt.Println("LABELING PODS ############################# 1 ")
 				err = r.Client.Update(context.TODO(), &pod)
 				if err != nil {
 					return reconcile.Result{}, err
 				}
 			}
-			fmt.Println("LABELING PODS ############################# 2 ")
 			cassandraList := &v1alpha1.CassandraList{}
 			cassandraListOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
 			err = r.Client.List(context.TODO(), cassandraListOps, cassandraList)
