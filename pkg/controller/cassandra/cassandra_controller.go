@@ -2,10 +2,13 @@ package cassandra
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/enqueue"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -16,16 +19,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var log = logf.Log.WithName("controller_cassandra")
+var i v1alpha1.Instance
 
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
@@ -44,125 +45,38 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Cassandra
-	err = c.Watch(&source.Kind{Type: &v1alpha1.Cassandra{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &v1alpha1.Cassandra{}}, &enqueue.RequestForObjectGroupKind{NewGroupKind: utils.CassandraGroupKind()})
 	if err != nil {
 		return err
 	}
 
+	// Watch for changes to PODs
 	srcPod := &source.Kind{Type: &corev1.Pod{}}
-	podHandler := &handler.EnqueueRequestForOwner{
+	podHandler := &enqueue.RequestForOwnerGroupKind{
 		IsController: true,
 		OwnerType:    &appsv1.ReplicaSet{},
+		NewGroupKind: utils.ReplicaSetGroupKind(),
 	}
-	predPodIp := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			labels := e.MetaOld.GetLabels()
-			if v, ok := labels["contrail_manager"]; ok {
-				if v == "cassandra" {
-					oldPod := e.ObjectOld.(*corev1.Pod)
-					newPod := e.ObjectNew.(*corev1.Pod)
-					if oldPod.Status.PodIP != newPod.Status.PodIP {
-						return true
-					}
-				}
-			}
-			return false
-		},
-	}
-
-	predInitStatus := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			labels := e.MetaOld.GetLabels()
-			if v, ok := labels["contrail_manager"]; ok {
-				if v == "cassandra" {
-					oldPod := e.ObjectOld.(*corev1.Pod)
-					newPod := e.ObjectNew.(*corev1.Pod)
-					newPodReady := true
-					if newPod.Status.InitContainerStatuses == nil {
-						return true
-					}
-					if oldPod.Status.InitContainerStatuses == nil {
-						return true
-					}
-					for _, initContainerStatus := range newPod.Status.InitContainerStatuses {
-						if initContainerStatus.Name == "init" {
-							if !initContainerStatus.Ready {
-								newPodReady = false
-							}
-						}
-					}
-					oldPodReady := true
-					for _, initContainerStatus := range oldPod.Status.InitContainerStatuses {
-						if initContainerStatus.Name == "init" {
-							if !initContainerStatus.Ready {
-								oldPodReady = false
-							}
-						}
-					}
-					if !newPodReady || !oldPodReady {
-						return true
-					}
-				}
-			}
-			return false
-		},
-	}
-	// Watch for Pod events.
-	err = c.Watch(srcPod, podHandler, predPodIp, predInitStatus)
+	predInitStatus := utils.PodInitStatusChange(map[string]string{"contrail_manager": "cassandra"})
+	predPodIPChange := utils.PodIPChange(map[string]string{"contrail_manager": "cassandra"})
+	err = c.Watch(srcPod, podHandler, predPodIPChange, predInitStatus)
 	if err != nil {
 		return err
 	}
 
+	// Watch for changes to Manager
 	srcManager := &source.Kind{Type: &v1alpha1.Manager{}}
-
-	managerHandler := &handler.EnqueueRequestForObject{}
-	pred := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-
-			oldManager := e.ObjectOld.(*v1alpha1.Manager)
-			newManager := e.ObjectNew.(*v1alpha1.Manager)
-			var oldSize, newSize int32
-			if oldManager.Spec.Services.Cassandra.Size != nil {
-				oldSize = *oldManager.Spec.Services.Cassandra.Size
-			} else {
-				oldSize = *oldManager.Spec.Size
-			}
-			if newManager.Spec.Services.Cassandra.Size != nil {
-				newSize = *newManager.Spec.Services.Cassandra.Size
-			} else {
-				newSize = *newManager.Spec.Size
-			}
-
-			if oldSize != newSize {
-				return true
-			}
-			return false
-		},
-	}
+	managerHandler := &enqueue.RequestForObjectGroupKind{NewGroupKind: utils.ManagerGroupKind()}
+	predManagerSizeChange := utils.ManagerSizeChange(utils.CassandraGroupKind())
 	// Watch for Manager events.
-	err = c.Watch(srcManager, managerHandler, pred)
+	err = c.Watch(srcManager, managerHandler, predManagerSizeChange)
 	if err != nil {
 		return err
 	}
-	srcDeployment := &source.Kind{Type: &appsv1.Deployment{}}
 
-	deploymentHandler := &handler.EnqueueRequestForObject{}
-	deploymentPred := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldDeployment := e.ObjectOld.(*appsv1.Deployment)
-			newDeployment := e.ObjectNew.(*appsv1.Deployment)
-			isOwner := false
-			for _, owner := range newDeployment.ObjectMeta.OwnerReferences {
-				if owner.Kind == "Cassandra" {
-					isOwner = true
-				}
-			}
-			if (oldDeployment.Status.ReadyReplicas != newDeployment.Status.ReadyReplicas) && isOwner {
-				return true
-			}
-			return false
-		},
-	}
+	srcDeployment := &source.Kind{Type: &appsv1.Deployment{}}
+	deploymentHandler := &enqueue.RequestForObjectGroupKind{NewGroupKind: utils.DeploymentGroupKind()}
+	deploymentPred := utils.DeploymentStatusChange(utils.CassandraGroupKind())
 	// Watch for Manager events.
 	err = c.Watch(srcDeployment, deploymentHandler, deploymentPred)
 	if err != nil {
@@ -209,24 +123,22 @@ func (r *ReconcileCassandra) GetRequestObject(request reconcile.Request) (ro run
 
 	return nil
 }
+
 func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Cassandra Object")
+	var err error
 
 	cassandraInstance := &v1alpha1.Cassandra{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, cassandraInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Cassandra Instance")
-		}
-	}
+	err = r.Client.Get(context.TODO(), request.NamespacedName, cassandraInstance)
+	utils.ReconcileNilNotFound(err)
+
 	managerInstance := &v1alpha1.Manager{}
 	err = r.Client.Get(context.TODO(), request.NamespacedName, managerInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Manager Instance")
-		}
-	} else {
+
+	deployment := GetDeployment()
+
+	if err == nil {
 		cassandraInstance.Spec = managerInstance.Spec.Services.Cassandra
 		if managerInstance.Spec.Services.Cassandra.Size != nil {
 			cassandraInstance.Spec.Size = managerInstance.Spec.Services.Cassandra.Size
@@ -236,47 +148,38 @@ func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reco
 		if managerInstance.Spec.HostNetwork != nil {
 			cassandraInstance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
 		}
-	}
-	err = r.Client.Update(context.TODO(), cassandraInstance)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update instance")
-		return reconcile.Result{}, err
-	}
+		err = r.Client.Update(context.TODO(), cassandraInstance)
+		utils.ReconcileErr(err)
 
-	// Get default Deployment
-	deployment := GetDeployment()
-
-	if managerInstance.Spec.ImagePullSecrets != nil {
-		var imagePullSecretsList []corev1.LocalObjectReference
-		for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
-			imagePullSecret := corev1.LocalObjectReference{
-				Name: imagePullSecretName,
+		if managerInstance.Spec.ImagePullSecrets != nil {
+			var imagePullSecretsList []corev1.LocalObjectReference
+			for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
+				imagePullSecret := corev1.LocalObjectReference{
+					Name: imagePullSecretName,
+				}
+				imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
 			}
-			imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
+			deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
 		}
-		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
 	}
-
 	// Create initial ConfigMaps
 	volumeList := deployment.Spec.Template.Spec.Volumes
-
-	configMap := corev1.ConfigMap{
+	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cassandra-" + cassandraInstance.Name,
-			Namespace: cassandraInstance.Namespace,
+			Namespace: request.Namespace,
 			Labels:    map[string]string{"contrail_manager": "cassandra"},
 		},
 		Data: cassandraInstance.Spec.Configuration,
 	}
-	controllerutil.SetControllerReference(cassandraInstance, &configMap, r.Scheme)
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "cassandra-" + cassandraInstance.Name, Namespace: cassandraInstance.Namespace}, &configMap)
-	if err != nil && errors.IsNotFound(err) {
-		err = r.Client.Create(context.TODO(), &configMap)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", cassandraInstance.Namespace, "Name", "cassandra-"+cassandraInstance.Name)
-			return reconcile.Result{}, err
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "cassandra-" + cassandraInstance.Name, Namespace: request.Namespace}, configMap)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err = r.Client.Create(context.TODO(), configMap)
+			utils.ReconcileErr(err)
 		}
 	}
+	controllerutil.SetControllerReference(cassandraInstance, configMap, r.Scheme)
 
 	volume := corev1.Volume{
 		Name: "cassandra-" + cassandraInstance.Name,
@@ -341,17 +244,18 @@ func (r *ReconcileCassandra) CassandraReconcile(request reconcile.Request) (reco
 	deployment.Spec.Replicas = cassandraInstance.Spec.Size
 	// Create Deployment
 	controllerutil.SetControllerReference(cassandraInstance, deployment, r.Scheme)
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "cassandra-" + cassandraInstance.Name, Namespace: cassandraInstance.Namespace}, deployment)
+
+	i = deployment
+	err = i.Get(r.Client, deployemntRequest)
 	if err != nil && errors.IsNotFound(err) {
-		deployment.Spec.Template.ObjectMeta.Labels["version"] = "1"
-		err = r.Client.Create(context.TODO(), deployment)
+		err = i.Create(r.Client)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create Deployment", "Namespace", cassandraInstance.Namespace, "Name", "cassandra-"+cassandraInstance.Name)
 			return reconcile.Result{}, err
 		}
 	} else if err == nil && *deployment.Spec.Replicas != *cassandraInstance.Spec.Size {
 		deployment.Spec.Replicas = cassandraInstance.Spec.Size
-		err = r.Client.Update(context.TODO(), deployment)
+		err = i.Update(r.Client)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Deployment", "Namespace", cassandraInstance.Namespace, "Name", "cassandra-"+cassandraInstance.Name)
 			return reconcile.Result{}, err
@@ -621,29 +525,54 @@ auto_bootstrap: true
 	}
 	return reconcile.Result{}, nil
 }
+
+// Service is the interface to manage services
+type Service interface {
+	Get(reconcile.Request, runtime.Object) runtime.Object
+}
+
+// Get implements Service Get
+func (r *ReconcileCassandra) Get(request reconcile.Request, object runtime.Object) *v1alpha1.Cassandra {
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	instance := object.(*v1alpha1.Cassandra)
+	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Info("No Cassandra Instance")
+		}
+	}
+	return instance
+}
+
+// Reconcile reconciles cassandra
 func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Cassandra")
-	requestObject := r.GetRequestObject(request)
-	if requestObject == nil {
-		return reconcile.Result{}, nil
-	}
 
-	objectKind := requestObject.GetObjectKind()
-	objectGVK := objectKind.GroupVersionKind()
-	kind := objectGVK.Kind
-	switch kind {
-	case "Cassandra":
+	groupKind := utils.SetRequestName(&request)
+
+	switch *groupKind {
+	case utils.CassandraGroupKind():
+		i = &v1alpha1.Cassandra{}
+		i.Get(r.Client, request)
+		instance := i.(*v1alpha1.Cassandra)
+		fmt.Println("Change in Cassandra: ", instance.Name)
 		r.CassandraReconcile(request)
-	case "Manager":
-		instance := requestObject.(*v1alpha1.Manager)
-		r.ManagerReconcile(instance)
-	case "ReplicaSet":
-		r.ReplicaSetReconcile(request)
-	case "Deployment":
-		r.DeploymentReconcile(request)
-	default:
-		return reconcile.Result{}, nil
+	case utils.ManagerGroupKind():
+		i = &v1alpha1.Manager{}
+		i.Get(r.Client, request)
+		instance := i.(*v1alpha1.Manager)
+		fmt.Println("Change in Manager: ", instance.Name)
+	case utils.DeploymentGroupKind():
+		i = &v1alpha1.Deployment{}
+		i.Get(r.Client, request)
+		instance := i.(*v1alpha1.Deployment)
+		fmt.Println("Change in Deployment: ", instance.Name)
+	case utils.ReplicaSetGroupKind():
+		i = &v1alpha1.ReplicaSet{}
+		i.Get(r.Client, request)
+		instance := i.(*v1alpha1.ReplicaSet)
+		fmt.Println("Change in ReplicaSet: ", instance.Name)
 	}
 	return reconcile.Result{}, nil
 }

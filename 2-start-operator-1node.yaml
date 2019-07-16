@@ -11,8 +11,8 @@ spec:
   - contrail-nightly
   services:
     config:
-      activate: true
-      create: true
+      activate: false
+      create: false
       configuration:
         CLOUD_ORCHESTRATOR: kubernetes
         CASSANDRA_PORT: "9160"
@@ -29,7 +29,7 @@ spec:
         nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
         init: busybox
     control:
-      activate: true
+      activate: false
       create: false
       images:
         control: hub.juniper.net/contrail-nightly/contrail-controller-control-control:5.2.0-0.740
@@ -39,7 +39,7 @@ spec:
         nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
         init: busybox
     kubemanager:
-      activate: true
+      activate: false
       create: false
       images:
         kubemanager: hub.juniper.net/contrail-nightly/contrail-kubernetes-kube-manager:5.2.0-0.740
@@ -60,14 +60,14 @@ spec:
         KUBERNETES_IP_FABRIC_SNAT: "true"
         K8S_TOKEN_FILE: /var/run/secrets/kubernetes.io/serviceaccount/token
     webui:
-      activate: true
+      activate: false
       create: false
       images:
         webuiweb: hub.juniper.net/contrail-nightly/contrail-controller-webui-web:5.2.0-0.740
         webuijob: hub.juniper.net/contrail-nightly/contrail-controller-webui-job:5.2.0-0.740
         nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
     vrouter:
-      activate: true
+      activate: false
       create: false
       images:
         vrouteragent: hub.juniper.net/contrail-nightly/contrail-vrouter-agent:5.2.0-0.740
@@ -95,7 +95,7 @@ spec:
         HEAP_NEWSIZE: 100M
         NODE_TYPE: "config-database"
     zookeeper:
-      activate: true
+      activate: false
       create: false
       images:
         zookeeper: docker.io/zookeeper:3.5.5
@@ -105,8 +105,8 @@ spec:
         ZOOKEEPER_PORTS: "2888:3888"
         NODE_TYPE: "config-database"
     rabbitmq:
-      activate: true
-      create: true
+      activate: false
+      create: false
       images:
         rabbitmq: rabbitmq:3.7
         init: busybox

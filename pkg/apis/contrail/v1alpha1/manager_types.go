@@ -1,9 +1,14 @@
 package v1alpha1
 
 import (
+	"context"
+
 	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 /*
@@ -87,6 +92,38 @@ type ManagerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Manager `json:"items"`
+}
+
+func (m *Manager) Get(client client.Client, request reconcile.Request) error {
+	err := client.Get(context.TODO(), request.NamespacedName, m)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Manager) Create(client client.Client) error {
+	err := client.Create(context.TODO(), m)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Manager) Update(client client.Client) error {
+	err := client.Update(context.TODO(), m)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Manager) Delete(client client.Client) error {
+	err := client.Delete(context.TODO(), m)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func init() {

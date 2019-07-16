@@ -1,5 +1,10 @@
 package v1alpha1
 
+import (
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+)
+
 //metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // +k8s:openapi-gen=true
@@ -31,4 +36,12 @@ type Status struct {
 	Ports  map[string]string `json:"ports,omitempty"`
 }
 type Global struct {
+}
+
+// Instance is the interface to manage instances
+type Instance interface {
+	Get(client.Client, reconcile.Request) error
+	Update(client.Client) error
+	Create(client.Client) error
+	Delete(client.Client) error
 }
