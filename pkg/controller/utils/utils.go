@@ -28,6 +28,28 @@ const (
 	DEPLOYMENT = "Deployment.apps"
 )
 
+//func GetInstanceFromList(objectList []interface{}, result reconcile.Result) (
+//	if "a" == "b"{
+//
+//	}
+//)
+
+// GetInstanceFromList return object from list of objects
+func GetInstanceFromList(objectList []*interface{}, request reconcile.Request) interface{} {
+
+	for _, object := range objectList {
+		ob := *object
+		switch ob.(type) {
+		case v1alpha1.Cassandra:
+			cassandraObject := ob.(v1alpha1.Cassandra)
+			if cassandraObject.GetName() == request.Name {
+				return cassandraObject
+			}
+		}
+	}
+	return nil
+}
+
 // GetGroupKindFromObject return GK
 func GetGroupKindFromObject(object runtime.Object) schema.GroupKind {
 	objectKind := object.GetObjectKind()
@@ -281,4 +303,38 @@ func SetRequestName(request *reconcile.Request) *schema.GroupKind {
 	name := strings.Split(request.Name, "/")[1]
 	request.Name = name
 	return &groupKind
+}
+
+func MergeCommonConfiguration(manager v1alpha1.CommonConfiguration,
+	instance v1alpha1.CommonConfiguration) v1alpha1.CommonConfiguration {
+	if len(instance.NodeSelector) == 0 && len(manager.NodeSelector) > 0 {
+		instance.NodeSelector = manager.NodeSelector
+	}
+	hostNetworkDefault := true
+	instance.HostNetwork = &hostNetworkDefault
+	if instance.HostNetwork == nil && manager.HostNetwork != nil {
+		instance.HostNetwork = manager.HostNetwork
+	}
+	if len(instance.ImagePullSecrets) == 0 && len(manager.ImagePullSecrets) > 0 {
+		instance.ImagePullSecrets = manager.ImagePullSecrets
+	}
+	if len(instance.Tolerations) == 0 && len(manager.Tolerations) > 0 {
+		instance.Tolerations = manager.Tolerations
+	}
+	var defaultReplicas int32 = 1
+	instance.Replicas = &defaultReplicas
+	if instance.Replicas == nil && manager.Replicas != nil {
+		instance.Replicas = manager.Replicas
+	}
+	return instance
+}
+
+func SetDeploymentCommonConfiguration(deployment *appsv1.Deployment,
+	commonConfiguration *v1alpha1.CommonConfiguration) *appsv1.Deployment {
+	deployment.Spec.Replicas = commonConfiguration.Replicas
+	deployment.Spec.Template.Spec.Tolerations = commonConfiguration.Tolerations
+	deployment.Spec.Template.Spec.NodeSelector = commonConfiguration.NodeSelector
+	deployment.Spec.Template.Spec.HostNetwork = *commonConfiguration.HostNetwork
+	deployment.Spec.Template.Spec.ImagePullSecrets = commonConfiguration.ImagePullSecrets
+	return deployment
 }

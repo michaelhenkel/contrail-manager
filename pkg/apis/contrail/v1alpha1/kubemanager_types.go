@@ -18,8 +18,21 @@ type Kubemanager struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   *Service `json:"spec,omitempty"`
-	Status Status   `json:"status,omitempty"`
+	Spec   KubemanagerSpec `json:"spec,omitempty"`
+	Status Status          `json:"status,omitempty"`
+}
+
+// KubemanagerSpec is the Spec for the cassandras API
+// +k8s:openapi-gen=true
+type KubemanagerSpec struct {
+	CommonConfiguration  CommonConfiguration      `json:"commonConfiguration"`
+	ServiceConfiguration KubemanagerConfiguration `json:"serviceConfiguration"`
+}
+
+// KubemanagerConfiguration is the Spec for the cassandras API
+// +k8s:openapi-gen=true
+type KubemanagerConfiguration struct {
+	Images map[string]string `json:"images"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

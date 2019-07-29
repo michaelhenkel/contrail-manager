@@ -18,21 +18,8 @@ type Vrouter struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   VrouterSpec `json:"spec,omitempty"`
-	Status Status      `json:"status,omitempty"`
-}
-
-// VrouterSpec is the Spec for the cassandras API
-// +k8s:openapi-gen=true
-type VrouterSpec struct {
-	CommonConfiguration  CommonConfiguration  `json:"commonConfiguration"`
-	ServiceConfiguration VrouterConfiguration `json:"serviceConfiguration"`
-}
-
-// VrouterConfiguration is the Spec for the cassandras API
-// +k8s:openapi-gen=true
-type VrouterConfiguration struct {
-	Images map[string]string `json:"images"`
+	Spec   *Service `json:"spec,omitempty"`
+	Status Status   `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

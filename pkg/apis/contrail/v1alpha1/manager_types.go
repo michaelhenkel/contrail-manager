@@ -31,22 +31,21 @@ type ManagerSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Services            *Services `json:"services,omitempty"`
-	Size                *int32    `json:"size,omitempty"`
-	HostNetwork         *bool     `json:"hostNetwork,omitempty"`
-	ContrailStatusImage string    `json:"contrailStatusImage,omitempty"`
-	ImagePullSecrets    []string  `json:"imagePullSecrets,omitempty"`
+	CommonConfiguration CommonConfiguration `json:"commonConfiguration,omitempty"`
+	Services            Services            `json:"services,omitempty"`
 }
 
+// Services defines the desired state of Services
+// +k8s:openapi-gen=true
 type Services struct {
-	Config      *Service `json:"config,omitempty"`
-	Control     *Service `json:"control,omitempty"`
-	Kubemanager *Service `json:"kubemanager,omitempty"`
-	Webui       *Service `json:"webui,omitempty"`
-	Vrouter     *Service `json:"vrouter,omitempty"`
-	Cassandra   *Service `json:"cassandra,omitempty"`
-	Zookeeper   *Service `json:"zookeeper,omitempty"`
-	Rabbitmq    *Service `json:"rabbitmq,omitempty"`
+	Config       *Config        `json:"config,omitempty"`
+	Controls     []*Control     `json:"controls,omitempty"`
+	Kubemanagers []*Kubemanager `json:"kubemanagers,omitempty"`
+	Webui        *Webui         `json:"webui,omitempty"`
+	Vrouters     []*Vrouter     `json:"vrouters,omitempty"`
+	Cassandras   []*Cassandra   `json:"cassandras,omitempty"`
+	Zookeepers   []*Zookeeper   `json:"zookeepers,omitempty"`
+	Rabbitmq     *Rabbitmq      `json:"rabbitmq,omitempty"`
 }
 
 // ManagerStatus defines the observed state of Manager
@@ -123,6 +122,10 @@ func (m *Manager) Delete(client client.Client) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (m *Manager) GetObjectFromObjectList(objectList *[]*interface{}, request reconcile.Request) interface{} {
 	return nil
 }
 

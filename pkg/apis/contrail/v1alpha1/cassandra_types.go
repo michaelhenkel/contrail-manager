@@ -10,9 +10,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // CassandraStatus defines the observed state of Cassandra
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -24,13 +21,32 @@ type Cassandra struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   *Service `json:"spec,omitempty"`
-	Status Status   `json:"status,omitempty"`
+	Spec   CassandraSpec `json:"spec,omitempty"`
+	Status Status        `json:"status,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// CassandraSpec is the Spec for the cassandras API
+// +k8s:openapi-gen=true
+type CassandraSpec struct {
+	CommonConfiguration  CommonConfiguration    `json:"commonConfiguration"`
+	ServiceConfiguration CassandraConfiguration `json:"serviceConfiguration"`
+}
+
+// CassandraConfiguration is the Spec for the cassandras API
+// +k8s:openapi-gen=true
+type CassandraConfiguration struct {
+	Images         map[string]string `json:"images"`
+	ClusterName    string            `json:"clusterName,omitempty"`
+	ListenAddress  string            `json:"listenAddress,omitempty"`
+	Port           int               `json:"port,omitempty"`
+	CqlPort        int               `json:"cqlPort,omitempty"`
+	SslStoragePort int               `json:"sslStoragePort,omitempty"`
+	StoragePort    int               `json:"storagePort,omitempty"`
+	JmxLocalPort   int               `json:"jmxLocalPort,omitempty"`
+}
 
 // CassandraList contains a list of Cassandra
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type CassandraList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -49,18 +65,6 @@ func init() {
 	SchemeBuilder.Register(&Cassandra{}, &CassandraList{})
 }
 
-// Get implements Service Get
-/*
-func (c Cassandra) Get(request reconcile.Request, client client.Client) (*Cassandra, error) {
-	err := client.Get(context.TODO(), request.NamespacedName, &c)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, nil
-		}
-	}
-	return &c, nil
-}
-*/
 func (c *Cassandra) Get(client client.Client, request reconcile.Request) error {
 	err := client.Get(context.TODO(), request.NamespacedName, c)
 	if err != nil {

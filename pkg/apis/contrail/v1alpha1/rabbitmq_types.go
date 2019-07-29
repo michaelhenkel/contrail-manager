@@ -18,8 +18,21 @@ type Rabbitmq struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   *Service `json:"spec,omitempty"`
-	Status Status   `json:"status,omitempty"`
+	Spec   RabbitmqSpec `json:"spec,omitempty"`
+	Status Status       `json:"status,omitempty"`
+}
+
+// RabbitmqSpec is the Spec for the cassandras API
+// +k8s:openapi-gen=true
+type RabbitmqSpec struct {
+	CommonConfiguration  CommonConfiguration   `json:"commonConfiguration"`
+	ServiceConfiguration RabbitmqConfiguration `json:"serviceConfiguration"`
+}
+
+// RabbitmqConfiguration is the Spec for the cassandras API
+// +k8s:openapi-gen=true
+type RabbitmqConfiguration struct {
+	Images map[string]string `json:"images"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

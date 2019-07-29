@@ -63,7 +63,7 @@ func InitContainerRunning(cl client.Client,
 	instance metav1.ObjectMeta,
 	name string,
 	ro runtime.Object,
-	service Service,
+	commonConfiguration CommonConfiguration,
 	status *Status) (bool, error) {
 	initContainerRunning := true
 	podList := &corev1.PodList{}
@@ -73,7 +73,7 @@ func InitContainerRunning(cl client.Client,
 	if err != nil {
 		return false, err
 	}
-	if len(podList.Items) == int(*service.Size) {
+	if len(podList.Items) == int(*commonConfiguration.Replicas) {
 		var podIpMap = make(map[string]string)
 		for _, pod := range podList.Items {
 			if pod.Status.PodIP != "" {
@@ -87,7 +87,7 @@ func InitContainerRunning(cl client.Client,
 				}
 			}
 		}
-		if len(podIpMap) == int(*service.Size) {
+		if len(podIpMap) == int(*commonConfiguration.Replicas) {
 
 			if status.Active == nil {
 				active := false
@@ -142,9 +142,9 @@ func getPodMap(name string, instance metav1.ObjectMeta, cl client.Client) (map[s
 	return podIpMap, errors.New("Init Containers not running")
 }
 
-func getPodIpList(podIpMap map[string]string, service Service, podList corev1.PodList, cl client.Client) ([]string, error) {
+func getPodIpList(podIpMap map[string]string, commonConfiguration CommonConfiguration, podList corev1.PodList, cl client.Client) ([]string, error) {
 	var podIpList []string
-	if len(podIpMap) == int(*service.Size) {
+	if len(podIpMap) == int(*commonConfiguration.Replicas) {
 		for _, podIp := range podIpMap {
 			podIpList = append(podIpList, podIp)
 		}

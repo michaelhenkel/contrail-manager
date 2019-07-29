@@ -18,8 +18,21 @@ type Config struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   *Service `json:"spec,omitempty"`
-	Status Status   `json:"status,omitempty"`
+	Spec   ConfigSpec `json:"spec,omitempty"`
+	Status Status     `json:"status,omitempty"`
+}
+
+// ConfigSpec is the Spec for the cassandras API
+// +k8s:openapi-gen=true
+type ConfigSpec struct {
+	CommonConfiguration  CommonConfiguration `json:"commonConfiguration"`
+	ServiceConfiguration ConfigConfiguration `json:"serviceConfiguration"`
+}
+
+// ConfigConfiguration is the Spec for the cassandras API
+// +k8s:openapi-gen=true
+type ConfigConfiguration struct {
+	Images map[string]string `json:"images"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

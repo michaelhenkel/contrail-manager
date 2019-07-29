@@ -13,30 +13,38 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Cassandra":       schema_pkg_apis_contrail_v1alpha1_Cassandra(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CassandraSpec":   schema_pkg_apis_contrail_v1alpha1_CassandraSpec(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Config":          schema_pkg_apis_contrail_v1alpha1_Config(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ConfigSpec":      schema_pkg_apis_contrail_v1alpha1_ConfigSpec(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ConfigStatus":    schema_pkg_apis_contrail_v1alpha1_ConfigStatus(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Control":         schema_pkg_apis_contrail_v1alpha1_Control(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ControlSpec":     schema_pkg_apis_contrail_v1alpha1_ControlSpec(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Kubemanager":     schema_pkg_apis_contrail_v1alpha1_Kubemanager(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.KubemanagerSpec": schema_pkg_apis_contrail_v1alpha1_KubemanagerSpec(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Manager":         schema_pkg_apis_contrail_v1alpha1_Manager(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ManagerSpec":     schema_pkg_apis_contrail_v1alpha1_ManagerSpec(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ManagerStatus":   schema_pkg_apis_contrail_v1alpha1_ManagerStatus(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Rabbitmq":        schema_pkg_apis_contrail_v1alpha1_Rabbitmq(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.RabbitmqSpec":    schema_pkg_apis_contrail_v1alpha1_RabbitmqSpec(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Status":          schema_pkg_apis_contrail_v1alpha1_Status(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Vrouter":         schema_pkg_apis_contrail_v1alpha1_Vrouter(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.VrouterSpec":     schema_pkg_apis_contrail_v1alpha1_VrouterSpec(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.VrouterStatus":   schema_pkg_apis_contrail_v1alpha1_VrouterStatus(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Webui":           schema_pkg_apis_contrail_v1alpha1_Webui(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.WebuiSpec":       schema_pkg_apis_contrail_v1alpha1_WebuiSpec(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.WebuiStatus":     schema_pkg_apis_contrail_v1alpha1_WebuiStatus(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Zookeeper":       schema_pkg_apis_contrail_v1alpha1_Zookeeper(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ZookeeperSpec":   schema_pkg_apis_contrail_v1alpha1_ZookeeperSpec(ref),
-		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ZookeeperStatus": schema_pkg_apis_contrail_v1alpha1_ZookeeperStatus(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Cassandra":                schema_pkg_apis_contrail_v1alpha1_Cassandra(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CassandraConfiguration":   schema_pkg_apis_contrail_v1alpha1_CassandraConfiguration(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CassandraSpec":            schema_pkg_apis_contrail_v1alpha1_CassandraSpec(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration":      schema_pkg_apis_contrail_v1alpha1_CommonConfiguration(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Config":                   schema_pkg_apis_contrail_v1alpha1_Config(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ConfigConfiguration":      schema_pkg_apis_contrail_v1alpha1_ConfigConfiguration(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ConfigSpec":               schema_pkg_apis_contrail_v1alpha1_ConfigSpec(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Control":                  schema_pkg_apis_contrail_v1alpha1_Control(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ControlConfiguration":     schema_pkg_apis_contrail_v1alpha1_ControlConfiguration(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ControlSpec":              schema_pkg_apis_contrail_v1alpha1_ControlSpec(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Kubemanager":              schema_pkg_apis_contrail_v1alpha1_Kubemanager(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.KubemanagerConfiguration": schema_pkg_apis_contrail_v1alpha1_KubemanagerConfiguration(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.KubemanagerSpec":          schema_pkg_apis_contrail_v1alpha1_KubemanagerSpec(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Manager":                  schema_pkg_apis_contrail_v1alpha1_Manager(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ManagerSpec":              schema_pkg_apis_contrail_v1alpha1_ManagerSpec(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ManagerStatus":            schema_pkg_apis_contrail_v1alpha1_ManagerStatus(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Rabbitmq":                 schema_pkg_apis_contrail_v1alpha1_Rabbitmq(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.RabbitmqConfiguration":    schema_pkg_apis_contrail_v1alpha1_RabbitmqConfiguration(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.RabbitmqSpec":             schema_pkg_apis_contrail_v1alpha1_RabbitmqSpec(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus":            schema_pkg_apis_contrail_v1alpha1_ServiceStatus(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Services":                 schema_pkg_apis_contrail_v1alpha1_Services(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Status":                   schema_pkg_apis_contrail_v1alpha1_Status(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Vrouter":                  schema_pkg_apis_contrail_v1alpha1_Vrouter(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.VrouterConfiguration":     schema_pkg_apis_contrail_v1alpha1_VrouterConfiguration(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.VrouterSpec":              schema_pkg_apis_contrail_v1alpha1_VrouterSpec(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Webui":                    schema_pkg_apis_contrail_v1alpha1_Webui(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.WebuiConfiguration":       schema_pkg_apis_contrail_v1alpha1_WebuiConfiguration(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.WebuiSpec":                schema_pkg_apis_contrail_v1alpha1_WebuiSpec(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Zookeeper":                schema_pkg_apis_contrail_v1alpha1_Zookeeper(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ZookeeperConfiguration":   schema_pkg_apis_contrail_v1alpha1_ZookeeperConfiguration(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ZookeeperSpec":            schema_pkg_apis_contrail_v1alpha1_ZookeeperSpec(ref),
+		"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ZookeeperStatus":          schema_pkg_apis_contrail_v1alpha1_ZookeeperStatus(ref),
 	}
 }
 
@@ -83,35 +91,185 @@ func schema_pkg_apis_contrail_v1alpha1_Cassandra(ref common.ReferenceCallback) c
 	}
 }
 
+func schema_pkg_apis_contrail_v1alpha1_CassandraConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CassandraConfiguration is the Spec for the cassandras API",
+				Properties: map[string]spec.Schema{
+					"images": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"clusterName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"listenAddress": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"port": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"cqlPort": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"sslStoragePort": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"storagePort": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"jmxLocalPort": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+				Required: []string{"images"},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
 func schema_pkg_apis_contrail_v1alpha1_CassandraSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CassandraSpec defines the desired state of Cassandra",
+				Description: "CassandraSpec is the Spec for the cassandras API",
 				Properties: map[string]spec.Schema{
-					"hostNetwork": {
+					"commonConfiguration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration"),
+						},
+					},
+					"serviceConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CassandraConfiguration"),
+						},
+					},
+				},
+				Required: []string{"commonConfiguration", "serviceConfiguration"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CassandraConfiguration", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration"},
+	}
+}
+
+func schema_pkg_apis_contrail_v1alpha1_CommonConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Service is the common services struct",
+				Properties: map[string]spec.Schema{
+					"activate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Activate defines if the service will be activated by Manager",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
-					"service": {
+					"create": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
+							Description: "Create defines if the service will be created by Manager",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
-					"contrailStatusImage": {
+					"nodeSelector": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"hostNetwork": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Host networking requested for this pod. Use the host's network namespace. If this option is set, the ports that will be used must be specified. Default to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"imagePullSecrets": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.LocalObjectReference"),
+									},
+								},
+							},
+						},
+					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the pod's tolerations.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
+					"replicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"},
+			"k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.Toleration"},
 	}
 }
 
@@ -158,56 +316,55 @@ func schema_pkg_apis_contrail_v1alpha1_Config(ref common.ReferenceCallback) comm
 	}
 }
 
+func schema_pkg_apis_contrail_v1alpha1_ConfigConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ConfigConfiguration is the Spec for the cassandras API",
+				Properties: map[string]spec.Schema{
+					"images": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"images"},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
 func schema_pkg_apis_contrail_v1alpha1_ConfigSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ConfigSpec defines the desired state of Config",
+				Description: "ConfigSpec is the Spec for the cassandras API",
 				Properties: map[string]spec.Schema{
-					"hostNetwork": {
+					"commonConfiguration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
-							Type:        []string{"boolean"},
-							Format:      "",
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration"),
 						},
 					},
-					"service": {
+					"serviceConfiguration": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
-						},
-					},
-					"contrailStatusImage": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ConfigConfiguration"),
 						},
 					},
 				},
+				Required: []string{"commonConfiguration", "serviceConfiguration"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"},
-	}
-}
-
-func schema_pkg_apis_contrail_v1alpha1_ConfigStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ConfigStatus defines the observed state of Config",
-				Properties: map[string]spec.Schema{
-					"active": {
-						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"active"},
-			},
-		},
-		Dependencies: []string{},
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ConfigConfiguration"},
 	}
 }
 
@@ -254,35 +411,55 @@ func schema_pkg_apis_contrail_v1alpha1_Control(ref common.ReferenceCallback) com
 	}
 }
 
+func schema_pkg_apis_contrail_v1alpha1_ControlConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ControlConfiguration is the Spec for the cassandras API",
+				Properties: map[string]spec.Schema{
+					"images": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"images"},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
 func schema_pkg_apis_contrail_v1alpha1_ControlSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ControlSpec defines the desired state of Control",
+				Description: "ControlSpec is the Spec for the cassandras API",
 				Properties: map[string]spec.Schema{
-					"hostNetwork": {
+					"commonConfiguration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
-							Type:        []string{"boolean"},
-							Format:      "",
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration"),
 						},
 					},
-					"service": {
+					"serviceConfiguration": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
-						},
-					},
-					"contrailStatusImage": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ControlConfiguration"),
 						},
 					},
 				},
+				Required: []string{"commonConfiguration", "serviceConfiguration"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"},
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ControlConfiguration"},
 	}
 }
 
@@ -329,35 +506,55 @@ func schema_pkg_apis_contrail_v1alpha1_Kubemanager(ref common.ReferenceCallback)
 	}
 }
 
+func schema_pkg_apis_contrail_v1alpha1_KubemanagerConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KubemanagerConfiguration is the Spec for the cassandras API",
+				Properties: map[string]spec.Schema{
+					"images": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"images"},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
 func schema_pkg_apis_contrail_v1alpha1_KubemanagerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "KubemanagerSpec defines the desired state of Kubemanager",
+				Description: "KubemanagerSpec is the Spec for the cassandras API",
 				Properties: map[string]spec.Schema{
-					"hostNetwork": {
+					"commonConfiguration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
-							Type:        []string{"boolean"},
-							Format:      "",
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration"),
 						},
 					},
-					"service": {
+					"serviceConfiguration": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
-						},
-					},
-					"contrailStatusImage": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.KubemanagerConfiguration"),
 						},
 					},
 				},
+				Required: []string{"commonConfiguration", "serviceConfiguration"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"},
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.KubemanagerConfiguration"},
 	}
 }
 
@@ -410,60 +607,22 @@ func schema_pkg_apis_contrail_v1alpha1_ManagerSpec(ref common.ReferenceCallback)
 			SchemaProps: spec.SchemaProps{
 				Description: "type Service struct {\n\tActivate      *bool `json:\"activate,omitempty\"`\n\tImage         string `json:\"image,omitempty\"`\n\tSize          *int `json:\"size,omitempty\"`\n\tConfiguration map[string]string `json:\"configuration,omitempty\"`\n}\n\ntype Global struct {\n\n} // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN! // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.\n\nManagerSpec defines the desired state of Manager",
 				Properties: map[string]spec.Schema{
-					"config": {
+					"commonConfiguration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
-							Ref:         ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
+							Ref:         ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration"),
 						},
 					},
-					"control": {
+					"services": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
-						},
-					},
-					"kubemanager": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
-						},
-					},
-					"cassandra": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
-						},
-					},
-					"zookeeper": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
-						},
-					},
-					"rabbitmq": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
-						},
-					},
-					"size": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-					"hostNetwork": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"contrailStatusImage": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Services"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"},
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Services"},
 	}
 }
 
@@ -485,6 +644,16 @@ func schema_pkg_apis_contrail_v1alpha1_ManagerStatus(ref common.ReferenceCallbac
 						},
 					},
 					"kubemanager": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
+						},
+					},
+					"webui": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
+						},
+					},
+					"vrouter": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
 						},
@@ -555,35 +724,175 @@ func schema_pkg_apis_contrail_v1alpha1_Rabbitmq(ref common.ReferenceCallback) co
 	}
 }
 
+func schema_pkg_apis_contrail_v1alpha1_RabbitmqConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RabbitmqConfiguration is the Spec for the cassandras API",
+				Properties: map[string]spec.Schema{
+					"images": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"images"},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
 func schema_pkg_apis_contrail_v1alpha1_RabbitmqSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "RabbitmqSpec defines the desired state of Rabbitmq",
+				Description: "RabbitmqSpec is the Spec for the cassandras API",
 				Properties: map[string]spec.Schema{
-					"hostNetwork": {
+					"commonConfiguration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
-							Type:        []string{"boolean"},
-							Format:      "",
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration"),
 						},
 					},
-					"service": {
+					"serviceConfiguration": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.RabbitmqConfiguration"),
 						},
 					},
-					"contrailStatusImage": {
+				},
+				Required: []string{"commonConfiguration", "serviceConfiguration"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.RabbitmqConfiguration"},
+	}
+}
+
+func schema_pkg_apis_contrail_v1alpha1_ServiceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ServiceStatus provides information on the current status of the service",
+				Properties: map[string]spec.Schema{
+					"active": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"created": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"controllerRunning": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
 				},
 			},
 		},
+		Dependencies: []string{},
+	}
+}
+
+func schema_pkg_apis_contrail_v1alpha1_Services(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Services defines the desired state of Services",
+				Properties: map[string]spec.Schema{
+					"config": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Config"),
+						},
+					},
+					"controls": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Control"),
+									},
+								},
+							},
+						},
+					},
+					"kubemanagers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Kubemanager"),
+									},
+								},
+							},
+						},
+					},
+					"webui": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Webui"),
+						},
+					},
+					"vrouters": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Vrouter"),
+									},
+								},
+							},
+						},
+					},
+					"cassandras": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Cassandra"),
+									},
+								},
+							},
+						},
+					},
+					"zookeepers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Zookeeper"),
+									},
+								},
+							},
+						},
+					},
+					"rabbitmq": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Rabbitmq"),
+						},
+					},
+				},
+			},
+		},
 		Dependencies: []string{
-			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"},
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Cassandra", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Config", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Control", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Kubemanager", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Rabbitmq", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Vrouter", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Webui", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Zookeeper"},
 	}
 }
 
@@ -591,6 +900,7 @@ func schema_pkg_apis_contrail_v1alpha1_Status(ref common.ReferenceCallback) comm
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
+				Description: "Status is the status of the service",
 				Properties: map[string]spec.Schema{
 					"active": {
 						SchemaProps: spec.SchemaProps{
@@ -664,14 +974,41 @@ func schema_pkg_apis_contrail_v1alpha1_Vrouter(ref common.ReferenceCallback) com
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.VrouterStatus"),
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Status"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.VrouterSpec", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.VrouterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Status", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.VrouterSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_contrail_v1alpha1_VrouterConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VrouterConfiguration is the Spec for the cassandras API",
+				Properties: map[string]spec.Schema{
+					"images": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"images"},
+			},
+		},
+		Dependencies: []string{},
 	}
 }
 
@@ -679,23 +1016,24 @@ func schema_pkg_apis_contrail_v1alpha1_VrouterSpec(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VrouterSpec defines the desired state of Vrouter",
-				Properties:  map[string]spec.Schema{},
+				Description: "VrouterSpec is the Spec for the cassandras API",
+				Properties: map[string]spec.Schema{
+					"commonConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration"),
+						},
+					},
+					"serviceConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.VrouterConfiguration"),
+						},
+					},
+				},
+				Required: []string{"commonConfiguration", "serviceConfiguration"},
 			},
 		},
-		Dependencies: []string{},
-	}
-}
-
-func schema_pkg_apis_contrail_v1alpha1_VrouterStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VrouterStatus defines the observed state of Vrouter",
-				Properties:  map[string]spec.Schema{},
-			},
-		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.VrouterConfiguration"},
 	}
 }
 
@@ -731,14 +1069,41 @@ func schema_pkg_apis_contrail_v1alpha1_Webui(ref common.ReferenceCallback) commo
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.WebuiStatus"),
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Status"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.WebuiSpec", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.WebuiStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Status", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.WebuiSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_contrail_v1alpha1_WebuiConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WebuiConfiguration is the Spec for the cassandras API",
+				Properties: map[string]spec.Schema{
+					"images": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"images"},
+			},
+		},
+		Dependencies: []string{},
 	}
 }
 
@@ -746,23 +1111,24 @@ func schema_pkg_apis_contrail_v1alpha1_WebuiSpec(ref common.ReferenceCallback) c
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "WebuiSpec defines the desired state of Webui",
-				Properties:  map[string]spec.Schema{},
+				Description: "WebuiSpec is the Spec for the cassandras API",
+				Properties: map[string]spec.Schema{
+					"commonConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration"),
+						},
+					},
+					"serviceConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.WebuiConfiguration"),
+						},
+					},
+				},
+				Required: []string{"commonConfiguration", "serviceConfiguration"},
 			},
 		},
-		Dependencies: []string{},
-	}
-}
-
-func schema_pkg_apis_contrail_v1alpha1_WebuiStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "WebuiStatus defines the observed state of Webui",
-				Properties:  map[string]spec.Schema{},
-			},
-		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.WebuiConfiguration"},
 	}
 }
 
@@ -809,28 +1175,23 @@ func schema_pkg_apis_contrail_v1alpha1_Zookeeper(ref common.ReferenceCallback) c
 	}
 }
 
-func schema_pkg_apis_contrail_v1alpha1_ZookeeperSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_contrail_v1alpha1_ZookeeperConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ZookeeperSpec defines the desired state of Zookeeper",
+				Description: "ZookeeperConfiguration is the Spec for the cassandras API",
 				Properties: map[string]spec.Schema{
-					"hostNetwork": {
+					"images": {
 						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"service": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"),
-						},
-					},
-					"contrailStatusImage": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 					"clientPort": {
@@ -858,10 +1219,35 @@ func schema_pkg_apis_contrail_v1alpha1_ZookeeperSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
+				Required: []string{"images"},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
+func schema_pkg_apis_contrail_v1alpha1_ZookeeperSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ZookeeperSpec is the Spec for the cassandras API",
+				Properties: map[string]spec.Schema{
+					"commonConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration"),
+						},
+					},
+					"serviceConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ZookeeperConfiguration"),
+						},
+					},
+				},
+				Required: []string{"commonConfiguration", "serviceConfiguration"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.Service"},
+			"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.CommonConfiguration", "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ZookeeperConfiguration"},
 	}
 }
 

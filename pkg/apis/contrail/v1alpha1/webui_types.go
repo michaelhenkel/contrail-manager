@@ -18,8 +18,21 @@ type Webui struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   *Service `json:"spec,omitempty"`
-	Status Status   `json:"status,omitempty"`
+	Spec   WebuiSpec `json:"spec,omitempty"`
+	Status Status    `json:"status,omitempty"`
+}
+
+// WebuiSpec is the Spec for the cassandras API
+// +k8s:openapi-gen=true
+type WebuiSpec struct {
+	CommonConfiguration  CommonConfiguration `json:"commonConfiguration"`
+	ServiceConfiguration WebuiConfiguration  `json:"serviceConfiguration"`
+}
+
+// WebuiConfiguration is the Spec for the cassandras API
+// +k8s:openapi-gen=true
+type WebuiConfiguration struct {
+	Images map[string]string `json:"images"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
