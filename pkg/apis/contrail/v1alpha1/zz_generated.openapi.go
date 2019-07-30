@@ -152,6 +152,24 @@ func schema_pkg_apis_contrail_v1alpha1_CassandraConfiguration(ref common.Referen
 							Format: "int32",
 						},
 					},
+					"maxHeapSize": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"heapNewSize": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"startRpc": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"images"},
 			},
@@ -189,7 +207,7 @@ func schema_pkg_apis_contrail_v1alpha1_CommonConfiguration(ref common.ReferenceC
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Service is the common services struct",
+				Description: "CommonConfiguration is the common services struct",
 				Properties: map[string]spec.Schema{
 					"activate": {
 						SchemaProps: spec.SchemaProps{
@@ -638,14 +656,28 @@ func schema_pkg_apis_contrail_v1alpha1_ManagerStatus(ref common.ReferenceCallbac
 							Ref:         ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
 						},
 					},
-					"control": {
+					"controls": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
+									},
+								},
+							},
 						},
 					},
-					"kubemanager": {
+					"kubemanagers": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
+									},
+								},
+							},
 						},
 					},
 					"webui": {
@@ -653,19 +685,40 @@ func schema_pkg_apis_contrail_v1alpha1_ManagerStatus(ref common.ReferenceCallbac
 							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
 						},
 					},
-					"vrouter": {
+					"vrouters": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
+									},
+								},
+							},
 						},
 					},
-					"cassandra": {
+					"cassandras": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
+									},
+								},
+							},
 						},
 					},
-					"zookeeper": {
+					"zookeepers": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1.ServiceStatus"),
+									},
+								},
+							},
 						},
 					},
 					"rabbitmq": {
@@ -782,6 +835,12 @@ func schema_pkg_apis_contrail_v1alpha1_ServiceStatus(ref common.ReferenceCallbac
 			SchemaProps: spec.SchemaProps{
 				Description: "ServiceStatus provides information on the current status of the service",
 				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"active": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},

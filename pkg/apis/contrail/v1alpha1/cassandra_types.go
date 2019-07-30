@@ -43,6 +43,9 @@ type CassandraConfiguration struct {
 	SslStoragePort int               `json:"sslStoragePort,omitempty"`
 	StoragePort    int               `json:"storagePort,omitempty"`
 	JmxLocalPort   int               `json:"jmxLocalPort,omitempty"`
+	MaxHeapSize    string            `json:"maxHeapSize,omitempty"`
+	MinHeapSize    string            `json:"minHeapSize,omitempty"`
+	StartRpc       bool              `json:"startRpc,omitempty"`
 }
 
 // CassandraList contains a list of Cassandra

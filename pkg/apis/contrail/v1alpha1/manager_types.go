@@ -54,14 +54,14 @@ type ManagerStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Config      *ServiceStatus `json:"config,omitempty"`
-	Control     *ServiceStatus `json:"control,omitempty"`
-	Kubemanager *ServiceStatus `json:"kubemanager,omitempty"`
-	Webui       *ServiceStatus `json:"webui,omitempty"`
-	Vrouter     *ServiceStatus `json:"vrouter,omitempty"`
-	Cassandra   *ServiceStatus `json:"cassandra,omitempty"`
-	Zookeeper   *ServiceStatus `json:"zookeeper,omitempty"`
-	Rabbitmq    *ServiceStatus `json:"rabbitmq,omitempty"`
+	Config       *ServiceStatus   `json:"config,omitempty"`
+	Controls     []*ServiceStatus `json:"controls,omitempty"`
+	Kubemanagers []*ServiceStatus `json:"kubemanagers,omitempty"`
+	Webui        *ServiceStatus   `json:"webui,omitempty"`
+	Vrouters     []*ServiceStatus `json:"vrouters,omitempty"`
+	Cassandras   []*ServiceStatus `json:"cassandras,omitempty"`
+	Zookeepers   []*ServiceStatus `json:"zookeepers,omitempty"`
+	Rabbitmq     *ServiceStatus   `json:"rabbitmq,omitempty"`
 }
 
 func (m *Manager) CassandraCrd() *apiextensionsv1beta1.CustomResourceDefinition {

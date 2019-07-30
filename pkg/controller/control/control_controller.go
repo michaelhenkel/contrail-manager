@@ -1,18 +1,10 @@
 package control
 
 import (
-	"context"
-	"strings"
-
 	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -108,262 +100,264 @@ type ReconcileControl struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling Control")
+	/*
+		reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+		reqLogger.Info("Reconciling Control")
 
-	// Fetch the Control instance
-	instance := &contrailv1alpha1.Control{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
+		// Fetch the Control instance
+		instance := &contrailv1alpha1.Control{}
+		err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// Request object not found, could have been deleted after reconcile request.
+				// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+				// Return and don't requeue
+				return reconcile.Result{}, nil
+			}
+			// Error reading the object - requeue the request.
+			return reconcile.Result{}, err
+		}
+
+		// Get cassandra, zk and rmq status
+
+		cassandraInstance := &contrailv1alpha1.Cassandra{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, cassandraInstance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("No Cassandra Instance")
+				return reconcile.Result{}, err
+			}
+		}
+		cassandraStatus := false
+		if cassandraInstance.Status.Active != nil {
+			cassandraStatus = *cassandraInstance.Status.Active
+		}
+
+		zookeeperInstance := &contrailv1alpha1.Zookeeper{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, zookeeperInstance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("No Zookeeper Instance")
+				return reconcile.Result{}, err
+			}
+		}
+		zookeeperStatus := false
+		if zookeeperInstance.Status.Active != nil {
+			zookeeperStatus = *zookeeperInstance.Status.Active
+		}
+
+		rabbitmqInstance := &contrailv1alpha1.Rabbitmq{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, rabbitmqInstance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("No Rabbitmq Instance")
+				return reconcile.Result{}, err
+			}
+		}
+		rabbitmqStatus := false
+		if rabbitmqInstance.Status.Active != nil {
+			rabbitmqStatus = *rabbitmqInstance.Status.Active
+		}
+
+		configInstance := &contrailv1alpha1.Config{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, configInstance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("No Config Instance")
+				return reconcile.Result{}, err
+			}
+		}
+		configStatus := false
+		if configInstance.Status.Active != nil {
+			configStatus = *configInstance.Status.Active
+		}
+
+		if !rabbitmqStatus || !zookeeperStatus || !cassandraStatus || !configStatus {
+			reqLogger.Info("cassandra, zookeeper, rmq or config not ready")
 			return reconcile.Result{}, nil
 		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
 
-	// Get cassandra, zk and rmq status
-
-	cassandraInstance := &contrailv1alpha1.Cassandra{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, cassandraInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Cassandra Instance")
-			return reconcile.Result{}, err
+		var rabbitmqNodes []string
+		for _, ip := range rabbitmqInstance.Status.Nodes {
+			rabbitmqNodes = append(rabbitmqNodes, ip)
 		}
-	}
-	cassandraStatus := false
-	if cassandraInstance.Status.Active != nil {
-		cassandraStatus = *cassandraInstance.Status.Active
-	}
+		rabbitmqNodeList := strings.Join(rabbitmqNodes, ",")
 
-	zookeeperInstance := &contrailv1alpha1.Zookeeper{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, zookeeperInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Zookeeper Instance")
-			return reconcile.Result{}, err
+		var zookeeperNodes []string
+		for _, ip := range zookeeperInstance.Status.Nodes {
+			zookeeperNodes = append(zookeeperNodes, ip)
 		}
-	}
-	zookeeperStatus := false
-	if zookeeperInstance.Status.Active != nil {
-		zookeeperStatus = *zookeeperInstance.Status.Active
-	}
+		zookeeperNodeList := strings.Join(zookeeperNodes, ",")
 
-	rabbitmqInstance := &contrailv1alpha1.Rabbitmq{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, rabbitmqInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Rabbitmq Instance")
-			return reconcile.Result{}, err
+		var cassandraNodes []string
+		for _, ip := range cassandraInstance.Status.Nodes {
+			cassandraNodes = append(cassandraNodes, ip)
 		}
-	}
-	rabbitmqStatus := false
-	if rabbitmqInstance.Status.Active != nil {
-		rabbitmqStatus = *rabbitmqInstance.Status.Active
-	}
+		cassandraNodeList := strings.Join(cassandraNodes, ",")
 
-	configInstance := &contrailv1alpha1.Config{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, configInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Config Instance")
-			return reconcile.Result{}, err
+		var configNodes []string
+		for _, ip := range configInstance.Status.Nodes {
+			configNodes = append(configNodes, ip)
 		}
-	}
-	configStatus := false
-	if configInstance.Status.Active != nil {
-		configStatus = *configInstance.Status.Active
-	}
+		configNodeList := strings.Join(configNodes, ",")
 
-	if !rabbitmqStatus || !zookeeperStatus || !cassandraStatus || !configStatus {
-		reqLogger.Info("cassandra, zookeeper, rmq or config not ready")
-		return reconcile.Result{}, nil
-	}
-
-	var rabbitmqNodes []string
-	for _, ip := range rabbitmqInstance.Status.Nodes {
-		rabbitmqNodes = append(rabbitmqNodes, ip)
-	}
-	rabbitmqNodeList := strings.Join(rabbitmqNodes, ",")
-
-	var zookeeperNodes []string
-	for _, ip := range zookeeperInstance.Status.Nodes {
-		zookeeperNodes = append(zookeeperNodes, ip)
-	}
-	zookeeperNodeList := strings.Join(zookeeperNodes, ",")
-
-	var cassandraNodes []string
-	for _, ip := range cassandraInstance.Status.Nodes {
-		cassandraNodes = append(cassandraNodes, ip)
-	}
-	cassandraNodeList := strings.Join(cassandraNodes, ",")
-
-	var configNodes []string
-	for _, ip := range configInstance.Status.Nodes {
-		configNodes = append(configNodes, ip)
-	}
-	configNodeList := strings.Join(configNodes, ",")
-
-	managerInstance := &contrailv1alpha1.Manager{}
-	err = r.client.Get(context.TODO(), request.NamespacedName, managerInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Manager Instance")
-		}
-	} else {
-		instance.Spec = managerInstance.Spec.Services.Control
-		if managerInstance.Spec.Services.Control.Size != nil {
-			instance.Spec.Size = managerInstance.Spec.Services.Control.Size
+		managerInstance := &contrailv1alpha1.Manager{}
+		err = r.client.Get(context.TODO(), request.NamespacedName, managerInstance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("No Manager Instance")
+			}
 		} else {
-			instance.Spec.Size = managerInstance.Spec.Size
-		}
-		if managerInstance.Spec.HostNetwork != nil {
-			instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
-		}
-	}
-
-	// Get default Deployment
-	deployment := GetDeployment()
-
-	if managerInstance.Spec.ImagePullSecrets != nil {
-		var imagePullSecretsList []corev1.LocalObjectReference
-		for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
-			imagePullSecret := corev1.LocalObjectReference{
-				Name: imagePullSecretName,
+			instance.Spec = managerInstance.Spec.Services.Control
+			if managerInstance.Spec.Services.Control.Size != nil {
+				instance.Spec.Size = managerInstance.Spec.Services.Control.Size
+			} else {
+				instance.Spec.Size = managerInstance.Spec.Size
 			}
-			imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
+			if managerInstance.Spec.HostNetwork != nil {
+				instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
+			}
 		}
-		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
-	}
 
-	if instance.Spec.Configuration == nil {
-		instance.Spec.Configuration = make(map[string]string)
-		reqLogger.Info("config map empty, initializing it")
-	}
+		// Get default Deployment
+		deployment := GetDeployment()
 
-	instance.Spec.Configuration["RABBITMQ_NODES"] = rabbitmqNodeList
-	instance.Spec.Configuration["ZOOKEEPER_NODES"] = zookeeperNodeList
-	instance.Spec.Configuration["CONFIGDB_NODES"] = cassandraNodeList
-	instance.Spec.Configuration["CONFIG_NODES"] = configNodeList
-	instance.Spec.Configuration["CONTROLLER_NODES"] = configNodeList
-	instance.Spec.Configuration["ANALYTICS_NODES"] = configNodeList
-	instance.Spec.Configuration["CONFIGDB_CQL_PORT"] = cassandraInstance.Status.Ports["cqlPort"]
-	instance.Spec.Configuration["CONFIGDB_PORT"] = cassandraInstance.Status.Ports["port"]
-	instance.Spec.Configuration["RABBITMQ_NODE_PORT"] = rabbitmqInstance.Status.Ports["port"]
-	instance.Spec.Configuration["ZOOKEEPER_NODE_PORT"] = zookeeperInstance.Status.Ports["port"]
+		if managerInstance.Spec.ImagePullSecrets != nil {
+			var imagePullSecretsList []corev1.LocalObjectReference
+			for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
+				imagePullSecret := corev1.LocalObjectReference{
+					Name: imagePullSecretName,
+				}
+				imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
+			}
+			deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
+		}
 
-	// Create initial ConfigMap
-	configMap := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "control-" + instance.Name,
-			Namespace: instance.Namespace,
-		},
-		Data: instance.Spec.Configuration,
-	}
-	controllerutil.SetControllerReference(instance, &configMap, r.scheme)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "control-" + instance.Name, Namespace: instance.Namespace}, &configMap)
-	if err != nil && errors.IsNotFound(err) {
-		err = r.client.Create(context.TODO(), &configMap)
+		if instance.Spec.Configuration == nil {
+			instance.Spec.Configuration = make(map[string]string)
+			reqLogger.Info("config map empty, initializing it")
+		}
+
+		instance.Spec.Configuration["RABBITMQ_NODES"] = rabbitmqNodeList
+		instance.Spec.Configuration["ZOOKEEPER_NODES"] = zookeeperNodeList
+		instance.Spec.Configuration["CONFIGDB_NODES"] = cassandraNodeList
+		instance.Spec.Configuration["CONFIG_NODES"] = configNodeList
+		instance.Spec.Configuration["CONTROLLER_NODES"] = configNodeList
+		instance.Spec.Configuration["ANALYTICS_NODES"] = configNodeList
+		instance.Spec.Configuration["CONFIGDB_CQL_PORT"] = cassandraInstance.Status.Ports["cqlPort"]
+		instance.Spec.Configuration["CONFIGDB_PORT"] = cassandraInstance.Status.Ports["port"]
+		instance.Spec.Configuration["RABBITMQ_NODE_PORT"] = rabbitmqInstance.Status.Ports["port"]
+		instance.Spec.Configuration["ZOOKEEPER_NODE_PORT"] = zookeeperInstance.Status.Ports["port"]
+
+		// Create initial ConfigMap
+		configMap := corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "control-" + instance.Name,
+				Namespace: instance.Namespace,
+			},
+			Data: instance.Spec.Configuration,
+		}
+		controllerutil.SetControllerReference(instance, &configMap, r.scheme)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "control-" + instance.Name, Namespace: instance.Namespace}, &configMap)
+		if err != nil && errors.IsNotFound(err) {
+			err = r.client.Create(context.TODO(), &configMap)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", instance.Namespace, "Name", "control-"+instance.Name)
+				return reconcile.Result{}, err
+			}
+		}
+
+		// Set Deployment Name & Namespace
+
+		deployment.ObjectMeta.Name = "control-" + instance.Name
+		deployment.ObjectMeta.Namespace = instance.Namespace
+
+		// Configure Containers
+		for idx, container := range deployment.Spec.Template.Spec.Containers {
+			for containerName, image := range instance.Spec.Images {
+				if containerName == container.Name {
+					(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
+					(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "control-" + instance.Name
+				}
+			}
+		}
+
+		// Configure InitContainers
+		for idx, container := range deployment.Spec.Template.Spec.InitContainers {
+			for containerName, image := range instance.Spec.Images {
+				if containerName == container.Name {
+					(&deployment.Spec.Template.Spec.InitContainers[idx]).Image = image
+					(&deployment.Spec.Template.Spec.InitContainers[idx]).EnvFrom[0].ConfigMapRef.Name = "control-" + instance.Name
+				}
+			}
+		}
+
+		// Set HostNetwork
+		deployment.Spec.Template.Spec.HostNetwork = *instance.Spec.HostNetwork
+
+		// Set Selector and Label
+		deployment.Spec.Selector.MatchLabels["app"] = "control-" + instance.Name
+		deployment.Spec.Template.ObjectMeta.Labels["app"] = "control-" + instance.Name
+
+		// Set Size
+		deployment.Spec.Replicas = instance.Spec.Size
+
+		// Create Deployment
+		controllerutil.SetControllerReference(instance, deployment, r.scheme)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "control-" + instance.Name, Namespace: instance.Namespace}, deployment)
+		if err != nil && errors.IsNotFound(err) {
+			err = r.client.Create(context.TODO(), deployment)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create Deployment", "Namespace", instance.Namespace, "Name", "control-"+instance.Name)
+				return reconcile.Result{}, err
+			}
+		}
+
+		// Check if Init Containers are running
+		_, err = contrailv1alpha1.InitContainerRunning(r.client,
+			instance.ObjectMeta,
+			"control",
+			instance,
+			*instance.Spec,
+			&instance.Status)
+
 		if err != nil {
-			reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", instance.Namespace, "Name", "control-"+instance.Name)
+			reqLogger.Error(err, "Err Init Pods not ready, requeing")
 			return reconcile.Result{}, err
 		}
-	}
 
-	// Set Deployment Name & Namespace
-
-	deployment.ObjectMeta.Name = "control-" + instance.Name
-	deployment.ObjectMeta.Namespace = instance.Namespace
-
-	// Configure Containers
-	for idx, container := range deployment.Spec.Template.Spec.Containers {
-		for containerName, image := range instance.Spec.Images {
-			if containerName == container.Name {
-				(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
-				(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "control-" + instance.Name
-			}
+		var podIpList []string
+		for _, ip := range instance.Status.Nodes {
+			podIpList = append(podIpList, ip)
 		}
-	}
-
-	// Configure InitContainers
-	for idx, container := range deployment.Spec.Template.Spec.InitContainers {
-		for containerName, image := range instance.Spec.Images {
-			if containerName == container.Name {
-				(&deployment.Spec.Template.Spec.InitContainers[idx]).Image = image
-				(&deployment.Spec.Template.Spec.InitContainers[idx]).EnvFrom[0].ConfigMapRef.Name = "control-" + instance.Name
-			}
-		}
-	}
-
-	// Set HostNetwork
-	deployment.Spec.Template.Spec.HostNetwork = *instance.Spec.HostNetwork
-
-	// Set Selector and Label
-	deployment.Spec.Selector.MatchLabels["app"] = "control-" + instance.Name
-	deployment.Spec.Template.ObjectMeta.Labels["app"] = "control-" + instance.Name
-
-	// Set Size
-	deployment.Spec.Replicas = instance.Spec.Size
-
-	// Create Deployment
-	controllerutil.SetControllerReference(instance, deployment, r.scheme)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "control-" + instance.Name, Namespace: instance.Namespace}, deployment)
-	if err != nil && errors.IsNotFound(err) {
-		err = r.client.Create(context.TODO(), deployment)
+		nodeList := strings.Join(podIpList, ",")
+		configMap.Data["CONTROL_NODES"] = nodeList
+		err = r.client.Update(context.TODO(), &configMap)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create Deployment", "Namespace", instance.Namespace, "Name", "control-"+instance.Name)
+			reqLogger.Error(err, "Failed to update ConfigMap", "Namespace", instance.Namespace, "Name", "control-"+instance.Name)
 			return reconcile.Result{}, err
 		}
-	}
 
-	// Check if Init Containers are running
-	_, err = contrailv1alpha1.InitContainerRunning(r.client,
-		instance.ObjectMeta,
-		"control",
-		instance,
-		*instance.Spec,
-		&instance.Status)
+		err = contrailv1alpha1.MarkInitPodsReady(r.client, instance.ObjectMeta, "control")
 
-	if err != nil {
-		reqLogger.Error(err, "Err Init Pods not ready, requeing")
-		return reconcile.Result{}, err
-	}
+		if err != nil {
+			reqLogger.Error(err, "Failed to mark Pods ready")
+			return reconcile.Result{}, err
+		}
 
-	var podIpList []string
-	for _, ip := range instance.Status.Nodes {
-		podIpList = append(podIpList, ip)
-	}
-	nodeList := strings.Join(podIpList, ",")
-	configMap.Data["CONTROL_NODES"] = nodeList
-	err = r.client.Update(context.TODO(), &configMap)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update ConfigMap", "Namespace", instance.Namespace, "Name", "control-"+instance.Name)
-		return reconcile.Result{}, err
-	}
+		err = contrailv1alpha1.SetServiceStatus(r.client,
+			instance.ObjectMeta,
+			"control",
+			instance,
+			&deployment.Status,
+			&instance.Status)
 
-	err = contrailv1alpha1.MarkInitPodsReady(r.client, instance.ObjectMeta, "control")
-
-	if err != nil {
-		reqLogger.Error(err, "Failed to mark Pods ready")
-		return reconcile.Result{}, err
-	}
-
-	err = contrailv1alpha1.SetServiceStatus(r.client,
-		instance.ObjectMeta,
-		"control",
-		instance,
-		&deployment.Status,
-		&instance.Status)
-
-	if err != nil {
-		reqLogger.Error(err, "Failed to set Service status")
-		return reconcile.Result{}, err
-	} else {
-		reqLogger.Info("set service status")
-	}
+		if err != nil {
+			reqLogger.Error(err, "Failed to set Service status")
+			return reconcile.Result{}, err
+		} else {
+			reqLogger.Info("set service status")
+		}
+	*/
 	return reconcile.Result{}, nil
 }

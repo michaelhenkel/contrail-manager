@@ -1,18 +1,10 @@
 package vrouter
 
 import (
-	"context"
-	"strings"
-
 	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -93,169 +85,170 @@ type ReconcileVrouter struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileVrouter) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling Vrouter")
+	/*
+		reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+		reqLogger.Info("Reconciling Vrouter")
 
-	// Fetch the Vrouter instance
-	instance := &contrailv1alpha1.Vrouter{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
+		// Fetch the Vrouter instance
+		instance := &contrailv1alpha1.Vrouter{}
+		err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// Request object not found, could have been deleted after reconcile request.
+				// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+				// Return and don't requeue
+				return reconcile.Result{}, nil
+			}
+			// Error reading the object - requeue the request.
+			return reconcile.Result{}, err
+		}
+
+		// Get cassandra, zk and rmq status
+
+		controlInstance := &contrailv1alpha1.Control{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, controlInstance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("No Control Instance")
+				return reconcile.Result{}, err
+			}
+		}
+		controlStatus := false
+		if controlInstance.Status.Active != nil {
+			controlStatus = *controlInstance.Status.Active
+		}
+
+		configInstance := &contrailv1alpha1.Config{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, configInstance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("No Config Instance")
+				return reconcile.Result{}, err
+			}
+		}
+		configStatus := false
+		if configInstance.Status.Active != nil {
+			configStatus = *configInstance.Status.Active
+		}
+
+		if !controlStatus || !configStatus {
+			reqLogger.Info("control or config not ready")
 			return reconcile.Result{}, nil
 		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
 
-	// Get cassandra, zk and rmq status
-
-	controlInstance := &contrailv1alpha1.Control{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, controlInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Control Instance")
-			return reconcile.Result{}, err
+		var configNodes []string
+		for _, ip := range configInstance.Status.Nodes {
+			configNodes = append(configNodes, ip)
 		}
-	}
-	controlStatus := false
-	if controlInstance.Status.Active != nil {
-		controlStatus = *controlInstance.Status.Active
-	}
+		configNodeList := strings.Join(configNodes, ",")
 
-	configInstance := &contrailv1alpha1.Config{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, configInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Config Instance")
-			return reconcile.Result{}, err
+		var controlNodes []string
+		for _, ip := range controlInstance.Status.Nodes {
+			controlNodes = append(controlNodes, ip)
 		}
-	}
-	configStatus := false
-	if configInstance.Status.Active != nil {
-		configStatus = *configInstance.Status.Active
-	}
+		controlNodeList := strings.Join(controlNodes, ",")
 
-	if !controlStatus || !configStatus {
-		reqLogger.Info("control or config not ready")
-		return reconcile.Result{}, nil
-	}
-
-	var configNodes []string
-	for _, ip := range configInstance.Status.Nodes {
-		configNodes = append(configNodes, ip)
-	}
-	configNodeList := strings.Join(configNodes, ",")
-
-	var controlNodes []string
-	for _, ip := range controlInstance.Status.Nodes {
-		controlNodes = append(controlNodes, ip)
-	}
-	controlNodeList := strings.Join(controlNodes, ",")
-
-	managerInstance := &contrailv1alpha1.Manager{}
-	err = r.client.Get(context.TODO(), request.NamespacedName, managerInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Manager Instance")
-		}
-	} else {
-		instance.Spec = managerInstance.Spec.Services.Vrouter
-		if managerInstance.Spec.Services.Vrouter.Size != nil {
-			instance.Spec.Size = managerInstance.Spec.Services.Vrouter.Size
+		managerInstance := &contrailv1alpha1.Manager{}
+		err = r.client.Get(context.TODO(), request.NamespacedName, managerInstance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("No Manager Instance")
+			}
 		} else {
-			instance.Spec.Size = managerInstance.Spec.Size
-		}
-		if managerInstance.Spec.HostNetwork != nil {
-			instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
-		}
-	}
-
-	// Get default Daemonset
-	daemonset := GetDaemonset()
-
-	if managerInstance.Spec.ImagePullSecrets != nil {
-		var imagePullSecretsList []corev1.LocalObjectReference
-		for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
-			imagePullSecret := corev1.LocalObjectReference{
-				Name: imagePullSecretName,
+			instance.Spec = managerInstance.Spec.Services.Vrouter
+			if managerInstance.Spec.Services.Vrouter.Size != nil {
+				instance.Spec.Size = managerInstance.Spec.Services.Vrouter.Size
+			} else {
+				instance.Spec.Size = managerInstance.Spec.Size
 			}
-			imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
-		}
-		daemonset.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
-	}
-
-	if instance.Spec.Configuration == nil {
-		instance.Spec.Configuration = make(map[string]string)
-		reqLogger.Info("config map empty, initializing it")
-	}
-
-	instance.Spec.Configuration["CONFIG_NODES"] = configNodeList
-	instance.Spec.Configuration["ANALYTICS_NODES"] = configNodeList
-	instance.Spec.Configuration["CONTROL_NODES"] = controlNodeList
-
-	// Create initial ConfigMap
-	configMap := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "vrouter-" + instance.Name,
-			Namespace: instance.Namespace,
-		},
-		Data: instance.Spec.Configuration,
-	}
-	controllerutil.SetControllerReference(instance, &configMap, r.scheme)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "vrouter-" + instance.Name, Namespace: instance.Namespace}, &configMap)
-	if err != nil && errors.IsNotFound(err) {
-		err = r.client.Create(context.TODO(), &configMap)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", instance.Namespace, "Name", "vrouter-"+instance.Name)
-			return reconcile.Result{}, err
-		}
-	}
-
-	// Set Daemonset Name & Namespace
-
-	daemonset.ObjectMeta.Name = "vrouter-" + instance.Name
-	daemonset.ObjectMeta.Namespace = instance.Namespace
-
-	// Configure Containers
-	for idx, container := range daemonset.Spec.Template.Spec.Containers {
-		for containerName, image := range instance.Spec.Images {
-			if containerName == container.Name {
-				(&daemonset.Spec.Template.Spec.Containers[idx]).Image = image
-				(&daemonset.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "vrouter-" + instance.Name
+			if managerInstance.Spec.HostNetwork != nil {
+				instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
 			}
 		}
-	}
 
-	// Configure InitContainers
-	for idx, container := range daemonset.Spec.Template.Spec.InitContainers {
-		for containerName, image := range instance.Spec.Images {
-			if containerName == container.Name {
-				(&daemonset.Spec.Template.Spec.InitContainers[idx]).Image = image
-				(&daemonset.Spec.Template.Spec.InitContainers[idx]).EnvFrom[0].ConfigMapRef.Name = "vrouter-" + instance.Name
+		// Get default Daemonset
+		daemonset := GetDaemonset()
+
+		if managerInstance.Spec.ImagePullSecrets != nil {
+			var imagePullSecretsList []corev1.LocalObjectReference
+			for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
+				imagePullSecret := corev1.LocalObjectReference{
+					Name: imagePullSecretName,
+				}
+				imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
+			}
+			daemonset.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
+		}
+
+		if instance.Spec.Configuration == nil {
+			instance.Spec.Configuration = make(map[string]string)
+			reqLogger.Info("config map empty, initializing it")
+		}
+
+		instance.Spec.Configuration["CONFIG_NODES"] = configNodeList
+		instance.Spec.Configuration["ANALYTICS_NODES"] = configNodeList
+		instance.Spec.Configuration["CONTROL_NODES"] = controlNodeList
+
+		// Create initial ConfigMap
+		configMap := corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vrouter-" + instance.Name,
+				Namespace: instance.Namespace,
+			},
+			Data: instance.Spec.Configuration,
+		}
+		controllerutil.SetControllerReference(instance, &configMap, r.scheme)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "vrouter-" + instance.Name, Namespace: instance.Namespace}, &configMap)
+		if err != nil && errors.IsNotFound(err) {
+			err = r.client.Create(context.TODO(), &configMap)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", instance.Namespace, "Name", "vrouter-"+instance.Name)
+				return reconcile.Result{}, err
 			}
 		}
-	}
 
-	// Set HostNetwork
-	daemonset.Spec.Template.Spec.HostNetwork = *instance.Spec.HostNetwork
+		// Set Daemonset Name & Namespace
 
-	// Set Selector and Label
-	daemonset.Spec.Selector.MatchLabels["app"] = "vrouter-" + instance.Name
-	daemonset.Spec.Template.ObjectMeta.Labels["app"] = "vrouter-" + instance.Name
+		daemonset.ObjectMeta.Name = "vrouter-" + instance.Name
+		daemonset.ObjectMeta.Namespace = instance.Namespace
 
-	// Create Daemonset
-	controllerutil.SetControllerReference(instance, daemonset, r.scheme)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "vrouter-" + instance.Name, Namespace: instance.Namespace}, daemonset)
-	if err != nil && errors.IsNotFound(err) {
-		err = r.client.Create(context.TODO(), daemonset)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create Daemonset", "Namespace", instance.Namespace, "Name", "vrouter-"+instance.Name)
-			return reconcile.Result{}, err
+		// Configure Containers
+		for idx, container := range daemonset.Spec.Template.Spec.Containers {
+			for containerName, image := range instance.Spec.Images {
+				if containerName == container.Name {
+					(&daemonset.Spec.Template.Spec.Containers[idx]).Image = image
+					(&daemonset.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "vrouter-" + instance.Name
+				}
+			}
 		}
-	}
 
+		// Configure InitContainers
+		for idx, container := range daemonset.Spec.Template.Spec.InitContainers {
+			for containerName, image := range instance.Spec.Images {
+				if containerName == container.Name {
+					(&daemonset.Spec.Template.Spec.InitContainers[idx]).Image = image
+					(&daemonset.Spec.Template.Spec.InitContainers[idx]).EnvFrom[0].ConfigMapRef.Name = "vrouter-" + instance.Name
+				}
+			}
+		}
+
+		// Set HostNetwork
+		daemonset.Spec.Template.Spec.HostNetwork = *instance.Spec.HostNetwork
+
+		// Set Selector and Label
+		daemonset.Spec.Selector.MatchLabels["app"] = "vrouter-" + instance.Name
+		daemonset.Spec.Template.ObjectMeta.Labels["app"] = "vrouter-" + instance.Name
+
+		// Create Daemonset
+		controllerutil.SetControllerReference(instance, daemonset, r.scheme)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "vrouter-" + instance.Name, Namespace: instance.Namespace}, daemonset)
+		if err != nil && errors.IsNotFound(err) {
+			err = r.client.Create(context.TODO(), daemonset)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create Daemonset", "Namespace", instance.Namespace, "Name", "vrouter-"+instance.Name)
+				return reconcile.Result{}, err
+			}
+		}
+	*/
 	return reconcile.Result{}, nil
 }

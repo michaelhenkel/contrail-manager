@@ -4,6 +4,9 @@ import (
 	"context"
 
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
+	cr "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crs"
+
 	//crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
 	//"github.com/michaelhenkel/contrail-manager/pkg/controller/config"
 	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -12,12 +15,15 @@ import (
 
 	//corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+
 	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	//"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -74,10 +80,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) (controller.Controller, er
 		return c, err
 	}
 
-	//var reconcileManager = &r
-	//reconcileManager = r.(ReconcileManager)
-
-	// Watch for changes to primary resource Manager
 	err = c.Watch(&source.Kind{Type: &v1alpha1.Manager{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return c, err
@@ -126,15 +128,119 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	err = r.ManageCrd(request)
+	// Create CRDs
+	cassandraResource := v1alpha1.Cassandra{}
+	cassandraCrd := cassandraResource.GetCrd()
+	err = r.createCrd(instance, cassandraCrd)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	cassandraControllerRunning := false
+	cassandraSharedIndexInformer, err := r.cache.GetInformerForKind(cassandraResource.GroupVersionKind())
+	if err == nil {
+		controller := cassandraSharedIndexInformer.GetController()
+		if controller != nil {
+			cassandraControllerRunning = true
+		}
+	}
+	cassandraControllerActivate := false
+	if !cassandraControllerRunning {
+		cassandraControllerActivate = true
+	}
+	/*
+		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Cassandra{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &v1alpha1.Manager{},
+		})
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	*/
 
-	err = r.ManageCr(request)
-	if err != nil {
-		return reconcile.Result{}, err
+	if cassandraControllerActivate {
+		err = cassandra.Add(r.manager)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
+	// Create CRs
+	for _, cassandraService := range instance.Spec.Services.Cassandras {
+		create := true
+		delete := false
+		update := false
+		for _, cassandraStatus := range instance.Status.Cassandras {
+			if cassandraService.Name == *cassandraStatus.Name {
+				if *cassandraService.Spec.CommonConfiguration.Create && *cassandraStatus.Created {
+					create = false
+					delete = false
+					update = true
+				}
+				if !*cassandraService.Spec.CommonConfiguration.Create && *cassandraStatus.Created {
+					create = false
+					delete = true
+					update = false
+				}
+			}
+		}
+		if create {
+			cr := cr.GetCassandraCr()
+			cr.ObjectMeta = cassandraService.ObjectMeta
+			cr.Labels = cassandraService.ObjectMeta.Labels
+			cr.Namespace = instance.Namespace
+			cr.Spec.ServiceConfiguration = cassandraService.Spec.ServiceConfiguration
+			err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					controllerutil.SetControllerReference(instance, cr, r.scheme)
+					err = r.client.Create(context.TODO(), cr)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+
+			/*
+				status := &v1alpha1.ServiceStatus{}
+				for _, cassandraStatus := range instance.Status.Cassandras {
+					if cassandraService.Name == *cassandraStatus.Name {
+						status = cassandraStatus
+					}
+				}
+				status.Created = &create
+				err = r.client.Status().Update(context.TODO(), instance)
+				if err != nil {
+					return err
+				}
+			*/
+		}
+		if update {
+
+		}
+		if delete {
+
+		}
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileManager) createCrd(instance *v1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
+	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
+	reqLogger.Info("Creating CRD")
+	newCrd := apiextensionsv1beta1.CustomResourceDefinition{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: crd.Spec.Names.Plural + "." + crd.Spec.Group, Namespace: newCrd.Namespace}, &newCrd)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group + " not found. Creating it.")
+		//controllerutil.SetControllerReference(&newCrd, crd, r.scheme)
+		err = r.client.Create(context.TODO(), crd)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new crd.", "crd.Namespace", crd.Namespace, "crd.Name", crd.Name)
+			return err
+		}
+		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group + " created.")
+	} else if err == nil {
+		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group + " already exists.")
+	}
+	return nil
 }

@@ -152,6 +152,8 @@ spec:
                               cqlPort:
                                 format: int64
                                 type: integer
+                              heapNewSize:
+                                type: string
                               images:
                                 additionalProperties:
                                   type: string
@@ -161,12 +163,16 @@ spec:
                                 type: integer
                               listenAddress:
                                 type: string
+                              maxHeapSize:
+                                type: string
                               port:
                                 format: int64
                                 type: integer
                               sslStoragePort:
                                 format: int64
                                 type: integer
+                              startRpc:
+                                type: boolean
                               storagePort:
                                 format: int64
                                 type: integer
@@ -898,15 +904,19 @@ spec:
           type: object
         status:
           properties:
-            cassandra:
-              properties:
-                active:
-                  type: boolean
-                controllerRunning:
-                  type: boolean
-                created:
-                  type: boolean
-              type: object
+            cassandras:
+              items:
+                properties:
+                  active:
+                    type: boolean
+                  controllerRunning:
+                    type: boolean
+                  created:
+                    type: boolean
+                  name:
+                    type: string
+                type: object
+              type: array
             config:
               description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
                 of cluster Important: Run "operator-sdk generate k8s" to regenerate
@@ -919,25 +929,35 @@ spec:
                   type: boolean
                 created:
                   type: boolean
+                name:
+                  type: string
               type: object
-            control:
-              properties:
-                active:
-                  type: boolean
-                controllerRunning:
-                  type: boolean
-                created:
-                  type: boolean
-              type: object
-            kubemanager:
-              properties:
-                active:
-                  type: boolean
-                controllerRunning:
-                  type: boolean
-                created:
-                  type: boolean
-              type: object
+            controls:
+              items:
+                properties:
+                  active:
+                    type: boolean
+                  controllerRunning:
+                    type: boolean
+                  created:
+                    type: boolean
+                  name:
+                    type: string
+                type: object
+              type: array
+            kubemanagers:
+              items:
+                properties:
+                  active:
+                    type: boolean
+                  controllerRunning:
+                    type: boolean
+                  created:
+                    type: boolean
+                  name:
+                    type: string
+                type: object
+              type: array
             rabbitmq:
               properties:
                 active:
@@ -946,16 +966,22 @@ spec:
                   type: boolean
                 created:
                   type: boolean
+                name:
+                  type: string
               type: object
-            vrouter:
-              properties:
-                active:
-                  type: boolean
-                controllerRunning:
-                  type: boolean
-                created:
-                  type: boolean
-              type: object
+            vrouters:
+              items:
+                properties:
+                  active:
+                    type: boolean
+                  controllerRunning:
+                    type: boolean
+                  created:
+                    type: boolean
+                  name:
+                    type: string
+                type: object
+              type: array
             webui:
               properties:
                 active:
@@ -964,16 +990,22 @@ spec:
                   type: boolean
                 created:
                   type: boolean
+                name:
+                  type: string
               type: object
-            zookeeper:
-              properties:
-                active:
-                  type: boolean
-                controllerRunning:
-                  type: boolean
-                created:
-                  type: boolean
-              type: object
+            zookeepers:
+              items:
+                properties:
+                  active:
+                    type: boolean
+                  controllerRunning:
+                    type: boolean
+                  created:
+                    type: boolean
+                  name:
+                    type: string
+                type: object
+              type: array
           type: object
   version: v1alpha1
   versions:
