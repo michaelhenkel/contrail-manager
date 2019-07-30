@@ -31,5 +31,5 @@ spec:
           storagePort: 7000
           jmxLocalPort: 7199
           clusterName: ContrailConfigDB
-          maxHeapSize: 512M
-          minHeapSize: 256M
+          maxHeapSize: 1024M
+          minHeapSize: 100M

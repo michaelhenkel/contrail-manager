@@ -367,7 +367,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 			if containerName == "cassandra" {
 				command := []string{"bash", "-c",
 					"/docker-entrypoint.sh cassandra -f -Dcassandra.config=file:///mydata/${POD_IP}.yaml"}
-				command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
 				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 
 				volumeMountList := []corev1.VolumeMount{}
@@ -386,10 +386,14 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 					jvmOpts = jvmOpts + " -Xmx" + instance.Spec.ServiceConfiguration.MaxHeapSize
 				}
 				if jvmOpts != "" {
-					envVars := []corev1.EnvVar{{
+					envs := (&intendedDeployment.Spec.Template.Spec.Containers[idx]).Env
+					envs = append(envs)
+					jvmOptEnvVar := corev1.EnvVar{
 						Name:  "JVM_OPTS",
 						Value: jvmOpts,
-					}}
+					}
+					envVars := (&intendedDeployment.Spec.Template.Spec.Containers[idx]).Env
+					envVars = append(envVars, jvmOptEnvVar)
 					(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Env = envVars
 				}
 
