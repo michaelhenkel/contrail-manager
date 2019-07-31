@@ -128,72 +128,46 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 		return reconcile.Result{}, err
 	}
-
 	// Create CRDs
-	/*
 
-
-		gvk := schema.GroupVersionKind{
-			Group:   "contrail.juniper.net",
-			Version: "v1alpha1",
-			Kind:    "Cassandra",
-		}
-		cassandraCrd.SetGroupVersionKind(gvk)
-		cassandraCrd.TypeMeta.APIVersion = "contrail.juniper.net/v1alpha1"
-		cassandraCrd.TypeMeta.Kind = "Cassandra"
-	*/
-	cassandraResource := v1alpha1.Cassandra{}
-	cassandraCrd := cassandraResource.GetCrd()
-	err = r.createCrd(instance, cassandraCrd)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	controllerRunning := false
-	cassandraSharedIndexInformer, err := r.cache.GetInformerForKind(cassandraResource.GroupVersionKind())
-	fmt.Println("err", err)
-	if err == nil {
-		controller := cassandraSharedIndexInformer.GetController()
-		if controller == nil {
-			controllerRunning = true
+	cassandraCrdActive := false
+	for _, crdStatus := range instance.Status.CrdStatus {
+		if crdStatus.Name == "Cassandra" {
+			if crdStatus.Active != nil {
+				if *crdStatus.Active {
+					cassandraCrdActive = true
+				}
+			}
 		}
 	}
-	if !controllerRunning {
+	if !cassandraCrdActive && len(instance.Spec.Services.Cassandras) > 0 {
+		cassandraResource := v1alpha1.Cassandra{}
+		cassandraCrd := cassandraResource.GetCrd()
+		err = r.createCrd(instance, cassandraCrd)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		err = cassandra.Add(r.manager)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-	}
-
-	/*
-		cassandraControllerRunning := false
-		cassandraSharedIndexInformer, err := r.cache.GetInformerForKind(cassandraResource.GroupVersionKind())
-		if err == nil {
-			controller := cassandraSharedIndexInformer.GetController()
-			if controller != nil {
-				cassandraControllerRunning = true
-			}
+		active := true
+		crdStatus := &v1alpha1.CrdStatus{
+			Name:   "Cassandra",
+			Active: &active,
 		}
-	*/
-	/*
-		cassandraPred := utils.AppSizeChange(utils.CassandraGroupKind())
-		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Cassandra{}}, &handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &v1alpha1.Manager{},
-		}, cassandraPred)
+		var crdStatusList []v1alpha1.CrdStatus
+		if len(instance.Status.CrdStatus) > 0 {
+			crdStatusList = instance.Status.CrdStatus
+		}
+		crdStatusList = append(crdStatusList, *crdStatus)
+		instance.Status.CrdStatus = crdStatusList
+		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-	*/
 
-	/*
-		if !cassandraControllerRunning {
-			fmt.Println("CONTROLLER NOT RUNNING, STARTING NOW")
-			err = cassandra.Add(r.manager)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-	*/
+	}
 
 	// Create CRs
 	for _, cassandraService := range instance.Spec.Services.Cassandras {
@@ -274,8 +248,13 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 			if cassandraService.Spec.CommonConfiguration.Replicas != nil {
 				replicas = cassandraService.Spec.CommonConfiguration.Replicas
 			}
+
 			if cr.Spec.CommonConfiguration.Replicas != nil {
+
 				if *replicas != *cr.Spec.CommonConfiguration.Replicas {
+					fmt.Printf("cr.Spec.CommonConfiguration %+v\n", *cr.Spec.CommonConfiguration.Replicas)
+					fmt.Printf("replicas %+v\n", *replicas)
+					cr.Spec.CommonConfiguration.Replicas = replicas
 					//if reflect.DeepEqual(cr.Spec.ServiceConfiguration, cassandraService.Spec.ServiceConfiguration)
 					err = r.client.Update(context.TODO(), cr)
 					if err != nil {

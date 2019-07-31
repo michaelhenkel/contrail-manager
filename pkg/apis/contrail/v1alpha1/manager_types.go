@@ -62,6 +62,14 @@ type ManagerStatus struct {
 	Cassandras   []*ServiceStatus `json:"cassandras,omitempty"`
 	Zookeepers   []*ServiceStatus `json:"zookeepers,omitempty"`
 	Rabbitmq     *ServiceStatus   `json:"rabbitmq,omitempty"`
+	CrdStatus    []CrdStatus      `json:"crdstatus,omitempty"`
+}
+
+// CrdStatus tracks status of CRD
+// +k8s:openapi-gen=true
+type CrdStatus struct {
+	Name   string `json:"name,omitempty"`
+	Active *bool  `json:"active,omitempty"`
 }
 
 func (m *Manager) CassandraCrd() *apiextensionsv1beta1.CustomResourceDefinition {

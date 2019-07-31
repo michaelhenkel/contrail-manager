@@ -512,8 +512,8 @@ func MergeCommonConfiguration(manager v1alpha1.CommonConfiguration,
 	if len(instance.Tolerations) == 0 && len(manager.Tolerations) > 0 {
 		instance.Tolerations = manager.Tolerations
 	}
-	var defaultReplicas int32 = 1
-	instance.Replicas = &defaultReplicas
+	//var defaultReplicas int32 = 1
+	//instance.Replicas = &defaultReplicas
 	if instance.Replicas == nil && manager.Replicas != nil {
 		instance.Replicas = manager.Replicas
 	}
