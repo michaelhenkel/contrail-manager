@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"fmt"
 
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
@@ -129,43 +130,74 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	// Create CRDs
+	/*
+
+
+		gvk := schema.GroupVersionKind{
+			Group:   "contrail.juniper.net",
+			Version: "v1alpha1",
+			Kind:    "Cassandra",
+		}
+		cassandraCrd.SetGroupVersionKind(gvk)
+		cassandraCrd.TypeMeta.APIVersion = "contrail.juniper.net/v1alpha1"
+		cassandraCrd.TypeMeta.Kind = "Cassandra"
+	*/
 	cassandraResource := v1alpha1.Cassandra{}
 	cassandraCrd := cassandraResource.GetCrd()
 	err = r.createCrd(instance, cassandraCrd)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	cassandraControllerRunning := false
+	controllerRunning := false
 	cassandraSharedIndexInformer, err := r.cache.GetInformerForKind(cassandraResource.GroupVersionKind())
+	fmt.Println("err", err)
 	if err == nil {
 		controller := cassandraSharedIndexInformer.GetController()
-		if controller != nil {
-			cassandraControllerRunning = true
+		if controller == nil {
+			controllerRunning = true
 		}
 	}
-	cassandraControllerActivate := false
-	if !cassandraControllerRunning {
-		cassandraControllerActivate = true
-	}
-	/*
-		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Cassandra{}}, &handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &v1alpha1.Manager{},
-		})
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	*/
-
-	if cassandraControllerActivate {
+	if !controllerRunning {
 		err = cassandra.Add(r.manager)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
+	/*
+		cassandraControllerRunning := false
+		cassandraSharedIndexInformer, err := r.cache.GetInformerForKind(cassandraResource.GroupVersionKind())
+		if err == nil {
+			controller := cassandraSharedIndexInformer.GetController()
+			if controller != nil {
+				cassandraControllerRunning = true
+			}
+		}
+	*/
+	/*
+		cassandraPred := utils.AppSizeChange(utils.CassandraGroupKind())
+		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.Cassandra{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &v1alpha1.Manager{},
+		}, cassandraPred)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	*/
+
+	/*
+		if !cassandraControllerRunning {
+			fmt.Println("CONTROLLER NOT RUNNING, STARTING NOW")
+			err = cassandra.Add(r.manager)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+	*/
+
 	// Create CRs
 	for _, cassandraService := range instance.Spec.Services.Cassandras {
+		fmt.Println("CREATE CR for ", cassandraService.Name)
 		create := true
 		delete := false
 		update := false
@@ -183,13 +215,23 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 				}
 			}
 		}
+		fmt.Println("create ", create)
+		fmt.Println("update ", update)
+		fmt.Println("delete ", delete)
+		cr := cr.GetCassandraCr()
+		cr.ObjectMeta = cassandraService.ObjectMeta
+		cr.Labels = cassandraService.ObjectMeta.Labels
+		cr.Namespace = instance.Namespace
+		cr.Spec.ServiceConfiguration = cassandraService.Spec.ServiceConfiguration
+		cr.TypeMeta.APIVersion = "contrail.juniper.net/v1alpha1"
+		cr.TypeMeta.Kind = "Cassandra"
 		if create {
-			cr := cr.GetCassandraCr()
-			cr.ObjectMeta = cassandraService.ObjectMeta
-			cr.Labels = cassandraService.ObjectMeta.Labels
-			cr.Namespace = instance.Namespace
-			cr.Spec.ServiceConfiguration = cassandraService.Spec.ServiceConfiguration
-			err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			fmt.Println("CREATE")
+			err = r.client.Get(context.TODO(), request.NamespacedName, instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
 			if err != nil {
 				if errors.IsNotFound(err) {
 					controllerutil.SetControllerReference(instance, cr, r.scheme)
@@ -200,24 +242,58 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 				}
 			}
 
-			/*
-				status := &v1alpha1.ServiceStatus{}
+			status := &v1alpha1.ServiceStatus{}
+			cassandraStatusList := []*v1alpha1.ServiceStatus{}
+			if instance.Status.Cassandras != nil {
 				for _, cassandraStatus := range instance.Status.Cassandras {
 					if cassandraService.Name == *cassandraStatus.Name {
 						status = cassandraStatus
+						status.Created = &create
 					}
 				}
+			} else {
+				status.Name = &cr.Name
 				status.Created = &create
-				err = r.client.Status().Update(context.TODO(), instance)
-				if err != nil {
-					return err
-				}
-			*/
-		}
-		if update {
+				cassandraStatusList = append(cassandraStatusList, status)
+				instance.Status.Cassandras = cassandraStatusList
+			}
+
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 
 		}
+		if update {
+			fmt.Println("UPDATE")
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			replicas := instance.Spec.CommonConfiguration.Replicas
+			if cassandraService.Spec.CommonConfiguration.Replicas != nil {
+				replicas = cassandraService.Spec.CommonConfiguration.Replicas
+			}
+			if cr.Spec.CommonConfiguration.Replicas != nil {
+				if *replicas != *cr.Spec.CommonConfiguration.Replicas {
+					//if reflect.DeepEqual(cr.Spec.ServiceConfiguration, cassandraService.Spec.ServiceConfiguration)
+					err = r.client.Update(context.TODO(), cr)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+		}
 		if delete {
+			fmt.Println("DELETE")
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.client.Delete(context.TODO(), cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 
 		}
 	}

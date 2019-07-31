@@ -2,6 +2,7 @@ package cassandra
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -37,11 +39,45 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
+	/*
+		cache := mgr.GetCache()
+		//cassandraResource := v1alpha1.Cassandra{}
+		cassandraControllerRunning := false
+
+			gvk := schema.GroupVersionKind{
+				Group:   "contrail.juniper.net",
+				Version: "v1alpha1",
+				Kind:    "Cassandra",
+			}
+			cassandraSharedIndexInformer, err := cache.GetInformerForKind(gvk)
+	*/
+	/*
+		cassandra := &v1alpha1.Cassandra{}
+		cassandraSharedIndexInformer, err := cache.GetInformer(cassandra)
+		if err == nil {
+			controller := cassandraSharedIndexInformer.GetController()
+			fmt.Println("CONTROLLER ", controller)
+			if controller != nil {
+				cassandraControllerRunning = true
+			}
+		}
+
+		fmt.Println("err", err)
+		//fmt.Println("cassandraResource.GroupVersionKind()", gvk)
+		fmt.Println("CASSANDRA CONTROLLER RUNNING ", cassandraControllerRunning)
+		if !cassandraControllerRunning {
+	*/
+	gv := schema.GroupVersion{
+		Group:   "contrail.juniper.net",
+		Version: "v1alpha1",
+	}
+	cassandra := &v1alpha1.Cassandra{}
+	scheme := mgr.GetScheme()
+	scheme.AddKnownTypes(gv, cassandra)
 	c, err := controller.New("cassandra-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
-
 	// Watch for changes to primary resource Cassandra
 	err = c.Watch(&source.Kind{Type: &v1alpha1.Cassandra{}},
 		&handler.EnqueueRequestForObject{})
@@ -301,6 +337,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 			return reconcile.Result{}, nil
 		}
 	}
+	fmt.Println("instance.GroupVersionKind()", instance.GroupVersionKind())
 
 	var managerName string
 	ownedByManager := false
