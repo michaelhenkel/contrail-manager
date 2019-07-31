@@ -150,6 +150,7 @@ func CreateInstanceConfiguration(request reconcile.Request,
 	if err != nil {
 		return err
 	}
+	//currentConfigMap := *configMapInstanceDynamicConfig
 
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 
@@ -280,10 +281,16 @@ auto_bootstrap: true
 		} else {
 			configMapInstanceDynamicConfig.Data[podList.Items[idx].Status.PodIP+".yaml"] = cassandraConfigString
 		}
+
+		//if !reflect.DeepEqual(currentConfigMap.Data, configMapInstanceDynamicConfig.Data) {
+		fmt.Println("UPDATING CONFIGMAP")
+		//fmt.Println("currentConfigMap.Data", currentConfigMap.Data)
+		//fmt.Println("*configMapInstanceDynamicConfig", configMapInstanceDynamicConfig.Data)
 		err = client.Update(context.TODO(), configMapInstanceDynamicConfig)
 		if err != nil {
 			return err
 		}
+		//}
 
 	}
 	return nil
@@ -337,7 +344,6 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 			return reconcile.Result{}, nil
 		}
 	}
-	fmt.Println("instance.GroupVersionKind()", instance.GroupVersionKind())
 
 	var managerName string
 	ownedByManager := false
@@ -482,7 +488,11 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 			return reconcile.Result{}, err
 		}
 	}
-	utils.SetInstanceActive(r.Client, &instance.Status, intendedDeployment)
+
+	err = utils.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	err = r.Client.Status().Update(context.TODO(), instance)
 	if err != nil {
 		return reconcile.Result{}, err

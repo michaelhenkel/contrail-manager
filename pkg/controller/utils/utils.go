@@ -111,9 +111,10 @@ func CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.Deployment,
 		}
 	} else {
 		update := false
-		if intendedDeployment.Spec.Replicas != currentDeployment.Spec.Replicas {
+		if *intendedDeployment.Spec.Replicas != *currentDeployment.Spec.Replicas {
 			update = true
 		}
+
 		for _, intendedContainer := range intendedDeployment.Spec.Template.Spec.Containers {
 			for _, currentContainer := range currentDeployment.Spec.Template.Spec.Containers {
 				if intendedContainer.Name == currentContainer.Name {
@@ -123,6 +124,7 @@ func CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.Deployment,
 				}
 			}
 		}
+
 		if update {
 			err = client.Update(context.TODO(), intendedDeployment)
 			if err != nil {
@@ -168,12 +170,20 @@ func ManageActiveStatus(currentDeploymentReadyReplicas *int32,
 
 }
 
-func SetInstanceActive(client client.Client, status *v1alpha1.Status, deployment *appsv1.Deployment) {
+func SetInstanceActive(client client.Client, status *v1alpha1.Status, deployment *appsv1.Deployment, request reconcile.Request) error {
+	err = client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
+		deployment)
+	if err != nil {
+		return err
+	}
 	active := false
+
 	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
 		active = true
 	}
+
 	status.Active = &active
+	return nil
 }
 
 // PrepareConfigMap prepares the initial ConfigMap
@@ -204,11 +214,6 @@ func CreateConfigMap(request reconcile.Request,
 			if err != nil {
 				return err
 			}
-		}
-	} else {
-		err = client.Update(context.TODO(), configMap)
-		if err != nil {
-			return err
 		}
 	}
 	return nil

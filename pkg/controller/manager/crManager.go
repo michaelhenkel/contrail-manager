@@ -89,6 +89,7 @@ func (r *ReconcileManager) ManageCr(request reconcile.Request) error {
 			cr.Labels = cassandraService.ObjectMeta.Labels
 			fmt.Println("Labels ", cr.Labels)
 			cr.Namespace = instance.Namespace
+			
 			err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
 			if err != nil {
 				if errors.IsNotFound(err) {

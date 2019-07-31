@@ -2,7 +2,6 @@ package manager
 
 import (
 	"context"
-	"fmt"
 
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
@@ -147,9 +146,19 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		err = cassandra.Add(r.manager)
-		if err != nil {
-			return reconcile.Result{}, err
+		controllerRunning := false
+		sharedIndexInformer, err := r.cache.GetInformerForKind(cassandraResource.GroupVersionKind())
+		if err == nil {
+			controller := sharedIndexInformer.GetController()
+			if controller != nil {
+				controllerRunning = true
+			}
+		}
+		if !controllerRunning {
+			err = cassandra.Add(r.manager)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 		active := true
 		crdStatus := &v1alpha1.CrdStatus{
@@ -171,7 +180,6 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	// Create CRs
 	for _, cassandraService := range instance.Spec.Services.Cassandras {
-		fmt.Println("CREATE CR for ", cassandraService.Name)
 		create := true
 		delete := false
 		update := false
@@ -189,9 +197,6 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 				}
 			}
 		}
-		fmt.Println("create ", create)
-		fmt.Println("update ", update)
-		fmt.Println("delete ", delete)
 		cr := cr.GetCassandraCr()
 		cr.ObjectMeta = cassandraService.ObjectMeta
 		cr.Labels = cassandraService.ObjectMeta.Labels
@@ -200,7 +205,6 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 		cr.TypeMeta.APIVersion = "contrail.juniper.net/v1alpha1"
 		cr.TypeMeta.Kind = "Cassandra"
 		if create {
-			fmt.Println("CREATE")
 			err = r.client.Get(context.TODO(), request.NamespacedName, instance)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -239,7 +243,6 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 
 		}
 		if update {
-			fmt.Println("UPDATE")
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -248,14 +251,9 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 			if cassandraService.Spec.CommonConfiguration.Replicas != nil {
 				replicas = cassandraService.Spec.CommonConfiguration.Replicas
 			}
-
 			if cr.Spec.CommonConfiguration.Replicas != nil {
-
 				if *replicas != *cr.Spec.CommonConfiguration.Replicas {
-					fmt.Printf("cr.Spec.CommonConfiguration %+v\n", *cr.Spec.CommonConfiguration.Replicas)
-					fmt.Printf("replicas %+v\n", *replicas)
 					cr.Spec.CommonConfiguration.Replicas = replicas
-					//if reflect.DeepEqual(cr.Spec.ServiceConfiguration, cassandraService.Spec.ServiceConfiguration)
 					err = r.client.Update(context.TODO(), cr)
 					if err != nil {
 						return reconcile.Result{}, err
@@ -264,7 +262,6 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 			}
 		}
 		if delete {
-			fmt.Println("DELETE")
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
 			if err != nil {
 				return reconcile.Result{}, err
