@@ -2,7 +2,6 @@ package zookeeper
 
 import (
 	"context"
-	"strconv"
 
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/utils"
@@ -180,6 +179,9 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 		map[string]string{configMap.Name: request.Name + "-" + instanceType + "-volume",
 			configMap2.Name: request.Name + "-" + instanceType + "-volume-1"})
 
+	var revisionHistoryLimit int32
+	intendedDeployment.Spec.RevisionHistoryLimit = &revisionHistoryLimit
+
 	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
 		for containerName, image := range instance.Spec.ServiceConfiguration.Images {
 			if containerName == container.Name {
@@ -190,22 +192,6 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 				command := []string{"bash", "-c", "myid=$(cat /mydata/${POD_IP}) && echo ${myid} > /data/myid && cp /conf-1/* /conf/ && sed -i \"s/clientPortAddress=.*/clientPortAddress=${POD_IP}/g\" /conf/zoo.cfg && zkServer.sh --config /conf start-foreground"}
 				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
 				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
-				intendedDeployment.Spec.Strategy = appsv1.DeploymentStrategy{}
-				currentDeployment := &appsv1.Deployment{}
-				err = r.Client.Get(context.TODO(),
-					types.NamespacedName{Name: intendedDeployment.Name, Namespace: request.Namespace},
-					currentDeployment)
-				if err == nil {
-					if *currentDeployment.Spec.Replicas == 1 {
-						intendedDeployment.Spec.Strategy = appsv1.DeploymentStrategy{
-							Type: "Recreate",
-						}
-						versionInt, _ := strconv.Atoi(intendedDeployment.Spec.Template.ObjectMeta.Labels["version"])
-						newVersion := versionInt + 1
-						newVersionString := strconv.Itoa(newVersion)
-						intendedDeployment.Spec.Template.ObjectMeta.Labels["version"] = newVersionString
-					}
-				}
 
 				volumeMountList := []corev1.VolumeMount{}
 				volumeMount := corev1.VolumeMount{
@@ -233,11 +219,23 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 	}
 
+	increaseVersion := false
+	currentDeployment := &appsv1.Deployment{}
+	err = r.Client.Get(context.TODO(),
+		types.NamespacedName{Name: intendedDeployment.Name, Namespace: request.Namespace},
+		currentDeployment)
+	if err == nil {
+		if *currentDeployment.Spec.Replicas == 1 {
+			increaseVersion = true
+		}
+	}
+
 	err = i.CompareIntendedWithCurrentDeployment(intendedDeployment,
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme,
-		r.Client)
+		r.Client,
+		increaseVersion)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

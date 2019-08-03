@@ -225,7 +225,8 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme,
-		r.Client)
+		r.Client,
+		false)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

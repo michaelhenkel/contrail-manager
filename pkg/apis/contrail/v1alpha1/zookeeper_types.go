@@ -177,8 +177,8 @@ func (c *Zookeeper) AddVolumesToIntendedDeployments(intendedDeployment *appsv1.D
 	AddVolumesToIntendedDeployments(intendedDeployment, volumeConfigMapMap)
 }
 
-func (c *Zookeeper) CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.Deployment, commonConfiguration *CommonConfiguration, request reconcile.Request, scheme *runtime.Scheme, client client.Client) error {
-	return CompareIntendedWithCurrentDeployment(intendedDeployment, commonConfiguration, "zookeeper", request, scheme, client, c)
+func (c *Zookeeper) CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.Deployment, commonConfiguration *CommonConfiguration, request reconcile.Request, scheme *runtime.Scheme, client client.Client, increaseVersion bool) error {
+	return CompareIntendedWithCurrentDeployment(intendedDeployment, commonConfiguration, "zookeeper", request, scheme, client, c, increaseVersion)
 }
 
 func (c *Zookeeper) GetPodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {

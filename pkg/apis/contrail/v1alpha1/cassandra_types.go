@@ -176,8 +176,8 @@ func (c *Cassandra) AddVolumesToIntendedDeployments(intendedDeployment *appsv1.D
 	AddVolumesToIntendedDeployments(intendedDeployment, volumeConfigMapMap)
 }
 
-func (c *Cassandra) CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.Deployment, commonConfiguration *CommonConfiguration, request reconcile.Request, scheme *runtime.Scheme, client client.Client) error {
-	return CompareIntendedWithCurrentDeployment(intendedDeployment, commonConfiguration, "cassandra", request, scheme, client, c)
+func (c *Cassandra) CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.Deployment, commonConfiguration *CommonConfiguration, request reconcile.Request, scheme *runtime.Scheme, client client.Client, increaseVersion bool) error {
+	return CompareIntendedWithCurrentDeployment(intendedDeployment, commonConfiguration, "cassandra", request, scheme, client, c, increaseVersion)
 }
 
 func (c *Cassandra) GetPodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {

@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"context"
+	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -86,7 +87,7 @@ type Instance interface {
 	OwnedByManager(client.Client, reconcile.Request) (*Manager, error)
 	PrepareIntendedDeployment(*appsv1.Deployment, *CommonConfiguration, reconcile.Request, *runtime.Scheme) (*appsv1.Deployment, error)
 	AddVolumesToIntendedDeployments(*appsv1.Deployment, map[string]string)
-	CompareIntendedWithCurrentDeployment(*appsv1.Deployment, *CommonConfiguration, reconcile.Request, *runtime.Scheme, client.Client) error
+	CompareIntendedWithCurrentDeployment(*appsv1.Deployment, *CommonConfiguration, reconcile.Request, *runtime.Scheme, client.Client, bool) error
 	GetPodIPListAndIPMap(reconcile.Request, client.Client) (*corev1.PodList, map[string]string, error)
 	CreateInstanceConfiguration(reconcile.Request, *corev1.PodList, client.Client) error
 	SetPodsToReady(*corev1.PodList, client.Client) error
@@ -157,15 +158,13 @@ func PrepareIntendedDeployment(instanceDeployment *appsv1.Deployment,
 	intendedDeployment := SetDeploymentCommonConfiguration(instanceDeployment, commonConfiguration)
 	intendedDeployment.SetName(instanceDeploymentName)
 	intendedDeployment.SetNamespace(request.Namespace)
-	if _, ok := intendedDeployment.Spec.Template.ObjectMeta.Labels["version"]; !ok {
-		intendedDeployment.Spec.Template.ObjectMeta.Labels["version"] = "1"
-	}
 	intendedDeployment.SetLabels(map[string]string{"contrail_manager": instanceType,
 		instanceType: request.Name})
 	intendedDeployment.Spec.Selector.MatchLabels = map[string]string{"contrail_manager": instanceType,
 		instanceType: request.Name}
 	intendedDeployment.Spec.Template.SetLabels(map[string]string{"contrail_manager": instanceType,
 		instanceType: request.Name})
+	intendedDeployment.Spec.Strategy = appsv1.DeploymentStrategy{}
 	err := controllerutil.SetControllerReference(object, intendedDeployment, scheme)
 	if err != nil {
 		return nil, err
@@ -207,13 +206,21 @@ func CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.Deployment,
 	request reconcile.Request,
 	scheme *runtime.Scheme,
 	client client.Client,
-	object v1.Object) error {
+	object v1.Object,
+	increaseVersion bool) error {
 	currentDeployment := &appsv1.Deployment{}
 	err := client.Get(context.TODO(),
 		types.NamespacedName{Name: intendedDeployment.Name, Namespace: request.Namespace},
 		currentDeployment)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			/*
+				labels := intendedDeployment.Spec.Selector.MatchLabels
+				labels["version"] = "1"
+				intendedDeployment.Spec.Template.SetLabels(labels)
+				intendedDeployment.Spec.Selector.MatchLabels = labels
+			*/
+			intendedDeployment.Spec.Template.ObjectMeta.Labels["version"] = "1"
 			err = client.Create(context.TODO(), intendedDeployment)
 			if err != nil {
 				return err
@@ -223,6 +230,16 @@ func CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.Deployment,
 		update := false
 		if *intendedDeployment.Spec.Replicas != *currentDeployment.Spec.Replicas {
 			update = true
+		}
+		if increaseVersion {
+			intendedDeployment.Spec.Strategy = appsv1.DeploymentStrategy{
+				Type: "Recreate",
+			}
+			versionInt, _ := strconv.Atoi(currentDeployment.Spec.Template.ObjectMeta.Labels["version"])
+			newVersion := versionInt + 1
+			intendedDeployment.Spec.Template.ObjectMeta.Labels["version"] = strconv.Itoa(newVersion)
+		} else {
+			intendedDeployment.Spec.Template.ObjectMeta.Labels["version"] = currentDeployment.Spec.Template.ObjectMeta.Labels["version"]
 		}
 
 		for _, intendedContainer := range intendedDeployment.Spec.Template.Spec.Containers {
