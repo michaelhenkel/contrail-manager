@@ -74,10 +74,15 @@ spec:
               type: object
             serviceConfiguration:
               properties:
+                erlangCookie:
+                  type: string
                 images:
                   additionalProperties:
                     type: string
                   type: object
+                port:
+                  format: int64
+                  type: integer
               required:
               - images
               type: object

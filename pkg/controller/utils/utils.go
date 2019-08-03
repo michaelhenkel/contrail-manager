@@ -22,6 +22,7 @@ import (
 const (
 	CASSANDRA  = "Cassandra.contrail.juniper.net"
 	ZOOKEEPER  = "Zookeeper.contrail.juniper.net"
+	RABBITMQ   = "Rabbitmq.contrail.juniper.net"
 	MANAGER    = "Manager.contrail.juniper.net"
 	REPLICASET = "ReplicaSet.apps"
 	DEPLOYMENT = "Deployment.apps"
@@ -315,6 +316,11 @@ func CassandraGroupKind() schema.GroupKind {
 // ZookeeperGroupKind returns group kind
 func ZookeeperGroupKind() schema.GroupKind {
 	return schema.ParseGroupKind(ZOOKEEPER)
+}
+
+// RabbitmqGroupKind returns group kind
+func RabbitmqGroupKind() schema.GroupKind {
+	return schema.ParseGroupKind(RABBITMQ)
 }
 
 // ReplicaSetGroupKind returns group kind

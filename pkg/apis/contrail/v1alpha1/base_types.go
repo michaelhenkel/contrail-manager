@@ -214,12 +214,6 @@ func CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.Deployment,
 		currentDeployment)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			/*
-				labels := intendedDeployment.Spec.Selector.MatchLabels
-				labels["version"] = "1"
-				intendedDeployment.Spec.Template.SetLabels(labels)
-				intendedDeployment.Spec.Selector.MatchLabels = labels
-			*/
 			intendedDeployment.Spec.Template.ObjectMeta.Labels["version"] = "1"
 			err = client.Create(context.TODO(), intendedDeployment)
 			if err != nil {

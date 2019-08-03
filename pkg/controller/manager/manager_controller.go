@@ -381,6 +381,95 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 	}
 
+	if instance.Spec.Services.Rabbitmq != nil {
+		rabbitmqService := instance.Spec.Services.Rabbitmq
+		create := *rabbitmqService.Spec.CommonConfiguration.Create
+		delete := false
+		update := false
+		if instance.Status.Rabbitmq != nil {
+			if *rabbitmqService.Spec.CommonConfiguration.Create && *instance.Status.Rabbitmq.Created {
+				create = false
+				delete = false
+				update = true
+			}
+			if !*rabbitmqService.Spec.CommonConfiguration.Create && *instance.Status.Rabbitmq.Created {
+				create = false
+				delete = true
+				update = false
+			}
+		}
+
+		cr := cr.GetRabbitmqCr()
+		cr.ObjectMeta = rabbitmqService.ObjectMeta
+		cr.Labels = rabbitmqService.ObjectMeta.Labels
+		cr.Namespace = instance.Namespace
+		cr.Spec.ServiceConfiguration = rabbitmqService.Spec.ServiceConfiguration
+		cr.TypeMeta.APIVersion = "contrail.juniper.net/v1alpha1"
+		cr.TypeMeta.Kind = "Rabbitmq"
+		if create {
+			err = r.client.Get(context.TODO(), request.NamespacedName, instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					controllerutil.SetControllerReference(instance, cr, r.scheme)
+					err = r.client.Create(context.TODO(), cr)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+
+			status := &v1alpha1.ServiceStatus{}
+			if instance.Status.Rabbitmq != nil {
+				status = instance.Status.Rabbitmq
+				status.Created = &create
+			} else {
+				status.Name = &cr.Name
+				status.Created = &create
+				instance.Status.Rabbitmq = status
+			}
+
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+		}
+		if update {
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			replicas := instance.Spec.CommonConfiguration.Replicas
+			if rabbitmqService.Spec.CommonConfiguration.Replicas != nil {
+				replicas = rabbitmqService.Spec.CommonConfiguration.Replicas
+			}
+			if cr.Spec.CommonConfiguration.Replicas != nil {
+				if *replicas != *cr.Spec.CommonConfiguration.Replicas {
+					cr.Spec.CommonConfiguration.Replicas = replicas
+					err = r.client.Update(context.TODO(), cr)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+		}
+		if delete {
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.client.Delete(context.TODO(), cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+		}
+	}
+
 	return reconcile.Result{}, nil
 }
 

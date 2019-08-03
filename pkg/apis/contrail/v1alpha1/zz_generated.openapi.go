@@ -834,6 +834,18 @@ func schema_pkg_apis_contrail_v1alpha1_RabbitmqConfiguration(ref common.Referenc
 							},
 						},
 					},
+					"port": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"erlangCookie": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"images"},
 			},
@@ -1276,7 +1288,7 @@ func schema_pkg_apis_contrail_v1alpha1_ZookeeperConfiguration(ref common.Referen
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ZookeeperConfiguration is the Spec for the cassandras API",
+				Description: "ZookeeperConfiguration is the Spec for the zookeepers API",
 				Properties: map[string]spec.Schema{
 					"images": {
 						SchemaProps: spec.SchemaProps{
@@ -1321,7 +1333,7 @@ func schema_pkg_apis_contrail_v1alpha1_ZookeeperSpec(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ZookeeperSpec is the Spec for the cassandras API",
+				Description: "ZookeeperSpec is the Spec for the zookeepers API",
 				Properties: map[string]spec.Schema{
 					"commonConfiguration": {
 						SchemaProps: spec.SchemaProps{

@@ -41,7 +41,7 @@ spec:
       spec:
         commonConfiguration:
           activate: true
-          create: true
+          create: false
         serviceConfiguration:
           images:
             zookeeper: docker.io/zookeeper:3.5.5
@@ -49,4 +49,18 @@ spec:
           clientPort: 2181
           electionPort: 3888
           serverPort: 2888
-            
+    rabbitmq:
+      metadata:
+        name: rabbitmq1
+        labels:
+          contrail_cluster: cluster1
+      spec:
+        commonConfiguration:
+          activate: true
+          create: true
+        serviceConfiguration:
+          images:
+            rabbitmq: rabbitmq:3.7
+            init: busybox
+          port: 5673
+          erlangCookie: 47EFF3BB-4786-46E0-A5BB-58455B3C2CB4
