@@ -151,15 +151,14 @@ func ManageActiveStatus(currentDeploymentReadyReplicas *int32,
 	active := false
 	if currentDeploymentReadyReplicas == intendedDeploymentReplicas {
 		active = true
-		switch instanceInterface.(type) {
-		case v1alpha1.Cassandra:
-			instance := instanceInterface.(*v1alpha1.Cassandra)
-			instance.Status.Active = &active
-		}
 	}
 	switch instanceInterface.(type) {
 	case v1alpha1.Cassandra:
 		instance := instanceInterface.(*v1alpha1.Cassandra)
+		instance.Status.Active = &active
+		err = client.Status().Update(context.TODO(), instance)
+	case v1alpha1.Zookeeper:
+		instance := instanceInterface.(*v1alpha1.Zookeeper)
 		instance.Status.Active = &active
 		err = client.Status().Update(context.TODO(), instance)
 	}
@@ -189,9 +188,13 @@ func SetInstanceActive(client client.Client, status *v1alpha1.Status, deployment
 // PrepareConfigMap prepares the initial ConfigMap
 func PrepareConfigMap(request reconcile.Request,
 	instanceType string,
+	prefix string,
 	scheme *runtime.Scheme,
 	client client.Client) *corev1.ConfigMap {
 	instanceConfigMapName := request.Name + "-" + instanceType + "-configmap"
+	if prefix != "" {
+		instanceConfigMapName = instanceConfigMapName + "-" + prefix
+	}
 	configMap := &corev1.ConfigMap{}
 	configMap.SetName(instanceConfigMapName)
 	configMap.SetNamespace(request.Namespace)
@@ -206,8 +209,8 @@ func CreateConfigMap(request reconcile.Request,
 	configMap *corev1.ConfigMap,
 	scheme *runtime.Scheme,
 	client client.Client) error {
-	instanceConfigMapName := request.Name + "-" + instanceType + "-configmap"
-	err = client.Get(context.TODO(), types.NamespacedName{Name: instanceConfigMapName, Namespace: request.Namespace}, configMap)
+	//instanceConfigMapName := request.Name + "-" + instanceType + "-configmap"
+	err = client.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: request.Namespace}, configMap)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = client.Create(context.TODO(), configMap)
@@ -226,8 +229,6 @@ func PrepareIntendedDeployment(instanceDeployment *appsv1.Deployment,
 	request reconcile.Request,
 	scheme *runtime.Scheme) *appsv1.Deployment {
 	instanceDeploymentName := request.Name + "-" + instanceType + "-deployment"
-	instanceConfigMapName := request.Name + "-" + instanceType + "-configmap"
-	instanceVolumeName := request.Name + "-" + instanceType + "-volume"
 	intendedDeployment := SetDeploymentCommonConfiguration(instanceDeployment, commonConfiguration)
 	intendedDeployment.SetName(instanceDeploymentName)
 	intendedDeployment.SetNamespace(request.Namespace)
@@ -238,21 +239,25 @@ func PrepareIntendedDeployment(instanceDeployment *appsv1.Deployment,
 	intendedDeployment.Spec.Template.SetLabels(map[string]string{"contrail_manager": instanceType,
 		instanceType: request.Name})
 
+	return intendedDeployment
+}
+
+func AddVolumesToIntendedDeployments(intendedDeployment *appsv1.Deployment, volumeConfigMapMap map[string]string) {
 	volumeList := intendedDeployment.Spec.Template.Spec.Volumes
-	volume := corev1.Volume{
-		Name: instanceVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: instanceConfigMapName,
+	for configMapName, volumeName := range volumeConfigMapMap {
+		volume := corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
 				},
 			},
-		},
+		}
+		volumeList = append(volumeList, volume)
 	}
-	volumeList = append(volumeList, volume)
-
 	intendedDeployment.Spec.Template.Spec.Volumes = volumeList
-	return intendedDeployment
 }
 
 // GetInstanceFromList return object from list of objects
@@ -263,6 +268,11 @@ func GetInstanceFromList(objectList []*interface{}, request reconcile.Request) i
 		switch ob.(type) {
 		case v1alpha1.Cassandra:
 			cassandraObject := ob.(v1alpha1.Cassandra)
+			if cassandraObject.GetName() == request.Name {
+				return cassandraObject
+			}
+		case v1alpha1.Zookeeper:
+			cassandraObject := ob.(v1alpha1.Zookeeper)
 			if cassandraObject.GetName() == request.Name {
 				return cassandraObject
 			}
@@ -366,6 +376,23 @@ func ManagerSizeChange(appGroupKind schema.GroupKind) predicate.Funcs {
 						oldSize = *oldManager.Spec.CommonConfiguration.Replicas
 					}
 					for _, newInstance := range newManager.Spec.Services.Cassandras {
+						if oldInstance.Name == newInstance.Name {
+							if newInstance.Spec.CommonConfiguration.Replicas != nil {
+								newSize = *newInstance.Spec.CommonConfiguration.Replicas
+							} else {
+								newSize = *newManager.Spec.CommonConfiguration.Replicas
+							}
+						}
+					}
+				}
+			case ZookeeperGroupKind():
+				for _, oldInstance := range oldManager.Spec.Services.Zookeepers {
+					if oldInstance.Spec.CommonConfiguration.Replicas != nil {
+						oldSize = *oldInstance.Spec.CommonConfiguration.Replicas
+					} else {
+						oldSize = *oldManager.Spec.CommonConfiguration.Replicas
+					}
+					for _, newInstance := range newManager.Spec.Services.Zookeepers {
 						if oldInstance.Name == newInstance.Name {
 							if newInstance.Spec.CommonConfiguration.Replicas != nil {
 								newSize = *newInstance.Spec.CommonConfiguration.Replicas

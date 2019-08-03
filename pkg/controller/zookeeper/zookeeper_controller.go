@@ -1,3 +1,4 @@
+/*
 package zookeeper
 
 import (
@@ -106,7 +107,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-	/*
+
 		srcManager := &source.Kind{Type: &v1alpha1.Manager{}}
 
 		managerHandler := &handler.EnqueueRequestForObject{}
@@ -138,7 +139,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		if err != nil {
 			return err
 		}
-	*/
+
 	srcDeployment := &source.Kind{Type: &appsv1.Deployment{}}
 
 	deploymentHandler := &handler.EnqueueRequestForObject{}
@@ -205,7 +206,7 @@ func (r *ReconcileZookeeper) GetRequestObject(request reconcile.Request) (ro run
 	return nil
 }
 func (r *ReconcileZookeeper) ZookeeperReconcile(request reconcile.Request) (reconcile.Result, error) {
-	/*
+
 		reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 		reqLogger.Info("Reconciling Zookeeper Object")
 
@@ -408,7 +409,7 @@ func (r *ReconcileZookeeper) ZookeeperReconcile(request reconcile.Request) (reco
 				return reconcile.Result{}, err
 			}
 		}
-	*/
+
 	return reconcile.Result{}, nil
 
 }
@@ -448,7 +449,7 @@ func (r *ReconcileZookeeper) DeploymentReconcile(request reconcile.Request) (rec
 	return reconcile.Result{}, nil
 }
 func (r *ReconcileZookeeper) ReplicaSetReconcile(request reconcile.Request) (reconcile.Result, error) {
-	/*
+
 			reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 			reqLogger.Info("Reconciling Zookeeper due to ReplicaSet changes")
 			labelSelector := labels.SelectorFromSet(map[string]string{"contrail_manager": "zookeeper"})
@@ -650,7 +651,7 @@ func (r *ReconcileZookeeper) ReplicaSetReconcile(request reconcile.Request) (rec
 
 				}
 			}
-	*/
+
 	return reconcile.Result{}, nil
 }
 func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -677,5 +678,445 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 	default:
 		return reconcile.Result{}, nil
 	}
+	return reconcile.Result{}, nil
+}
+*/
+package zookeeper
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"strconv"
+
+	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/utils"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+)
+
+var log = logf.Log.WithName("controller_zookeeper")
+var err error
+
+func Add(mgr manager.Manager) error {
+	return add(mgr, newReconciler(mgr))
+}
+
+func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	return &ReconcileZookeeper{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}
+}
+
+// add adds a new Controller to mgr with r as the reconcile.Reconciler
+func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	// Create a new controller
+
+	c, err := controller.New("zookeeper-controller", mgr, controller.Options{Reconciler: r})
+	if err != nil {
+		return err
+	}
+	// Watch for changes to primary resource Zookeeper
+	err = c.Watch(&source.Kind{Type: &v1alpha1.Zookeeper{}},
+		&handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to PODs
+	srcPod := &source.Kind{Type: &corev1.Pod{}}
+	podHandler := &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &appsv1.ReplicaSet{},
+	}
+	predInitStatus := utils.PodInitStatusChange(map[string]string{"contrail_manager": "zookeeper"})
+	predPodIPChange := utils.PodIPChange(map[string]string{"contrail_manager": "zookeeper"})
+	err = c.Watch(srcPod, podHandler, predPodIPChange)
+	if err != nil {
+		return err
+	}
+	err = c.Watch(srcPod, podHandler, predInitStatus)
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to Manager
+	srcManager := &source.Kind{Type: &v1alpha1.Manager{}}
+	managerHandler := &handler.EnqueueRequestForObject{}
+	predManagerSizeChange := utils.ManagerSizeChange(utils.ZookeeperGroupKind())
+	// Watch for Manager events.
+	err = c.Watch(srcManager, managerHandler, predManagerSizeChange)
+	if err != nil {
+		return err
+	}
+
+	srcDeployment := &source.Kind{Type: &appsv1.Deployment{}}
+	deploymentHandler := &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &v1alpha1.Zookeeper{},
+	}
+	deploymentPred := utils.DeploymentStatusChange(utils.ZookeeperGroupKind())
+	err = c.Watch(srcDeployment, deploymentHandler, deploymentPred)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// blank assignment to verify that ReconcileZookeeper implements reconcile.Reconciler
+var _ reconcile.Reconciler = &ReconcileZookeeper{}
+
+// ReconcileZookeeper reconciles a Zookeeper object
+type ReconcileZookeeper struct {
+	// This client, initialized using mgr.Client() above, is a split client
+	// that reads objects from the cache and writes to the apiserver
+	Client client.Client
+	Scheme *runtime.Scheme
+}
+
+func CreateInstanceConfiguration(request reconcile.Request,
+	podList *corev1.PodList,
+	instanceType string,
+	client client.Client,
+	zookeeperConfiguration v1alpha1.ZookeeperConfiguration) error {
+	instanceConfigMapName := request.Name + "-" + instanceType + "-configmap"
+	configMapInstanceDynamicConfig := &corev1.ConfigMap{}
+	err = client.Get(context.TODO(),
+		types.NamespacedName{Name: instanceConfigMapName, Namespace: request.Namespace},
+		configMapInstanceDynamicConfig)
+	if err != nil {
+		return err
+	}
+	configMapInstancConfig := &corev1.ConfigMap{}
+	err = client.Get(context.TODO(),
+		types.NamespacedName{Name: instanceConfigMapName + "-1", Namespace: request.Namespace},
+		configMapInstancConfig)
+	if err != nil {
+		return err
+	}
+	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
+	for idx := range podList.Items {
+		if configMapInstanceDynamicConfig.Data == nil {
+			data := map[string]string{podList.Items[idx].Status.PodIP: strconv.Itoa(idx + 1)}
+			configMapInstanceDynamicConfig.Data = data
+		} else {
+			configMapInstanceDynamicConfig.Data[podList.Items[idx].Status.PodIP] = strconv.Itoa(idx + 1)
+		}
+		var zkServerString string
+		for idx2 := range podList.Items {
+			zkServerString = zkServerString + fmt.Sprintf("server.%d=%s:%s:participant\n",
+				idx2+1, podList.Items[idx2].Status.PodIP,
+				strconv.Itoa(zookeeperConfiguration.ServerPort)+":"+strconv.Itoa(zookeeperConfiguration.ElectionPort))
+		}
+		configMapInstanceDynamicConfig.Data["zoo.cfg.dynamic.100000000"] = zkServerString
+		err = client.Update(context.TODO(), configMapInstanceDynamicConfig)
+		if err != nil {
+			return err
+		}
+	}
+	dynamicConfigFile := fmt.Sprintf("dynamicConfigFile=/mydata/zoo.cfg.dynamic.100000000")
+	authFile := `Server {
+org.apache.zookeeper.server.auth.DigestLoginModule required
+user_super="adminsecret"
+user_bob="bobsecret"
+user_dev="devpassword";
+};
+Client{
+org.apache.zookeeper.server.auth.DigestLoginModule required
+username="blah"
+password="blahblah";
+};`
+	zkConfig := `clientPort=` + strconv.Itoa(zookeeperConfiguration.ClientPort) + `
+clientPortAddress=
+dataDir=/data
+dataLogDir=/datalog
+tickTime=2000
+initLimit=5
+syncLimit=2
+maxClientCnxns=60
+admin.enableServer=true
+standaloneEnabled=false
+4lw.commands.whitelist=stat,ruok,conf,isro
+reconfigEnabled=true
+` + dynamicConfigFile
+	logFile := `zookeeper.root.logger=INFO, CONSOLE
+zookeeper.console.threshold=INFO
+zookeeper.log.dir=.
+zookeeper.log.file=zookeeper.log
+zookeeper.log.threshold=INFO
+zookeeper.log.maxfilesize=256MB
+zookeeper.log.maxbackupindex=20
+zookeeper.tracelog.dir=${zookeeper.log.dir}
+zookeeper.tracelog.file=zookeeper_trace.log
+log4j.rootLogger=${zookeeper.root.logger}
+log4j.appender.CONSOLE=org.apache.log4j.ConsoleAppender
+log4j.appender.CONSOLE.Threshold=${zookeeper.console.threshold}
+log4j.appender.CONSOLE.layout=org.apache.log4j.PatternLayout
+log4j.appender.CONSOLE.layout.ConversionPattern=%d{ISO8601} [myid:%X{myid}] - %-5p [%t:%C{1}@%L] - %m%n
+log4j.appender.ROLLINGFILE=org.apache.log4j.RollingFileAppender
+log4j.appender.ROLLINGFILE.Threshold=${zookeeper.log.threshold}
+log4j.appender.ROLLINGFILE.File=${zookeeper.log.dir}/${zookeeper.log.file}
+log4j.appender.ROLLINGFILE.MaxFileSize=${zookeeper.log.maxfilesize}
+log4j.appender.ROLLINGFILE.MaxBackupIndex=${zookeeper.log.maxbackupindex}
+log4j.appender.ROLLINGFILE.layout=org.apache.log4j.PatternLayout
+log4j.appender.ROLLINGFILE.layout.ConversionPattern=%d{ISO8601} [myid:%X{myid}] - %-5p [%t:%C{1}@%L] - %m%n
+log4j.appender.TRACEFILE=org.apache.log4j.FileAppender
+log4j.appender.TRACEFILE.Threshold=TRACE
+log4j.appender.TRACEFILE.File=${zookeeper.tracelog.dir}/${zookeeper.tracelog.file}
+log4j.appender.TRACEFILE.layout=org.apache.log4j.PatternLayout
+log4j.appender.TRACEFILE.layout.ConversionPattern=%d{ISO8601} [myid:%X{myid}] - %-5p [%t:%C{1}@%L][%x] - %m%n`
+
+	configurationXsl := `<?xml version="1.0"?>
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+<xsl:output method="html"/>
+<xsl:template match="configuration">
+<html>
+<body>
+<table border="1">
+<tr>
+<td>name</td>
+<td>value</td>
+<td>description</td>
+</tr>
+<xsl:for-each select="property">
+<tr>
+<td><a name="{name}"><xsl:value-of select="name"/></a></td>
+<td><xsl:value-of select="value"/></td>
+<td><xsl:value-of select="description"/></td>
+</tr>
+</xsl:for-each>
+</table>
+</body>
+</html>
+</xsl:template>
+</xsl:stylesheet>`
+
+	configMapInstancConfig.Data["zoo.cfg"] = zkConfig
+	configMapInstancConfig.Data["log4j.properties"] = logFile
+	configMapInstancConfig.Data["configuration.xsl"] = configurationXsl
+	configMapInstancConfig.Data["jaas.conf"] = authFile
+	err = client.Update(context.TODO(), configMapInstancConfig)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ManageNodeStatus(podNameIPMap map[string]string,
+	client client.Client,
+	instance *v1alpha1.Zookeeper) error {
+
+	instance.Status.Nodes = podNameIPMap
+	portMap := map[string]string{"port": strconv.Itoa(instance.Spec.ServiceConfiguration.ClientPort)}
+
+	instance.Status.Ports = portMap
+	err = client.Status().Update(context.TODO(), instance)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Reconcile reconciles zookeeper
+func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger.Info("Reconciling Zookeeper")
+	instanceType := "zookeeper"
+
+	// A reconcile.Request for Zookeeper can be triggered by 4 different types:
+	// 1. Any changes on the Zookeeper instance
+	// --> reconcile.Request is Zookeeper instance name/namespace
+	// 2. IP Status change on the Pods
+	// --> reconcile.Request is Replicaset name/namespace
+	// --> we need to evaluate the label to get the Zookeeper instance
+	// 3. Status change on the Deployment
+	// --> reconcile.Request is Zookeeper instance name/namespace
+	// 4. Zookeepers changes on the Manager instance
+	// --> reconcile.Request is Manager instance name/namespace
+	instance := &v1alpha1.Zookeeper{}
+	err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	// if not found we expect it a change in replicaset
+	// and get the zookeeper instance via label
+	if err != nil && errors.IsNotFound(err) {
+		replicaSet := &appsv1.ReplicaSet{}
+		err = r.Client.Get(context.TODO(), request.NamespacedName, replicaSet)
+		if err != nil {
+			return reconcile.Result{}, nil
+		}
+		request.Name = replicaSet.Labels[instanceType]
+		err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
+		if err != nil {
+			return reconcile.Result{}, nil
+		}
+	}
+
+	var managerName string
+	ownedByManager := false
+	ownerRefList := instance.GetOwnerReferences()
+	for _, ownerRef := range ownerRefList {
+		if *ownerRef.Controller {
+			if ownerRef.Kind == "Manager" {
+				managerName = ownerRef.Name
+				ownedByManager = true
+			}
+		}
+	}
+
+	if ownedByManager {
+		managerInstance := &v1alpha1.Manager{}
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: managerName, Namespace: request.Namespace}, managerInstance)
+		if err == nil {
+			if managerInstance.Spec.Services.Zookeepers != nil {
+				for _, zookeeperManagerInstance := range managerInstance.Spec.Services.Zookeepers {
+					if zookeeperManagerInstance.Name == request.Name {
+						instance.Spec.CommonConfiguration = utils.MergeCommonConfiguration(
+							managerInstance.Spec.CommonConfiguration,
+							zookeeperManagerInstance.Spec.CommonConfiguration)
+						err = r.Client.Update(context.TODO(), instance)
+						if err != nil {
+							return reconcile.Result{}, err
+						}
+					}
+				}
+			}
+		}
+	}
+
+	configMap := utils.PrepareConfigMap(request,
+		instanceType,
+		"",
+		r.Scheme,
+		r.Client)
+	err = controllerutil.SetControllerReference(instance, configMap, r.Scheme)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = utils.CreateConfigMap(request, instanceType, configMap, r.Scheme, r.Client)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	configMap2 := utils.PrepareConfigMap(request,
+		instanceType,
+		"1",
+		r.Scheme,
+		r.Client)
+	err = controllerutil.SetControllerReference(instance, configMap2, r.Scheme)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = utils.CreateConfigMap(request, instanceType, configMap2, r.Scheme, r.Client)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	intendedDeployment := utils.PrepareIntendedDeployment(GetDeployment(),
+		&instance.Spec.CommonConfiguration,
+		instanceType,
+		request,
+		r.Scheme)
+
+	err = controllerutil.SetControllerReference(instance, intendedDeployment, r.Scheme)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	utils.AddVolumesToIntendedDeployments(intendedDeployment,
+		map[string]string{configMap.Name: request.Name + "-" + instanceType + "-volume",
+			configMap2.Name: request.Name + "-" + instanceType + "-volume-1"})
+
+	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
+		for containerName, image := range instance.Spec.ServiceConfiguration.Images {
+			if containerName == container.Name {
+				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = image
+			}
+			if containerName == "zookeeper" {
+
+				command := []string{"bash", "-c", "myid=$(cat /mydata/${POD_IP}) && echo ${myid} > /data/myid && cp /conf-1/* /conf/ && sed -i \"s/clientPortAddress=.*/clientPortAddress=${POD_IP}/g\" /conf/zoo.cfg && zkServer.sh --config /conf start-foreground"}
+				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+				volumeMountList := []corev1.VolumeMount{}
+
+				volumeMount := corev1.VolumeMount{
+					Name:      request.Name + "-" + instanceType + "-volume-1",
+					MountPath: "/conf-1",
+				}
+				volumeMountList = append(volumeMountList, volumeMount)
+
+				volumeMount = corev1.VolumeMount{
+					Name:      request.Name + "-" + instanceType + "-volume",
+					MountPath: "/mydata",
+				}
+				volumeMountList = append(volumeMountList, volumeMount)
+			}
+		}
+	}
+
+	// Configure InitContainers
+	for idx, container := range intendedDeployment.Spec.Template.Spec.InitContainers {
+		for containerName, image := range instance.Spec.ServiceConfiguration.Images {
+			if containerName == container.Name {
+				(&intendedDeployment.Spec.Template.Spec.InitContainers[idx]).Image = image
+			}
+		}
+	}
+
+	err = utils.CompareIntendedWithCurrentDeployment(intendedDeployment,
+		&instance.Spec.CommonConfiguration,
+		instanceType,
+		request,
+		r.Scheme,
+		r.Client,
+		instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	podIPList, podIPMap, err := utils.GetPodIPListAndIPMap(instanceType, request, r.Client)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(podIPList.Items) > 0 {
+		err = CreateInstanceConfiguration(request,
+			podIPList,
+			instanceType,
+			r.Client,
+			instance.Spec.ServiceConfiguration)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		err = utils.SetPodsToReady(podIPList, r.Client)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		err = ManageNodeStatus(podIPMap, r.Client, instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
+	err = utils.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	err = r.Client.Status().Update(context.TODO(), instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	return reconcile.Result{}, nil
 }

@@ -23,7 +23,6 @@ type ZookeeperConfiguration struct {
 	ClientPort   int               `json:"clientPort,omitempty"`
 	ElectionPort int               `json:"electionPort,omitempty"`
 	ServerPort   int               `json:"serverPort,omitempty"`
-	HeapSize     string            `json:"heapSize,omitempty"`
 }
 
 // ZookeeperStatus defines the observed state of Zookeeper

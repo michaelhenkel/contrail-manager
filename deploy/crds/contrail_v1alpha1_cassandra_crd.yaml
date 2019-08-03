@@ -79,8 +79,6 @@ spec:
                 cqlPort:
                   format: int64
                   type: integer
-                heapNewSize:
-                  type: string
                 images:
                   additionalProperties:
                     type: string
@@ -91,6 +89,8 @@ spec:
                 listenAddress:
                   type: string
                 maxHeapSize:
+                  type: string
+                minHeapSize:
                   type: string
                 port:
                   format: int64

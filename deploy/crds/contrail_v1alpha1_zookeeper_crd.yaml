@@ -80,8 +80,6 @@ spec:
                 electionPort:
                   format: int64
                   type: integer
-                heapSize:
-                  type: string
                 images:
                   additionalProperties:
                     type: string

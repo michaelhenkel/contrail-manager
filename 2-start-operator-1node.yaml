@@ -33,3 +33,20 @@ spec:
           clusterName: ContrailConfigDB
           maxHeapSize: 1024M
           minHeapSize: 100M
+    zookeepers:
+    - metadata:
+        name: zookeeper1
+        labels:
+          contrail_cluster: cluster1
+      spec:
+        commonConfiguration:
+          activate: true
+          create: false
+        serviceConfiguration:
+          images:
+            zookeeper: docker.io/zookeeper:3.5.5
+            init: busybox
+          clientPort: 2181
+          electionPort: 3888
+          serverPort: 2888
+            

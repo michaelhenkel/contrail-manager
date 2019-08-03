@@ -62,7 +62,7 @@ type ManagerStatus struct {
 	Cassandras   []*ServiceStatus `json:"cassandras,omitempty"`
 	Zookeepers   []*ServiceStatus `json:"zookeepers,omitempty"`
 	Rabbitmq     *ServiceStatus   `json:"rabbitmq,omitempty"`
-	CrdStatus    []CrdStatus      `json:"crdstatus,omitempty"`
+	CrdStatus    []CrdStatus      `json:"crdStatus,omitempty"`
 }
 
 // CrdStatus tracks status of CRD

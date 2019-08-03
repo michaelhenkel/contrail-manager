@@ -4,7 +4,6 @@ import (
 	"context"
 
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
-	"github.com/michaelhenkel/contrail-manager/pkg/controller/cassandra"
 	cr "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crs"
 
 	//crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
@@ -128,59 +127,72 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 	// Create CRDs
-
-	cassandraCrdActive := false
-	for _, crdStatus := range instance.Status.CrdStatus {
-		if crdStatus.Name == "Cassandra" {
-			if crdStatus.Active != nil {
-				if *crdStatus.Active {
-					cassandraCrdActive = true
+	/*
+		cassandraCrdActive := false
+		for _, crdStatus := range instance.Status.CrdStatus {
+			if crdStatus.Name == "Cassandra" {
+				if crdStatus.Active != nil {
+					if *crdStatus.Active {
+						cassandraCrdActive = true
+					}
 				}
 			}
 		}
-	}
-	if !cassandraCrdActive && len(instance.Spec.Services.Cassandras) > 0 {
-		cassandraResource := v1alpha1.Cassandra{}
-		cassandraCrd := cassandraResource.GetCrd()
-		err = r.createCrd(instance, cassandraCrd)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		controllerRunning := false
-		sharedIndexInformer, err := r.cache.GetInformerForKind(cassandraResource.GroupVersionKind())
-		if err == nil {
-			controller := sharedIndexInformer.GetController()
-			if controller != nil {
-				controllerRunning = true
-			}
-		}
-		if !controllerRunning {
-			err = cassandra.Add(r.manager)
+		if !cassandraCrdActive && len(instance.Spec.Services.Cassandras) > 0 {
+			cassandraResource := v1alpha1.Cassandra{}
+			cassandraCrd := cassandraResource.GetCrd()
+			err = r.createCrd(instance, cassandraCrd)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-		}
-		active := true
-		crdStatus := &v1alpha1.CrdStatus{
-			Name:   "Cassandra",
-			Active: &active,
-		}
-		var crdStatusList []v1alpha1.CrdStatus
-		if len(instance.Status.CrdStatus) > 0 {
-			crdStatusList = instance.Status.CrdStatus
-		}
-		crdStatusList = append(crdStatusList, *crdStatus)
-		instance.Status.CrdStatus = crdStatusList
-		err = r.client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+			controllerRunning := false
+			c := r.manager.GetCache()
+			sharedIndexInformer, err := c.GetInformer(&v1alpha1.Cassandra{})
+			if err == nil {
+				store := sharedIndexInformer.GetStore()
+				if store != nil {
+					fmt.Println("STORE NOT NIL")
+				} else {
+					fmt.Println("STORE NIL")
+				}
+				if sharedIndexInformer.HasSynced() {
+					fmt.Println("has synced")
+				} else {
+					fmt.Println("has not synced")
+				}
 
-	}
+				controller := sharedIndexInformer.GetController()
+				if controller != nil {
+					controllerRunning = true
+				}
+			}
+			if !controllerRunning {
+				err = cassandra.Add(r.manager)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+			active := true
+			crdStatus := &v1alpha1.CrdStatus{
+				Name:   "Cassandra",
+				Active: &active,
+			}
+			var crdStatusList []v1alpha1.CrdStatus
+			if len(instance.Status.CrdStatus) > 0 {
+				crdStatusList = instance.Status.CrdStatus
+			}
+			crdStatusList = append(crdStatusList, *crdStatus)
+			instance.Status.CrdStatus = crdStatusList
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 
+		}
+	*/
 	// Create CRs
 	for _, cassandraService := range instance.Spec.Services.Cassandras {
-		create := true
+		create := *cassandraService.Spec.CommonConfiguration.Create
 		delete := false
 		update := false
 		for _, cassandraStatus := range instance.Status.Cassandras {
@@ -250,6 +262,101 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 			replicas := instance.Spec.CommonConfiguration.Replicas
 			if cassandraService.Spec.CommonConfiguration.Replicas != nil {
 				replicas = cassandraService.Spec.CommonConfiguration.Replicas
+			}
+			if cr.Spec.CommonConfiguration.Replicas != nil {
+				if *replicas != *cr.Spec.CommonConfiguration.Replicas {
+					cr.Spec.CommonConfiguration.Replicas = replicas
+					err = r.client.Update(context.TODO(), cr)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+		}
+		if delete {
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.client.Delete(context.TODO(), cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+		}
+	}
+
+	for _, zookeeperService := range instance.Spec.Services.Zookeepers {
+		create := *zookeeperService.Spec.CommonConfiguration.Create
+		delete := false
+		update := false
+		for _, zookeeperStatus := range instance.Status.Zookeepers {
+			if zookeeperService.Name == *zookeeperStatus.Name {
+				if *zookeeperService.Spec.CommonConfiguration.Create && *zookeeperStatus.Created {
+					create = false
+					delete = false
+					update = true
+				}
+				if !*zookeeperService.Spec.CommonConfiguration.Create && *zookeeperStatus.Created {
+					create = false
+					delete = true
+					update = false
+				}
+			}
+		}
+		cr := cr.GetZookeeperCr()
+		cr.ObjectMeta = zookeeperService.ObjectMeta
+		cr.Labels = zookeeperService.ObjectMeta.Labels
+		cr.Namespace = instance.Namespace
+		cr.Spec.ServiceConfiguration = zookeeperService.Spec.ServiceConfiguration
+		cr.TypeMeta.APIVersion = "contrail.juniper.net/v1alpha1"
+		cr.TypeMeta.Kind = "Zookeeper"
+		if create {
+			err = r.client.Get(context.TODO(), request.NamespacedName, instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					controllerutil.SetControllerReference(instance, cr, r.scheme)
+					err = r.client.Create(context.TODO(), cr)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+
+			status := &v1alpha1.ServiceStatus{}
+			zookeeperStatusList := []*v1alpha1.ServiceStatus{}
+			if instance.Status.Zookeepers != nil {
+				for _, zookeeperStatus := range instance.Status.Zookeepers {
+					if zookeeperService.Name == *zookeeperStatus.Name {
+						status = zookeeperStatus
+						status.Created = &create
+					}
+				}
+			} else {
+				status.Name = &cr.Name
+				status.Created = &create
+				zookeeperStatusList = append(zookeeperStatusList, status)
+				instance.Status.Zookeepers = zookeeperStatusList
+			}
+
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+		}
+		if update {
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			replicas := instance.Spec.CommonConfiguration.Replicas
+			if zookeeperService.Spec.CommonConfiguration.Replicas != nil {
+				replicas = zookeeperService.Spec.CommonConfiguration.Replicas
 			}
 			if cr.Spec.CommonConfiguration.Replicas != nil {
 				if *replicas != *cr.Spec.CommonConfiguration.Replicas {
