@@ -163,7 +163,6 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme)
-
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -230,12 +229,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	/*
-		err = i.ManageActiveStatus(intendedDeployment, request, r.Client)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	*/
+
 	podIPList, podIPMap, err := i.GetPodIPListAndIPMap(request, r.Client)
 	if err != nil {
 		return reconcile.Result{}, err

@@ -157,6 +157,9 @@ func PrepareIntendedDeployment(instanceDeployment *appsv1.Deployment,
 	intendedDeployment := SetDeploymentCommonConfiguration(instanceDeployment, commonConfiguration)
 	intendedDeployment.SetName(instanceDeploymentName)
 	intendedDeployment.SetNamespace(request.Namespace)
+	if _, ok := intendedDeployment.Spec.Template.ObjectMeta.Labels["version"]; !ok {
+		intendedDeployment.Spec.Template.ObjectMeta.Labels["version"] = "1"
+	}
 	intendedDeployment.SetLabels(map[string]string{"contrail_manager": instanceType,
 		instanceType: request.Name})
 	intendedDeployment.Spec.Selector.MatchLabels = map[string]string{"contrail_manager": instanceType,
@@ -246,7 +249,6 @@ func GetPodIPListAndIPMap(instanceType string,
 	request reconcile.Request,
 	reconcileClient client.Client) (*corev1.PodList, map[string]string, error) {
 	var podNameIPMap = make(map[string]string)
-	//instanceDeploymentName := request.Name + "-" + instanceType + "-deployment"
 
 	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_manager": instanceType,
 		instanceType: request.Name})
@@ -256,35 +258,77 @@ func GetPodIPListAndIPMap(instanceType string,
 	if err != nil {
 		return &corev1.PodList{}, map[string]string{}, err
 	}
+	/*
+		if len(replicaSetList.Items) > 0 {
+			fmt.Println("len(replicaSetList.Items)", len(replicaSetList.Items))
+			replicaSet := &appsv1.ReplicaSet{}
+			for _, rs := range replicaSetList.Items {
+				fmt.Printf("%+v\n", rs)
+				if *rs.Spec.Replicas > 0 {
+					replicaSet = &rs
+				} else {
+					replicaSet = &rs
+				}
+			}
+			podList := &corev1.PodList{}
+			if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
+				labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
+				listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+				err := reconcileClient.List(context.TODO(), listOps, podList)
+				if err != nil {
+					return &corev1.PodList{}, map[string]string{}, err
+				}
+			}
+
+			if replicaSet.Spec.Replicas != nil {
+				if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
+					for _, pod := range podList.Items {
+						if pod.Status.PodIP != "" {
+							podNameIPMap[pod.Name] = pod.Status.PodIP
+						}
+					}
+				}
+
+				if int32(len(podNameIPMap)) == *replicaSet.Spec.Replicas {
+					return podList, podNameIPMap, nil
+				}
+			}
+		}
+	*/
 
 	if len(replicaSetList.Items) > 0 {
 		replicaSet := &appsv1.ReplicaSet{}
 		for _, rs := range replicaSetList.Items {
 			if *rs.Spec.Replicas > 0 {
 				replicaSet = &rs
+				break
 			}
 		}
-		podList := &corev1.PodList{}
-		if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
-			labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
-			listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-			err := reconcileClient.List(context.TODO(), listOps, podList)
-			if err != nil {
-				return &corev1.PodList{}, map[string]string{}, err
-			}
-		}
-
-		if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
-			for _, pod := range podList.Items {
-				if pod.Status.PodIP != "" {
-					podNameIPMap[pod.Name] = pod.Status.PodIP
+		if replicaSet.Spec.Replicas != nil {
+			podList := &corev1.PodList{}
+			if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
+				labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
+				listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+				err := reconcileClient.List(context.TODO(), listOps, podList)
+				if err != nil {
+					return &corev1.PodList{}, map[string]string{}, err
 				}
 			}
-		}
 
-		if int32(len(podNameIPMap)) == *replicaSet.Spec.Replicas {
-			return podList, podNameIPMap, nil
+			if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
+				for _, pod := range podList.Items {
+					if pod.Status.PodIP != "" {
+						podNameIPMap[pod.Name] = pod.Status.PodIP
+					}
+				}
+			}
+
+			if int32(len(podNameIPMap)) == *replicaSet.Spec.Replicas {
+				return podList, podNameIPMap, nil
+			}
+
 		}
 	}
+
 	return &corev1.PodList{}, map[string]string{}, nil
 }

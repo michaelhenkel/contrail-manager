@@ -65,16 +65,12 @@ type CassandraList struct {
 	Items           []Cassandra `json:"items"`
 }
 
-func (c Cassandra) Crd() *apiextensionsv1beta1.CustomResourceDefinition {
-	return crds.GetCassandraCrd()
+func init() {
+	SchemeBuilder.Register(&Cassandra{}, &CassandraList{})
 }
 
 func (c Cassandra) GetCrd() *apiextensionsv1beta1.CustomResourceDefinition {
 	return crds.GetCassandraCrd()
-}
-
-func init() {
-	SchemeBuilder.Register(&Cassandra{}, &CassandraList{})
 }
 
 func (c *Cassandra) CreateInstanceConfiguration(request reconcile.Request,

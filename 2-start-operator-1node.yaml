@@ -18,7 +18,7 @@ spec:
       spec:
         commonConfiguration:
           activate: true
-          create: true
+          create: false
         serviceConfiguration:
           images:
             cassandra: cassandra:3.11.4
@@ -41,7 +41,7 @@ spec:
       spec:
         commonConfiguration:
           activate: true
-          create: false
+          create: true
         serviceConfiguration:
           images:
             zookeeper: docker.io/zookeeper:3.5.5
