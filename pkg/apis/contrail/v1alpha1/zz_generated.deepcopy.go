@@ -139,7 +139,7 @@ func (in *CommonConfiguration) DeepCopyInto(out *CommonConfiguration) {
 	}
 	if in.ImagePullSecrets != nil {
 		in, out := &in.ImagePullSecrets, &out.ImagePullSecrets
-		*out = make([]v1.LocalObjectReference, len(*in))
+		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
 	if in.Tolerations != nil {

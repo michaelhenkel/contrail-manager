@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -65,13 +66,7 @@ type CommonConfiguration struct {
 	// +optional
 	HostNetwork *bool `json:"hostNetwork,omitempty" protobuf:"varint,11,opt,name=hostNetwork"`
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
-	// If specified, these secrets will be passed to individual puller implementations for them to use. For example,
-	// in the case of docker, only DockerConfig type secrets are honored.
-	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
-	// +optional
-	// +patchMergeKey=name
-	// +patchStrategy=merge
-	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
+	ImagePullSecrets []string `json:"imagePullSecrets,omitempty"`
 	// If specified, the pod's tolerations.
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty" protobuf:"bytes,22,opt,name=tolerations"`
@@ -82,7 +77,6 @@ type CommonConfiguration struct {
 }
 
 type Instance interface {
-	//ManageActiveStatus(*appsv1.Deployment, reconcile.Request, client.Client) error
 	CreateConfigMap(string, client.Client, *runtime.Scheme, reconcile.Request) (*corev1.ConfigMap, error)
 	OwnedByManager(client.Client, reconcile.Request) (*Manager, error)
 	PrepareIntendedDeployment(*appsv1.Deployment, *CommonConfiguration, reconcile.Request, *runtime.Scheme) (*appsv1.Deployment, error)
@@ -178,7 +172,16 @@ func SetDeploymentCommonConfiguration(deployment *appsv1.Deployment,
 	deployment.Spec.Template.Spec.Tolerations = commonConfiguration.Tolerations
 	deployment.Spec.Template.Spec.NodeSelector = commonConfiguration.NodeSelector
 	deployment.Spec.Template.Spec.HostNetwork = *commonConfiguration.HostNetwork
-	deployment.Spec.Template.Spec.ImagePullSecrets = commonConfiguration.ImagePullSecrets
+	if len(commonConfiguration.ImagePullSecrets) > 0 {
+		imagePullSecretList := []corev1.LocalObjectReference{}
+		for _, imagePullSecretName := range commonConfiguration.ImagePullSecrets {
+			imagePullSecret := corev1.LocalObjectReference{
+				Name: imagePullSecretName,
+			}
+			imagePullSecretList = append(imagePullSecretList, imagePullSecret)
+		}
+		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretList
+	}
 	return deployment
 }
 
@@ -269,43 +272,6 @@ func GetPodIPListAndIPMap(instanceType string,
 	if err != nil {
 		return &corev1.PodList{}, map[string]string{}, err
 	}
-	/*
-		if len(replicaSetList.Items) > 0 {
-			fmt.Println("len(replicaSetList.Items)", len(replicaSetList.Items))
-			replicaSet := &appsv1.ReplicaSet{}
-			for _, rs := range replicaSetList.Items {
-				fmt.Printf("%+v\n", rs)
-				if *rs.Spec.Replicas > 0 {
-					replicaSet = &rs
-				} else {
-					replicaSet = &rs
-				}
-			}
-			podList := &corev1.PodList{}
-			if podHash, ok := replicaSet.ObjectMeta.Labels["pod-template-hash"]; ok {
-				labelSelector := labels.SelectorFromSet(map[string]string{"pod-template-hash": podHash})
-				listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-				err := reconcileClient.List(context.TODO(), listOps, podList)
-				if err != nil {
-					return &corev1.PodList{}, map[string]string{}, err
-				}
-			}
-
-			if replicaSet.Spec.Replicas != nil {
-				if int32(len(podList.Items)) == *replicaSet.Spec.Replicas {
-					for _, pod := range podList.Items {
-						if pod.Status.PodIP != "" {
-							podNameIPMap[pod.Name] = pod.Status.PodIP
-						}
-					}
-				}
-
-				if int32(len(podNameIPMap)) == *replicaSet.Spec.Replicas {
-					return podList, podNameIPMap, nil
-				}
-			}
-		}
-	*/
 
 	if len(replicaSetList.Items) > 0 {
 		replicaSet := &appsv1.ReplicaSet{}
@@ -342,4 +308,59 @@ func GetPodIPListAndIPMap(instanceType string,
 	}
 
 	return &corev1.PodList{}, map[string]string{}, nil
+}
+
+func GetCassandraNodes(name string, namespace string, client client.Client) ([]string, int, int, int, error) {
+	var cassandraNodes []string
+	var port int
+	var cqlPort int
+	var jmxPort int
+	cassandraInstance := &Cassandra{}
+	fmt.Println("Trying to get Cassandra: ", name)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, cassandraInstance)
+	if err != nil {
+		return cassandraNodes, port, cqlPort, jmxPort, err
+	}
+	fmt.Println("Got Cassandra: ", cassandraInstance.Name)
+	for _, ip := range cassandraInstance.Status.Nodes {
+		cassandraNodes = append(cassandraNodes, ip)
+	}
+	port = cassandraInstance.Spec.ServiceConfiguration.Port
+	cqlPort = cassandraInstance.Spec.ServiceConfiguration.CqlPort
+	jmxPort = cassandraInstance.Spec.ServiceConfiguration.JmxLocalPort
+	return cassandraNodes, port, cqlPort, jmxPort, nil
+}
+
+func GetZookeeperNodes(name string, namespace string, client client.Client) ([]string, int, error) {
+	var zookeeperNodes []string
+	var port int
+	zookeeperInstance := &Zookeeper{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, zookeeperInstance)
+	if err != nil {
+		return zookeeperNodes, port, err
+	}
+	for _, ip := range zookeeperInstance.Status.Nodes {
+		zookeeperNodes = append(zookeeperNodes, ip)
+	}
+	port = zookeeperInstance.Spec.ServiceConfiguration.ClientPort
+	return zookeeperNodes, port, nil
+}
+
+func GetRabbitmqNodes(name string, namespace string, myclient client.Client) ([]string, int, error) {
+	var rabbitmqNodes []string
+	var port int
+	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": name})
+	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+	rabbitmqList := &RabbitmqList{}
+	err := myclient.List(context.TODO(), listOps, rabbitmqList)
+	if err != nil {
+		return rabbitmqNodes, port, err
+	}
+	if len(rabbitmqList.Items) > 0 {
+		for _, ip := range rabbitmqList.Items[0].Status.Nodes {
+			rabbitmqNodes = append(rabbitmqNodes, ip)
+		}
+		port = rabbitmqList.Items[0].Spec.ServiceConfiguration.Port
+	}
+	return rabbitmqNodes, port, nil
 }

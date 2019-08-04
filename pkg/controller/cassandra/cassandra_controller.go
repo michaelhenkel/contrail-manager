@@ -101,18 +101,6 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Cassandra")
 	instanceType := "cassandra"
-
-	// A reconcile.Request for Cassandra can be triggered by 4 different types:
-	// 1. Any changes on the Cassandra instance
-	// --> reconcile.Request is Cassandra instance name/namespace
-	// 2. IP Status change on the Pods
-	// --> reconcile.Request is Replicaset name/namespace
-	// --> we need to evaluate the label to get the Cassandra instance
-	// 3. Status change on the Deployment
-	// --> reconcile.Request is Cassandra instance name/namespace
-	// 4. Cassandras changes on the Manager instance
-	// --> reconcile.Request is Manager instance name/namespace
-
 	instance := &v1alpha1.Cassandra{}
 	var i v1alpha1.Instance = instance
 	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)

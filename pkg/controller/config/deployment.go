@@ -25,10 +25,12 @@ spec:
         contrail_manager: config
     spec:
       containers:
-      - envFrom:
-        - configMapRef:
-            name: config
-        image: docker.io/michaelhenkel/contrail-controller-config-api:5.2.0-dev1
+      - image: docker.io/michaelhenkel/contrail-controller-config-api:5.2.0-dev1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: api
         readinessProbe:
@@ -38,55 +40,67 @@ spec:
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
-      - envFrom:
-        - configMapRef:
-            name: config
-        image: docker.io/michaelhenkel/contrail-controller-config-devicemgr:5.2.0-dev1
+      - image: docker.io/michaelhenkel/contrail-controller-config-devicemgr:5.2.0-dev1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: devicemanager
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
-      - envFrom:
-        - configMapRef:
-            name: config
-        image: docker.io/michaelhenkel/contrail-controller-config-schema:5.2.0-dev1
+      - image: docker.io/michaelhenkel/contrail-controller-config-schema:5.2.0-dev1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: schematransformer
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
-      - envFrom:
-        - configMapRef:
-            name: config
-        image: docker.io/michaelhenkel/contrail-controller-config-svcmonitor:5.2.0-dev1
+      - image: docker.io/michaelhenkel/contrail-controller-config-svcmonitor:5.2.0-dev1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: servicemonitor
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
-      - envFrom:
-        - configMapRef:
-            name: config
-        image: docker.io/michaelhenkel/contrail-analytics-api:5.2.0-dev1
+      - image: docker.io/michaelhenkel/contrail-analytics-api:5.2.0-dev1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: analyticsapi
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
-      - envFrom:
-        - configMapRef:
-            name: config
-        image: docker.io/michaelhenkel/contrail-analytics-collector:5.2.0-dev1
+      - image: docker.io/michaelhenkel/contrail-analytics-collector:5.2.0-dev1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: collector
         volumeMounts:
         - mountPath: /var/log/contrail
           name: config-logs
-      - envFrom:
-        - configMapRef:
-            name: config
-        image: docker.io/michaelhenkel/contrail-external-redis:5.2.0-dev1
+      - image: docker.io/michaelhenkel/contrail-external-redis:5.2.0-dev1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: redis
         volumeMounts:
@@ -99,9 +113,10 @@ spec:
           value: unix://mnt/docker.sock
         - name: NODE_TYPE
           value: config
-        envFrom:
-        - configMapRef:
-            name: config
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         image: docker.io/michaelhenkel/contrail-nodemgr:5.2.0-dev1
         imagePullPolicy: Always
         name: nodemanagerconfig
@@ -115,9 +130,10 @@ spec:
           value: unix://mnt/docker.sock
         - name: NODE_TYPE
           value: analytics
-        envFrom:
-        - configMapRef:
-            name: config
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         image: docker.io/michaelhenkel/contrail-nodemgr:5.2.0-dev1
         imagePullPolicy: Always
         name: nodemanageranalytics
@@ -139,18 +155,12 @@ spec:
         image: busybox
         imagePullPolicy: Always
         name: init
-        envFrom:
-        - configMapRef:
-            name: config
         volumeMounts:
         - mountPath: /tmp/podinfo
           name: status
       - env:
         - name: CONTRAIL_STATUS_IMAGE
           value: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
-        envFrom:
-        - configMapRef:
-            name: config
         image: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
         imagePullPolicy: Always
         name: nodeinit

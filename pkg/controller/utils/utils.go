@@ -23,6 +23,7 @@ const (
 	CASSANDRA  = "Cassandra.contrail.juniper.net"
 	ZOOKEEPER  = "Zookeeper.contrail.juniper.net"
 	RABBITMQ   = "Rabbitmq.contrail.juniper.net"
+	CONFIG     = "Config.contrail.juniper.net"
 	MANAGER    = "Manager.contrail.juniper.net"
 	REPLICASET = "ReplicaSet.apps"
 	DEPLOYMENT = "Deployment.apps"
@@ -308,6 +309,11 @@ func ReconcileErr(err error) (reconcile.Result, error) {
 	return reconcile.Result{}, nil
 }
 
+// ConfigGroupKind returns group kind
+func ConfigGroupKind() schema.GroupKind {
+	return schema.ParseGroupKind(CONFIG)
+}
+
 // CassandraGroupKind returns group kind
 func CassandraGroupKind() schema.GroupKind {
 	return schema.ParseGroupKind(CASSANDRA)
@@ -498,6 +504,141 @@ func PodInitStatusChange(appLabel map[string]string) predicate.Funcs {
 	return pred
 }
 
+
+
+func IsCassandraActive(name string, namespace string, client client.Client) bool {
+	cassandraActive := false
+	cassandraInstance := &v1alpha1.Cassandra{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, cassandraInstance)
+	if err != nil {
+		return cassandraActive
+	}
+	if cassandraInstance.Status.Active != nil {
+		if *cassandraInstance.Status.Active {
+			cassandraActive = true
+		}
+	}
+	return cassandraActive
+}
+
+func IsRabbitmqActive(name string, namespace string, myclient client.Client) bool {
+	rabbitmqActive := false
+	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": name})
+	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+	rabbitmqList := &v1alpha1.RabbitmqList{}
+	err = myclient.List(context.TODO(), listOps, rabbitmqList)
+	if err != nil {
+		return rabbitmqActive
+	}
+	if len(rabbitmqList.Items) > 0 {
+		if rabbitmqList.Items[0].Status.Active != nil {
+			if *rabbitmqList.Items[0].Status.Active {
+				rabbitmqActive = true
+			}
+		}
+	}
+	return rabbitmqActive
+}
+
+func IsZookeeperActive(name string, namespace string, client client.Client) bool {
+	zookeeperActive := false
+	zookeeperInstance := &v1alpha1.Zookeeper{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, zookeeperInstance)
+	if err != nil {
+		return zookeeperActive
+	}
+	if zookeeperInstance.Status.Active != nil {
+		if *zookeeperInstance.Status.Active {
+			zookeeperActive = true
+		}
+	}
+	return zookeeperActive
+}
+
+// CassandraActiveChange returns predicate function based on group kind
+func CassandraActiveChange() predicate.Funcs {
+	pred := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldCassandra := e.ObjectOld.(*v1alpha1.Cassandra)
+			newCassandra := e.ObjectNew.(*v1alpha1.Cassandra)
+			newCassandraActive := true
+			oldCassandraActive := true
+			if newCassandra.Status.Active == nil {
+				newCassandraActive = false
+			} else {
+				newCassandraActive = *newCassandra.Status.Active
+			}
+			if oldCassandra.Status.Active == nil {
+				oldCassandraActive = false
+			} else {
+				oldCassandraActive = *oldCassandra.Status.Active
+			}
+			if !oldCassandraActive && newCassandraActive {
+				return true
+			}
+			return false
+
+		},
+	}
+	return pred
+}
+
+// RabbitmqActiveChange returns predicate function based on group kind
+func RabbitmqActiveChange() predicate.Funcs {
+	pred := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldRabbitmq := e.ObjectOld.(*v1alpha1.Rabbitmq)
+			newRabbitmq := e.ObjectNew.(*v1alpha1.Rabbitmq)
+			newRabbitmqActive := true
+			oldRabbitmqActive := true
+			if newRabbitmq.Status.Active == nil {
+				newRabbitmqActive = false
+			} else {
+				newRabbitmqActive = *newRabbitmq.Status.Active
+			}
+			if oldRabbitmq.Status.Active == nil {
+				oldRabbitmqActive = false
+			} else {
+				oldRabbitmqActive = *oldRabbitmq.Status.Active
+			}
+			if !oldRabbitmqActive && newRabbitmqActive {
+				return true
+			}
+			return false
+
+		},
+	}
+	return pred
+}
+
+// ZookeeperActiveChange returns predicate function based on group kind
+func ZookeeperActiveChange() predicate.Funcs {
+	pred := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldZookeeper := e.ObjectOld.(*v1alpha1.Zookeeper)
+			newZookeeper := e.ObjectNew.(*v1alpha1.Zookeeper)
+			newZookeeperActive := true
+			oldZookeeperActive := true
+			if newZookeeper.Status.Active == nil {
+				newZookeeperActive = false
+			} else {
+				newZookeeperActive = *newZookeeper.Status.Active
+			}
+			if oldZookeeper.Status.Active == nil {
+				oldZookeeperActive = false
+			} else {
+				oldZookeeperActive = *oldZookeeper.Status.Active
+			}
+			if !oldZookeeperActive && newZookeeperActive {
+				return true
+			}
+			return false
+
+		},
+	}
+	return pred
+}
+
 //GetObjectAndGroupKindFromRequest returns Object and Kind
 func GetObjectAndGroupKindFromRequest(request *reconcile.Request, client client.Client) (runtime.Object, *schema.GroupKind, error) {
 	appGroupKind := schema.ParseGroupKind(strings.Split(request.Name, "/")[0])
@@ -564,6 +705,15 @@ func SetDeploymentCommonConfiguration(deployment *appsv1.Deployment,
 	deployment.Spec.Template.Spec.Tolerations = commonConfiguration.Tolerations
 	deployment.Spec.Template.Spec.NodeSelector = commonConfiguration.NodeSelector
 	deployment.Spec.Template.Spec.HostNetwork = *commonConfiguration.HostNetwork
-	deployment.Spec.Template.Spec.ImagePullSecrets = commonConfiguration.ImagePullSecrets
+	if len(commonConfiguration.ImagePullSecrets) > 0 {
+		imagePullSecretList := []corev1.LocalObjectReference{}
+		for _, imagePullSecretName := range commonConfiguration.ImagePullSecrets {
+			imagePullSecret := corev1.LocalObjectReference{
+				Name: imagePullSecretName,
+			}
+			imagePullSecretList = append(imagePullSecretList, imagePullSecret)
+		}
+		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretList
+	}
 	return deployment
 }

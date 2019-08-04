@@ -470,6 +470,95 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 	}
 
+	if instance.Spec.Services.Config != nil {
+		configService := instance.Spec.Services.Config
+		create := *configService.Spec.CommonConfiguration.Create
+		delete := false
+		update := false
+		if instance.Status.Config != nil {
+			if *configService.Spec.CommonConfiguration.Create && *instance.Status.Config.Created {
+				create = false
+				delete = false
+				update = true
+			}
+			if !*configService.Spec.CommonConfiguration.Create && *instance.Status.Config.Created {
+				create = false
+				delete = true
+				update = false
+			}
+		}
+
+		cr := cr.GetConfigCr()
+		cr.ObjectMeta = configService.ObjectMeta
+		cr.Labels = configService.ObjectMeta.Labels
+		cr.Namespace = instance.Namespace
+		cr.Spec.ServiceConfiguration = configService.Spec.ServiceConfiguration
+		cr.TypeMeta.APIVersion = "contrail.juniper.net/v1alpha1"
+		cr.TypeMeta.Kind = "Config"
+		if create {
+			err = r.client.Get(context.TODO(), request.NamespacedName, instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					controllerutil.SetControllerReference(instance, cr, r.scheme)
+					err = r.client.Create(context.TODO(), cr)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+
+			status := &v1alpha1.ServiceStatus{}
+			if instance.Status.Config != nil {
+				status = instance.Status.Config
+				status.Created = &create
+			} else {
+				status.Name = &cr.Name
+				status.Created = &create
+				instance.Status.Config = status
+			}
+
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+		}
+		if update {
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			replicas := instance.Spec.CommonConfiguration.Replicas
+			if configService.Spec.CommonConfiguration.Replicas != nil {
+				replicas = configService.Spec.CommonConfiguration.Replicas
+			}
+			if cr.Spec.CommonConfiguration.Replicas != nil {
+				if *replicas != *cr.Spec.CommonConfiguration.Replicas {
+					cr.Spec.CommonConfiguration.Replicas = replicas
+					err = r.client.Update(context.TODO(), cr)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+		}
+		if delete {
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.client.Delete(context.TODO(), cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+		}
+	}
+
 	return reconcile.Result{}, nil
 }
 
