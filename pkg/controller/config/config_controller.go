@@ -266,136 +266,166 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 		map[string]string{configMap.Name: request.Name + "-" + instanceType + "-volume"})
 
 	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
-		for containerName, image := range instance.Spec.ServiceConfiguration.Images {
-			if containerName == container.Name {
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = image
-			}
-			if containerName == "api" {
-				command := []string{"bash", "-c",
-					"/usr/bin/python /usr/bin/contrail-api --conf_file /etc/contrail/api.${POD_IP} --conf_file /etc/contrail/contrail-keystone-auth.conf --worker_id 0"}
-				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+		if container.Name == "api" {
+			command := []string{"bash", "-c",
+				"/usr/bin/python /usr/bin/contrail-api --conf_file /etc/contrail/api.${POD_IP} --conf_file /etc/contrail/contrail-keystone-auth.conf --worker_id 0"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 
-				volumeMountList := []corev1.VolumeMount{}
-				volumeMount := corev1.VolumeMount{
-					Name:      request.Name + "-" + instanceType + "-volume",
-					MountPath: "/etc/contrail",
-				}
-				volumeMountList = append(volumeMountList, volumeMount)
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
 			}
-			if containerName == "devicemanager" {
-				command := []string{"bash", "-c",
-					"/usr/bin/python /usr/bin/contrail-device-manager --conf_file /etc/mycontrail/devicemanager.${POD_IP} --conf_file /etc/contrail/contrail-keystone-auth.conf"}
-				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/contrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "devicemanager" {
+			command := []string{"bash", "-c",
+				"/usr/bin/python /usr/bin/contrail-device-manager --conf_file /etc/mycontrail/devicemanager.${POD_IP} --conf_file /etc/contrail/contrail-keystone-auth.conf"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 
-				volumeMountList := []corev1.VolumeMount{}
-				volumeMount := corev1.VolumeMount{
-					Name:      request.Name + "-" + instanceType + "-volume",
-					MountPath: "/etc/mycontrail",
-				}
-				volumeMountList = append(volumeMountList, volumeMount)
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
 			}
-			if containerName == "servicemonitor" {
-				command := []string{"bash", "-c",
-					"/usr/bin/python /usr/bin/contrail-svc-monitor --conf_file /etc/mycontrail/servicemonitor.${POD_IP} --conf_file /etc/contrail/contrail-keystone-auth.conf"}
-				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "servicemonitor" {
+			command := []string{"bash", "-c",
+				"/usr/bin/python /usr/bin/contrail-svc-monitor --conf_file /etc/mycontrail/servicemonitor.${POD_IP} --conf_file /etc/contrail/contrail-keystone-auth.conf"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 
-				volumeMountList := []corev1.VolumeMount{}
-				volumeMount := corev1.VolumeMount{
-					Name:      request.Name + "-" + instanceType + "-volume",
-					MountPath: "/etc/mycontrail",
-				}
-				volumeMountList = append(volumeMountList, volumeMount)
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
 			}
-			if containerName == "schematransformer" {
-				command := []string{"bash", "-c",
-					"/usr/bin/python /usr/bin/contrail-schema --conf_file /etc/mycontrail/schematransformer.${POD_IP}  --conf_file /etc/contrail/contrail-keystone-auth.conf"}
-				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "schematransformer" {
+			command := []string{"bash", "-c",
+				"/usr/bin/python /usr/bin/contrail-schema --conf_file /etc/mycontrail/schematransformer.${POD_IP}  --conf_file /etc/contrail/contrail-keystone-auth.conf"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 
-				volumeMountList := []corev1.VolumeMount{}
-				volumeMount := corev1.VolumeMount{
-					Name:      request.Name + "-" + instanceType + "-volume",
-					MountPath: "/etc/mycontrail",
-				}
-				volumeMountList = append(volumeMountList, volumeMount)
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
 			}
-			if containerName == "analyticsapi" {
-				command := []string{"bash", "-c",
-					"/usr/bin/python /usr/bin/contrail-analytics-api -c /etc/mycontrail/analyticsapi.${POD_IP} -c /etc/contrail/contrail-keystone-auth.conf"}
-				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "analyticsapi" {
+			command := []string{"bash", "-c",
+				"/usr/bin/python /usr/bin/contrail-analytics-api -c /etc/mycontrail/analyticsapi.${POD_IP} -c /etc/contrail/contrail-keystone-auth.conf"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 
-				volumeMountList := []corev1.VolumeMount{}
-				volumeMount := corev1.VolumeMount{
-					Name:      request.Name + "-" + instanceType + "-volume",
-					MountPath: "/etc/mycontrail",
-				}
-				volumeMountList = append(volumeMountList, volumeMount)
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
 			}
-			if containerName == "collector" {
-				command := []string{"bash", "-c",
-					"/usr/bin/contrail-collector --conf_file /etc/mycontrail/collector.${POD_IP}"}
-				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "collector" {
+			command := []string{"bash", "-c",
+				"/usr/bin/contrail-collector --conf_file /etc/mycontrail/collector.${POD_IP}"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 
-				volumeMountList := []corev1.VolumeMount{}
-				volumeMount := corev1.VolumeMount{
-					Name:      request.Name + "-" + instanceType + "-volume",
-					MountPath: "/etc/mycontrail",
-				}
-				volumeMountList = append(volumeMountList, volumeMount)
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
 			}
-			if containerName == "redis" {
-				command := []string{"bash", "-c",
-					"redis-server"}
-				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "redis" {
+			command := []string{"bash", "-c",
+				"redis-server"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 
-				volumeMountList := []corev1.VolumeMount{}
-				volumeMount := corev1.VolumeMount{
-					Name:      request.Name + "-" + instanceType + "-volume",
-					MountPath: "/etc/mycontrail",
-				}
-				volumeMountList = append(volumeMountList, volumeMount)
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
 			}
-			if containerName == "nodemanagerconfig" {
-				command := []string{"bash", "-c",
-					"sed \"s/hostip=.*/hostip=${POD_IP}/g\" /etc/mycontrail/nodemanagerconfig.${POD_IP} > /etc/contrail/contrail-config-nodemgr.conf; /usr/bin/python /usr/bin/contrail-nodemgr --nodetype=contrail-config"}
-				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "nodemanagerconfig" {
+			command := []string{"bash", "-c",
+				"sed \"s/hostip=.*/hostip=${POD_IP}/g\" /etc/mycontrail/nodemanagerconfig.${POD_IP} > /etc/contrail/contrail-config-nodemgr.conf; /usr/bin/python /usr/bin/contrail-nodemgr --nodetype=contrail-config"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 
-				volumeMountList := []corev1.VolumeMount{}
-				volumeMount := corev1.VolumeMount{
-					Name:      request.Name + "-" + instanceType + "-volume",
-					MountPath: "/etc/mycontrail",
-				}
-				volumeMountList = append(volumeMountList, volumeMount)
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
 			}
-			if containerName == "nodemanageranalytics" {
-				command := []string{"bash", "-c",
-					"sed \"s/hostip=.*/hostip=${POD_IP}/g\" /etc/mycontrail/nodemanageranalytics.${POD_IP} > /etc/contrail/contrail-analytics-nodemgr.conf;/usr/bin/python /usr/bin/contrail-nodemgr --nodetype=contrail-analytics"}
-				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
-
-				volumeMountList := []corev1.VolumeMount{}
-				volumeMount := corev1.VolumeMount{
-					Name:      request.Name + "-" + instanceType + "-volume",
-					MountPath: "/etc/mycontrail",
-				}
-				volumeMountList = append(volumeMountList, volumeMount)
-				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
 			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "nodemanageranalytics" {
+			command := []string{"bash", "-c",
+				"sed \"s/hostip=.*/hostip=${POD_IP}/g\" /etc/mycontrail/nodemanageranalytics.${POD_IP} > /etc/contrail/contrail-analytics-nodemgr.conf;/usr/bin/python /usr/bin/contrail-nodemgr --nodetype=contrail-analytics"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
+			}
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
 		}
 	}
 
