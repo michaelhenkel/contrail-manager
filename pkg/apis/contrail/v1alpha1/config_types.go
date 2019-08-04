@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -72,7 +71,6 @@ func init() {
 func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 	podList *corev1.PodList,
 	client client.Client) error {
-	fmt.Println("CREATING CONFIG CONFIMAP")
 	instanceConfigMapName := request.Name + "-" + "config" + "-configmap"
 	configMapInstanceDynamicConfig := &corev1.ConfigMap{}
 	err := client.Get(context.TODO(),
@@ -81,7 +79,6 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 	if err != nil {
 		return err
 	}
-	fmt.Println("GOT CONFIG CONFIMAP", configMapInstanceDynamicConfig.Name)
 
 	cassandraNodes, cassandraPort, cassandraCqlPort, cassandraJmxPort, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, client)
@@ -94,9 +91,6 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 	cassandraCqlServerSpaceSeparateList = strings.Join(cassandraNodes, ":"+strconv.Itoa(cassandraCqlPort)+" ")
 	cassandraCqlServerSpaceSeparateList = cassandraCqlServerSpaceSeparateList + ":" + strconv.Itoa(cassandraCqlPort)
 
-	fmt.Println("cassandraServerSpaceSeparatedList", cassandraServerSpaceSeparatedList)
-	fmt.Println("cassandraCqlServerSpaceSeparateList", cassandraCqlServerSpaceSeparateList)
-
 	zookeeperNodes, zookeeperPort, err := GetZookeeperNodes(c.Spec.ServiceConfiguration.ZookeeperInstance,
 		request.Namespace, client)
 	if err != nil {
@@ -108,9 +102,6 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 	zookeeperServerCommaSeparateList = strings.Join(zookeeperNodes, ":"+strconv.Itoa(zookeeperPort)+",")
 	zookeeperServerCommaSeparateList = zookeeperServerCommaSeparateList + ":" + strconv.Itoa(zookeeperPort)
 
-	fmt.Println("zookeeperServerSpaceSeparateList", zookeeperServerSpaceSeparateList)
-	fmt.Println("zookeeperServerCommaSeparateList", zookeeperServerCommaSeparateList)
-
 	rabbitmqNodes, rabbitmqPort, err := GetRabbitmqNodes(c.Labels["contrail_cluster"],
 		request.Namespace, client)
 	if err != nil {
@@ -121,9 +112,6 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 	rabbitmqServerCommaSeparatedList = rabbitmqServerCommaSeparatedList + ":" + strconv.Itoa(rabbitmqPort)
 	rabbitmqServerSpaceSeparatedList = strings.Join(rabbitmqNodes, ":"+strconv.Itoa(rabbitmqPort)+" ")
 	rabbitmqServerSpaceSeparatedList = rabbitmqServerSpaceSeparatedList + ":" + strconv.Itoa(rabbitmqPort)
-
-	fmt.Println("rabbitmqServerCommaSeparatedList", rabbitmqServerCommaSeparatedList)
-	fmt.Println("rabbitmqServerSpaceSeparatedList", rabbitmqServerSpaceSeparatedList)
 
 	var collectorServerList, analyticsServerList, apiServerList, analyticsServerSpaceSeparatedList, apiServerSpaceSeparatedList, redisServerSpaceSeparatedList string
 	var podIPList []string
@@ -140,12 +128,6 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 	apiServerSpaceSeparatedList = apiServerSpaceSeparatedList + ":8082"
 	redisServerSpaceSeparatedList = strings.Join(podIPList, ":6379 ")
 	redisServerSpaceSeparatedList = redisServerSpaceSeparatedList + ":6379"
-	fmt.Println("collectorServerList", collectorServerList)
-	fmt.Println("analyticsServerList", analyticsServerList)
-	fmt.Println("apiServerList", apiServerList)
-	fmt.Println("analyticsServerSpaceSeparatedList", analyticsServerSpaceSeparatedList)
-	fmt.Println("apiServerSpaceSeparatedList", apiServerSpaceSeparatedList)
-	fmt.Println("redisServerSpaceSeparatedList", redisServerSpaceSeparatedList)
 
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 	var data = make(map[string]string)
@@ -293,12 +275,8 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 			CassandraJmxPort:    strconv.Itoa(cassandraJmxPort),
 		})
 		data["nodemanageranalytics."+podList.Items[idx].Status.PodIP] = configNodemanageranalyticsConfigBuffer.String()
-		fmt.Println("DATA ", data)
-
 	}
 	configMapInstanceDynamicConfig.Data = data
-	fmt.Println("configMapInstanceDynamicConfig.Data ", configMapInstanceDynamicConfig.Data)
-
 	err = client.Update(context.TODO(), configMapInstanceDynamicConfig)
 	if err != nil {
 		return err
