@@ -20,13 +20,14 @@ import (
 
 // const defines the condsts
 const (
-	CASSANDRA  = "Cassandra.contrail.juniper.net"
-	ZOOKEEPER  = "Zookeeper.contrail.juniper.net"
-	RABBITMQ   = "Rabbitmq.contrail.juniper.net"
-	CONFIG     = "Config.contrail.juniper.net"
-	MANAGER    = "Manager.contrail.juniper.net"
-	REPLICASET = "ReplicaSet.apps"
-	DEPLOYMENT = "Deployment.apps"
+	CASSANDRA   = "Cassandra.contrail.juniper.net"
+	ZOOKEEPER   = "Zookeeper.contrail.juniper.net"
+	RABBITMQ    = "Rabbitmq.contrail.juniper.net"
+	CONFIG      = "Config.contrail.juniper.net"
+	KUBEMANAGER = "Kubemanager.contrail.juniper.net"
+	MANAGER     = "Manager.contrail.juniper.net"
+	REPLICASET  = "ReplicaSet.apps"
+	DEPLOYMENT  = "Deployment.apps"
 )
 
 var err error
@@ -314,6 +315,11 @@ func ConfigGroupKind() schema.GroupKind {
 	return schema.ParseGroupKind(CONFIG)
 }
 
+// KubemanagerGroupKind returns group kind
+func KubemanagerGroupKind() schema.GroupKind {
+	return schema.ParseGroupKind(KUBEMANAGER)
+}
+
 // CassandraGroupKind returns group kind
 func CassandraGroupKind() schema.GroupKind {
 	return schema.ParseGroupKind(CASSANDRA)
@@ -504,55 +510,64 @@ func PodInitStatusChange(appLabel map[string]string) predicate.Funcs {
 	return pred
 }
 
-
-
 func IsCassandraActive(name string, namespace string, client client.Client) bool {
-	cassandraActive := false
 	cassandraInstance := &v1alpha1.Cassandra{}
 	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, cassandraInstance)
 	if err != nil {
-		return cassandraActive
+		return false
 	}
 	if cassandraInstance.Status.Active != nil {
 		if *cassandraInstance.Status.Active {
-			cassandraActive = true
+			return true
 		}
 	}
-	return cassandraActive
+	return false
+}
+
+func IsConfigActive(name string, namespace string, client client.Client) bool {
+	configInstance := &v1alpha1.Config{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, configInstance)
+	if err != nil {
+		return false
+	}
+	if configInstance.Status.Active != nil {
+		if *configInstance.Status.Active {
+			return true
+		}
+	}
+	return false
 }
 
 func IsRabbitmqActive(name string, namespace string, myclient client.Client) bool {
-	rabbitmqActive := false
 	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": name})
 	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
 	rabbitmqList := &v1alpha1.RabbitmqList{}
 	err = myclient.List(context.TODO(), listOps, rabbitmqList)
 	if err != nil {
-		return rabbitmqActive
+		return false
 	}
 	if len(rabbitmqList.Items) > 0 {
 		if rabbitmqList.Items[0].Status.Active != nil {
 			if *rabbitmqList.Items[0].Status.Active {
-				rabbitmqActive = true
+				return true
 			}
 		}
 	}
-	return rabbitmqActive
+	return false
 }
 
 func IsZookeeperActive(name string, namespace string, client client.Client) bool {
-	zookeeperActive := false
 	zookeeperInstance := &v1alpha1.Zookeeper{}
 	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, zookeeperInstance)
 	if err != nil {
-		return zookeeperActive
+		return false
 	}
 	if zookeeperInstance.Status.Active != nil {
 		if *zookeeperInstance.Status.Active {
-			zookeeperActive = true
+			return true
 		}
 	}
-	return zookeeperActive
+	return false
 }
 
 // CassandraActiveChange returns predicate function based on group kind
@@ -561,19 +576,39 @@ func CassandraActiveChange() predicate.Funcs {
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldCassandra := e.ObjectOld.(*v1alpha1.Cassandra)
 			newCassandra := e.ObjectNew.(*v1alpha1.Cassandra)
-			newCassandraActive := true
-			oldCassandraActive := true
-			if newCassandra.Status.Active == nil {
-				newCassandraActive = false
-			} else {
+			newCassandraActive := false
+			oldCassandraActive := false
+			if newCassandra.Status.Active != nil {
 				newCassandraActive = *newCassandra.Status.Active
 			}
-			if oldCassandra.Status.Active == nil {
-				oldCassandraActive = false
-			} else {
+			if oldCassandra.Status.Active != nil {
 				oldCassandraActive = *oldCassandra.Status.Active
 			}
 			if !oldCassandraActive && newCassandraActive {
+				return true
+			}
+			return false
+
+		},
+	}
+	return pred
+}
+
+// ConfigActiveChange returns predicate function based on group kind
+func ConfigActiveChange() predicate.Funcs {
+	pred := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldConfig := e.ObjectOld.(*v1alpha1.Config)
+			newConfig := e.ObjectNew.(*v1alpha1.Config)
+			newConfigActive := false
+			oldConfigActive := false
+			if newConfig.Status.Active != nil {
+				newConfigActive = *newConfig.Status.Active
+			}
+			if oldConfig.Status.Active != nil {
+				oldConfigActive = *oldConfig.Status.Active
+			}
+			if !oldConfigActive && newConfigActive {
 				return true
 			}
 			return false
@@ -589,16 +624,12 @@ func RabbitmqActiveChange() predicate.Funcs {
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldRabbitmq := e.ObjectOld.(*v1alpha1.Rabbitmq)
 			newRabbitmq := e.ObjectNew.(*v1alpha1.Rabbitmq)
-			newRabbitmqActive := true
-			oldRabbitmqActive := true
-			if newRabbitmq.Status.Active == nil {
-				newRabbitmqActive = false
-			} else {
+			newRabbitmqActive := false
+			oldRabbitmqActive := false
+			if newRabbitmq.Status.Active != nil {
 				newRabbitmqActive = *newRabbitmq.Status.Active
 			}
-			if oldRabbitmq.Status.Active == nil {
-				oldRabbitmqActive = false
-			} else {
+			if oldRabbitmq.Status.Active != nil {
 				oldRabbitmqActive = *oldRabbitmq.Status.Active
 			}
 			if !oldRabbitmqActive && newRabbitmqActive {
@@ -617,16 +648,12 @@ func ZookeeperActiveChange() predicate.Funcs {
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldZookeeper := e.ObjectOld.(*v1alpha1.Zookeeper)
 			newZookeeper := e.ObjectNew.(*v1alpha1.Zookeeper)
-			newZookeeperActive := true
-			oldZookeeperActive := true
-			if newZookeeper.Status.Active == nil {
-				newZookeeperActive = false
-			} else {
+			newZookeeperActive := false
+			oldZookeeperActive := false
+			if newZookeeper.Status.Active != nil {
 				newZookeeperActive = *newZookeeper.Status.Active
 			}
-			if oldZookeeper.Status.Active == nil {
-				oldZookeeperActive = false
-			} else {
+			if oldZookeeper.Status.Active != nil {
 				oldZookeeperActive = *oldZookeeper.Status.Active
 			}
 			if !oldZookeeperActive && newZookeeperActive {
@@ -716,4 +743,86 @@ func SetDeploymentCommonConfiguration(deployment *appsv1.Deployment,
 		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretList
 	}
 	return deployment
+}
+
+func IsReplicaset(request *reconcile.Request, instanceType string, client client.Client) bool {
+	replicaSet := &appsv1.ReplicaSet{}
+	err = client.Get(context.TODO(), request.NamespacedName, replicaSet)
+	if err == nil {
+		request.Name = replicaSet.Labels[instanceType]
+		return true
+	}
+	return false
+}
+
+func IsManager(request *reconcile.Request, myclient client.Client) bool {
+	managerInstance := &v1alpha1.Manager{}
+	err = myclient.Get(context.TODO(), request.NamespacedName, managerInstance)
+	if err == nil {
+		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": managerInstance.GetName()})
+		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+		configList := &v1alpha1.ConfigList{}
+		err = myclient.List(context.TODO(), listOps, configList)
+		if err == nil {
+			if len(configList.Items) > 0 {
+				request.Name = configList.Items[0].Name
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func IsRabbitmq(request *reconcile.Request, myclient client.Client) bool {
+	rabbitmqInstance := &v1alpha1.Rabbitmq{}
+	err = myclient.Get(context.TODO(), request.NamespacedName, rabbitmqInstance)
+	if err == nil {
+		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": rabbitmqInstance.Labels["contrail_cluster"]})
+		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+		configList := &v1alpha1.ConfigList{}
+		err = myclient.List(context.TODO(), listOps, configList)
+		if err == nil {
+			if len(configList.Items) > 0 {
+				request.Name = configList.Items[0].Name
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func IsZookeeper(request *reconcile.Request, myclient client.Client) bool {
+	zookeeperInstance := &v1alpha1.Zookeeper{}
+	err = myclient.Get(context.TODO(), request.NamespacedName, zookeeperInstance)
+	if err == nil {
+		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": zookeeperInstance.Labels["contrail_cluster"]})
+		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+		configList := &v1alpha1.ConfigList{}
+		err = myclient.List(context.TODO(), listOps, configList)
+		if err == nil {
+			if len(configList.Items) > 0 {
+				request.Name = configList.Items[0].Name
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func IsCassandra(request *reconcile.Request, myclient client.Client) bool {
+	cassandraInstance := &v1alpha1.Cassandra{}
+	err = myclient.Get(context.TODO(), request.NamespacedName, cassandraInstance)
+	if err == nil {
+		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": cassandraInstance.Labels["contrail_cluster"]})
+		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+		configList := &v1alpha1.ConfigList{}
+		err = myclient.List(context.TODO(), listOps, configList)
+		if err == nil {
+			if len(configList.Items) > 0 {
+				request.Name = configList.Items[0].Name
+				return true
+			}
+		}
+	}
+	return false
 }

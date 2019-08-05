@@ -2,7 +2,6 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -87,6 +86,12 @@ type Instance interface {
 	SetPodsToReady(*corev1.PodList, client.Client) error
 	ManageNodeStatus(map[string]string, client.Client) error
 	SetInstanceActive(client.Client, *Status, *appsv1.Deployment, reconcile.Request) error
+	IsReplicaset(*reconcile.Request, string, client.Client) bool
+	IsManager(*reconcile.Request, client.Client) bool
+	IsRabbitmq(*reconcile.Request, client.Client) bool
+	IsZookeeper(*reconcile.Request, client.Client) bool
+	IsCassandra(*reconcile.Request, client.Client) bool
+	IsConfig(*reconcile.Request, client.Client) bool
 }
 
 func SetInstanceActive(client client.Client, status *Status, deployment *appsv1.Deployment, request reconcile.Request) error {
@@ -316,12 +321,10 @@ func GetCassandraNodes(name string, namespace string, client client.Client) ([]s
 	var cqlPort int
 	var jmxPort int
 	cassandraInstance := &Cassandra{}
-	fmt.Println("Trying to get Cassandra: ", name)
 	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, cassandraInstance)
 	if err != nil {
 		return cassandraNodes, port, cqlPort, jmxPort, err
 	}
-	fmt.Println("Got Cassandra: ", cassandraInstance.Name)
 	for _, ip := range cassandraInstance.Status.Nodes {
 		cassandraNodes = append(cassandraNodes, ip)
 	}

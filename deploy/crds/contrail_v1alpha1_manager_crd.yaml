@@ -450,10 +450,41 @@ spec:
                             type: object
                           serviceConfiguration:
                             properties:
+                              cassandraInstance:
+                                type: string
+                              cloudOrchestrator:
+                                type: string
+                              clusterRole:
+                                type: string
+                              clusterRoleBinding:
+                                type: string
                               images:
                                 additionalProperties:
                                   type: string
                                 type: object
+                              ipFabricForwarding:
+                                type: boolean
+                              ipFabricSnat:
+                                type: boolean
+                              kubernetesAPIPort:
+                                format: int64
+                                type: integer
+                              kubernetesAPIServer:
+                                type: string
+                              kubernetesClusterName:
+                                type: string
+                              kubernetesTokenFile:
+                                type: string
+                              podSubnet:
+                                type: string
+                              serviceAccount:
+                                type: string
+                              serviceSubnet:
+                                type: string
+                              useKubeadmConfig:
+                                type: boolean
+                              zookeeperInstance:
+                                type: string
                             required:
                             - images
                             type: object

@@ -8,7 +8,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -133,81 +132,12 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 	instance := &v1alpha1.Config{}
 	var i v1alpha1.Instance = instance
 	err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
-	// if not found we expect it a change in replicaset
-	// and get the config instance via label
 	if err != nil && errors.IsNotFound(err) {
-		isReplicaset := false
-		isCassandra := false
-		isZookeeper := false
-		isRabbitmq := false
-		isManager := false
-
-		replicaSet := &appsv1.ReplicaSet{}
-		err = r.Client.Get(context.TODO(), request.NamespacedName, replicaSet)
-		if err == nil {
-			isReplicaset = true
-			request.Name = replicaSet.Labels[instanceType]
-		}
-
-		managerInstance := &v1alpha1.Manager{}
-		err = r.Client.Get(context.TODO(), request.NamespacedName, managerInstance)
-		if err == nil {
-			labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": managerInstance.GetName()})
-			listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-			configList := &v1alpha1.ConfigList{}
-			err = r.Client.List(context.TODO(), listOps, configList)
-			if err == nil {
-				if len(configList.Items) > 0 {
-					isManager = true
-					request.Name = configList.Items[0].Name
-				}
-			}
-		}
-
-		rabbitmqInstance := &v1alpha1.Rabbitmq{}
-		err = r.Client.Get(context.TODO(), request.NamespacedName, rabbitmqInstance)
-		if err == nil {
-			labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": rabbitmqInstance.Labels["contrail_cluster"]})
-			listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-			configList := &v1alpha1.ConfigList{}
-			err = r.Client.List(context.TODO(), listOps, configList)
-			if err == nil {
-				if len(configList.Items) > 0 {
-					isRabbitmq = true
-					request.Name = configList.Items[0].Name
-				}
-			}
-		}
-
-		zookeeperInstance := &v1alpha1.Zookeeper{}
-		err = r.Client.Get(context.TODO(), request.NamespacedName, zookeeperInstance)
-		if err == nil {
-			labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": zookeeperInstance.Labels["contrail_cluster"]})
-			listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-			configList := &v1alpha1.ConfigList{}
-			err = r.Client.List(context.TODO(), listOps, configList)
-			if err == nil {
-				if len(configList.Items) > 0 {
-					isZookeeper = true
-					request.Name = configList.Items[0].Name
-				}
-			}
-		}
-
-		cassandraInstance := &v1alpha1.Cassandra{}
-		err = r.Client.Get(context.TODO(), request.NamespacedName, cassandraInstance)
-		if err == nil {
-			labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": cassandraInstance.Labels["contrail_cluster"]})
-			listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-			configList := &v1alpha1.ConfigList{}
-			err = r.Client.List(context.TODO(), listOps, configList)
-			if err == nil {
-				if len(configList.Items) > 0 {
-					isCassandra = true
-					request.Name = configList.Items[0].Name
-				}
-			}
-		}
+		isReplicaset := i.IsReplicaset(&request, instanceType, r.Client)
+		isManager := i.IsManager(&request, r.Client)
+		isZookeeper := i.IsZookeeper(&request, r.Client)
+		isRabbitmq := i.IsRabbitmq(&request, r.Client)
+		isCassandra := i.IsCassandra(&request, r.Client)
 		if !isCassandra && !isRabbitmq && !isZookeeper && !isReplicaset && !isManager {
 			return reconcile.Result{}, nil
 		}
@@ -217,11 +147,14 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 		}
 	}
 
-	cassandraActive := utils.IsCassandraActive(instance.Spec.ServiceConfiguration.CassandraInstance,
+	cassandraActive := false
+	zookeeperActive := false
+	rabbitmqActive := false
+	cassandraActive = utils.IsCassandraActive(instance.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, r.Client)
-	zookeeperActive := utils.IsZookeeperActive(instance.Spec.ServiceConfiguration.ZookeeperInstance,
+	zookeeperActive = utils.IsZookeeperActive(instance.Spec.ServiceConfiguration.ZookeeperInstance,
 		request.Namespace, r.Client)
-	rabbitmqActive := utils.IsRabbitmqActive(instance.Labels["contrail_cluster"],
+	rabbitmqActive = utils.IsRabbitmqActive(instance.Labels["contrail_cluster"],
 		request.Namespace, r.Client)
 	if !cassandraActive && !rabbitmqActive && !zookeeperActive {
 		return reconcile.Result{}, nil
@@ -268,7 +201,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
 		if container.Name == "api" {
 			command := []string{"bash", "-c",
-				"/usr/bin/python /usr/bin/contrail-api --conf_file /etc/contrail/api.${POD_IP} --conf_file /etc/contrail/contrail-keystone-auth.conf --worker_id 0"}
+				"/usr/bin/python /usr/bin/contrail-api --conf_file /etc/mycontrail/api.${POD_IP} --conf_file /etc/contrail/contrail-keystone-auth.conf --worker_id 0"}
 			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
 			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 
@@ -278,7 +211,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 			}
 			volumeMount := corev1.VolumeMount{
 				Name:      request.Name + "-" + instanceType + "-volume",
-				MountPath: "/etc/contrail",
+				MountPath: "/etc/mycontrail",
 			}
 			volumeMountList = append(volumeMountList, volumeMount)
 			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList

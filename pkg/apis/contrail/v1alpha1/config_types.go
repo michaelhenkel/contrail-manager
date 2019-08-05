@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -357,4 +358,90 @@ func (c *Config) SetInstanceActive(client client.Client, status *Status, deploym
 		return err
 	}
 	return nil
+}
+
+func (c *Config) IsCassandra(request *reconcile.Request, myclient client.Client) bool {
+	cassandraInstance := &Cassandra{}
+	err := myclient.Get(context.TODO(), request.NamespacedName, cassandraInstance)
+	if err == nil {
+		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": cassandraInstance.Labels["contrail_cluster"]})
+		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+		list := &ConfigList{}
+		err = myclient.List(context.TODO(), listOps, list)
+		if err == nil {
+			if len(list.Items) > 0 {
+				request.Name = list.Items[0].Name
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c *Config) IsManager(request *reconcile.Request, myclient client.Client) bool {
+	managerInstance := &Manager{}
+	err := myclient.Get(context.TODO(), request.NamespacedName, managerInstance)
+	if err == nil {
+		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": managerInstance.GetName()})
+		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+		list := &ConfigList{}
+		err = myclient.List(context.TODO(), listOps, list)
+		if err == nil {
+			if len(list.Items) > 0 {
+				request.Name = list.Items[0].Name
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c *Config) IsZookeeper(request *reconcile.Request, myclient client.Client) bool {
+	zookeeperInstance := &Zookeeper{}
+	err := myclient.Get(context.TODO(), request.NamespacedName, zookeeperInstance)
+	if err == nil {
+		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": zookeeperInstance.Labels["contrail_cluster"]})
+		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+		list := &ConfigList{}
+		err = myclient.List(context.TODO(), listOps, list)
+		if err == nil {
+			if len(list.Items) > 0 {
+				request.Name = list.Items[0].Name
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c *Config) IsRabbitmq(request *reconcile.Request, myclient client.Client) bool {
+	rabbitmqInstance := &Rabbitmq{}
+	err := myclient.Get(context.TODO(), request.NamespacedName, rabbitmqInstance)
+	if err == nil {
+		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": rabbitmqInstance.Labels["contrail_cluster"]})
+		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+		list := &ConfigList{}
+		err = myclient.List(context.TODO(), listOps, list)
+		if err == nil {
+			if len(list.Items) > 0 {
+				request.Name = list.Items[0].Name
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c *Config) IsReplicaset(request *reconcile.Request, instanceType string, client client.Client) bool {
+	replicaSet := &appsv1.ReplicaSet{}
+	err := client.Get(context.TODO(), request.NamespacedName, replicaSet)
+	if err == nil {
+		request.Name = replicaSet.Labels[instanceType]
+		return true
+	}
+	return false
+}
+
+func (c *Config) IsConfig(request *reconcile.Request, client client.Client) bool {
+	return true
 }

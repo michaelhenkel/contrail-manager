@@ -214,3 +214,27 @@ func (c *Cassandra) SetInstanceActive(client client.Client, status *Status, depl
 	}
 	return nil
 }
+
+func (c *Cassandra) IsCassandra(request *reconcile.Request, client client.Client) bool {
+	return true
+}
+
+func (c *Cassandra) IsManager(request *reconcile.Request, client client.Client) bool {
+	return true
+}
+
+func (c *Cassandra) IsZookeeper(request *reconcile.Request, client client.Client) bool {
+	return true
+}
+
+func (c *Cassandra) IsRabbitmq(request *reconcile.Request, client client.Client) bool {
+	return true
+}
+
+func (c *Cassandra) IsReplicaset(request *reconcile.Request, instanceType string, client client.Client) bool {
+	return true
+}
+
+func (c *Cassandra) IsConfig(request *reconcile.Request, client client.Client) bool {
+	return true
+}
