@@ -101,9 +101,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	srcDeployment := &source.Kind{Type: &appsv1.Deployment{}}
 	deploymentHandler := &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &v1alpha1.Cassandra{},
+		OwnerType:    &v1alpha1.Config{},
 	}
-	deploymentPred := utils.DeploymentStatusChange(utils.CassandraGroupKind())
+	deploymentPred := utils.DeploymentStatusChange(utils.ConfigGroupKind())
 	err = c.Watch(srcDeployment, deploymentHandler, deploymentPred)
 	if err != nil {
 		return err

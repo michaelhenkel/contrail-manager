@@ -124,9 +124,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	srcDeployment := &source.Kind{Type: &appsv1.Deployment{}}
 	deploymentHandler := &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &v1alpha1.Cassandra{},
+		OwnerType:    &v1alpha1.Kubemanager{},
 	}
-	deploymentPred := utils.DeploymentStatusChange(utils.CassandraGroupKind())
+	deploymentPred := utils.DeploymentStatusChange(utils.KubemanagerGroupKind())
 	err = c.Watch(srcDeployment, deploymentHandler, deploymentPred)
 	if err != nil {
 		return err
@@ -182,15 +182,27 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 	configActive := false
 	cassandraActive = utils.IsCassandraActive(instance.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, r.Client)
+	if !cassandraActive {
+		return reconcile.Result{}, err
+	}
 	zookeeperActive = utils.IsZookeeperActive(instance.Spec.ServiceConfiguration.ZookeeperInstance,
 		request.Namespace, r.Client)
+	if !zookeeperActive {
+		return reconcile.Result{}, err
+	}
 	rabbitmqActive = utils.IsRabbitmqActive(instance.Labels["contrail_cluster"],
 		request.Namespace, r.Client)
+	if !rabbitmqActive {
+		return reconcile.Result{}, err
+	}
 	configActive = utils.IsConfigActive(instance.Labels["contrail_cluster"],
 		request.Namespace, r.Client)
-	if !configActive && !cassandraActive && !rabbitmqActive && !zookeeperActive {
-		return reconcile.Result{}, nil
+	if !configActive {
+		return reconcile.Result{}, err
 	}
+	//if !configActive && !cassandraActive && !rabbitmqActive && !zookeeperActive {
+	//	return reconcile.Result{}, nil
+	//}
 	managerInstance, err := i.OwnedByManager(r.Client, request)
 	if err != nil {
 		return reconcile.Result{}, err
