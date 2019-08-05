@@ -156,7 +156,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 		request.Namespace, r.Client)
 	rabbitmqActive = utils.IsRabbitmqActive(instance.Labels["contrail_cluster"],
 		request.Namespace, r.Client)
-	if !cassandraActive && !rabbitmqActive && !zookeeperActive {
+	if !cassandraActive || !rabbitmqActive || !zookeeperActive {
 		return reconcile.Result{}, nil
 	}
 

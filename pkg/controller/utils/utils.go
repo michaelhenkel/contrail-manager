@@ -524,15 +524,19 @@ func IsCassandraActive(name string, namespace string, client client.Client) bool
 	return false
 }
 
-func IsConfigActive(name string, namespace string, client client.Client) bool {
-	configInstance := &v1alpha1.Config{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, configInstance)
+func IsConfigActive(name string, namespace string, myclient client.Client) bool {
+	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": name})
+	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+	list := &v1alpha1.ConfigList{}
+	err = myclient.List(context.TODO(), listOps, list)
 	if err != nil {
 		return false
 	}
-	if configInstance.Status.Active != nil {
-		if *configInstance.Status.Active {
-			return true
+	if len(list.Items) > 0 {
+		if list.Items[0].Status.Active != nil {
+			if *list.Items[0].Status.Active {
+				return true
+			}
 		}
 	}
 	return false
