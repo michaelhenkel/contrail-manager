@@ -183,7 +183,7 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
 		if container.Name == "webuiweb" {
 			command := []string{"bash", "-c",
-				"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh ;; sleep 3;; /usr/bin/node /usr/src/contrail/contrail-web-core/webServerStart.js --conf_file /etc/mycontrail/config.global.js.${POD_IP}"}
+				"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh; sleep 3; /usr/bin/node /usr/src/contrail/contrail-web-core/webServerStart.js --conf_file /etc/mycontrail/config.global.js.${POD_IP}"}
 			//command = []string{"bash", "-c",
 			//	"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh && while true; do echo hello; sleep 10;done"}
 			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
@@ -203,7 +203,7 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 		}
 		if container.Name == "webuijob" {
 			command := []string{"bash", "-c",
-				"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh ;; sleep 3;;/usr/bin/node /usr/src/contrail/contrail-web-core/jobServerStart.js --conf_file /etc/mycontrail/config.global.js.${POD_IP}"}
+				"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh; sleep 3;/usr/bin/node /usr/src/contrail/contrail-web-core/jobServerStart.js --conf_file /etc/mycontrail/config.global.js.${POD_IP}"}
 			//command = []string{"bash", "-c",
 			//	"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh && while true; do echo hello; sleep 10;done"}
 			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
