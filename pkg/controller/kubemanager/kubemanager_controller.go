@@ -182,19 +182,16 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 	configActive := false
 	cassandraActive = utils.IsCassandraActive(instance.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, r.Client)
-
 	zookeeperActive = utils.IsZookeeperActive(instance.Spec.ServiceConfiguration.ZookeeperInstance,
 		request.Namespace, r.Client)
-
 	rabbitmqActive = utils.IsRabbitmqActive(instance.Labels["contrail_cluster"],
 		request.Namespace, r.Client)
-
 	configActive = utils.IsConfigActive(instance.Labels["contrail_cluster"],
 		request.Namespace, r.Client)
-
 	if !configActive || !cassandraActive || !rabbitmqActive || !zookeeperActive {
 		return reconcile.Result{}, nil
 	}
+
 	managerInstance, err := i.OwnedByManager(r.Client, request)
 	if err != nil {
 		return reconcile.Result{}, err

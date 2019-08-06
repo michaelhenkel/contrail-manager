@@ -70,10 +70,14 @@ spec:
               type: object
             serviceConfiguration:
               properties:
+                cassandraInstance:
+                  type: string
                 images:
                   additionalProperties:
                     type: string
                   type: object
+                zookeeperInstance:
+                  type: string
               required:
               - images
               type: object

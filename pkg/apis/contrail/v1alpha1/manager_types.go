@@ -11,20 +11,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-/*
-type Service struct {
-	Activate      *bool `json:"activate,omitempty"`
-	Image         string `json:"image,omitempty"`
-	Size          *int `json:"size,omitempty"`
-	Configuration map[string]string `json:"configuration,omitempty"`
-}
-
-type Global struct {
-
-}
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-*/
 // ManagerSpec defines the desired state of Manager
 // +k8s:openapi-gen=true
 type ManagerSpec struct {

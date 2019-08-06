@@ -23,19 +23,23 @@ spec:
         contrail_manager: control
     spec:
       containers:
-      - envFrom:
-        - configMapRef:
-            name: control
-        image: docker.io/michaelhenkel/contrail-controller-control-control:5.2.0-dev1
+      - image: docker.io/michaelhenkel/contrail-controller-control-control:5.2.0-dev1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: control
         volumeMounts:
         - mountPath: /var/log/contrail
           name: control-logs
-      - envFrom:
-        - configMapRef:
-            name: control
-        image: docker.io/michaelhenkel/contrail-controller-control-dns:5.2.0-dev1
+      - image: docker.io/michaelhenkel/contrail-controller-control-dns:5.2.0-dev1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: dns
         volumeMounts:
@@ -43,27 +47,35 @@ spec:
           name: control-logs
         - mountPath: /etc/contrail
           name: etc-contrail
-      - envFrom:
-        - configMapRef:
-            name: control
-        image: docker.io/michaelhenkel/contrail-controller-control-named:5.2.0-dev1
+        - mountPath: /etc/contrail/dns
+          name: etc-contrail-dns
+      - image: docker.io/michaelhenkel/contrail-controller-control-named:5.2.0-dev1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: named
         securityContext:
           privileged: true
+          fsGroup: 1999
         volumeMounts:
         - mountPath: /var/log/contrail
           name: control-logs
         - mountPath: /etc/contrail
           name: etc-contrail
+        - mountPath: /etc/contrail/dns
+          name: etc-contrail-dns
       - env:
         - name: NODE_TYPE
           value: control
         - name: DOCKER_HOST
           value: unix://mnt/docker.sock
-        envFrom:
-        - configMapRef:
-            name: tfcontrolcmv1
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         image: docker.io/michaelhenkel/contrail-nodemgr:5.2.0-dev1
         imagePullPolicy: Always
         name: nodemanager
@@ -82,9 +94,10 @@ spec:
         env:
         - name: CONTRAIL_STATUS_IMAGE
           value: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
-        envFrom:
-        - configMapRef:
-            name: control
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         image: busybox
         imagePullPolicy: Always
         name: init
@@ -94,9 +107,10 @@ spec:
       - env:
         - name: CONTRAIL_STATUS_IMAGE
           value: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
-        envFrom:
-        - configMapRef:
-            name: control
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         image: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
         imagePullPolicy: Always
         name: nodeinit
@@ -128,6 +142,8 @@ spec:
         name: host-usr-bin
       - emptyDir: {}
         name: etc-contrail
+      - emptyDir: {}
+        name: etc-contrail-dns
       - downwardAPI:
           defaultMode: 420
           items:

@@ -309,7 +309,7 @@ func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result
 		}
 		if container.Name == "redis" {
 			command := []string{"bash", "-c",
-				"redis-server"}
+				"redis-server --lua-time-limit 15000 --dbfilename '' --bind 127.0.0.1 ${POD_IP} --port 6379"}
 			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
 			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 

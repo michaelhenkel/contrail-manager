@@ -24,6 +24,9 @@ const (
 	ZOOKEEPER   = "Zookeeper.contrail.juniper.net"
 	RABBITMQ    = "Rabbitmq.contrail.juniper.net"
 	CONFIG      = "Config.contrail.juniper.net"
+	CONTROL     = "Control.contrail.juniper.net"
+	WEBUI       = "Webui.contrail.juniper.net"
+	VROUTER     = "Vrouter.contrail.juniper.net"
 	KUBEMANAGER = "Kubemanager.contrail.juniper.net"
 	MANAGER     = "Manager.contrail.juniper.net"
 	REPLICASET  = "ReplicaSet.apps"
@@ -308,6 +311,21 @@ func ReconcileErr(err error) (reconcile.Result, error) {
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
+}
+
+// WebuiGroupKind returns group kind
+func WebuiGroupKind() schema.GroupKind {
+	return schema.ParseGroupKind(WEBUI)
+}
+
+// VrouterGroupKind returns group kind
+func VrouterGroupKind() schema.GroupKind {
+	return schema.ParseGroupKind(VROUTER)
+}
+
+// ControlGroupKind returns group kind
+func ControlGroupKind() schema.GroupKind {
+	return schema.ParseGroupKind(CONTROL)
 }
 
 // ConfigGroupKind returns group kind

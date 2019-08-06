@@ -16,6 +16,37 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const (
+	ConfigAPIPort             int    = 8082
+	CassandraStoragePort      int    = 7000
+	EncapPriority             string = "MPLSoUDP,MPLSoGRE,VXLAN"
+	AAAMode                   string = "no-auth"
+	AuthMode                  string = "noauth"
+	AnalyticsAPIPort          int    = 8081
+	AnalyticsIntrospectPort   int    = 8090
+	AnalyticsCassandraPort    int    = 9160
+	AnalyticsCassandraCQLPort int    = 9042
+	BGPPort                   int    = 179
+	BGPAsn                    int    = 64512
+	BGPAutoMesh               bool   = true
+	CollectorPort             int    = 8086
+	CollectorIntrospectPort   int    = 8089
+	CollectorSyslogPort       int    = 514
+	CollectorSflowPort        int    = 6343
+	CollectorIpfixPort        int    = 4739
+)
+
+/*
+COLLECTOR_PORT=${COLLECTOR_PORT:-8086}
+COLLECTOR_INTROSPECT_PORT=${COLLECTOR_INTROSPECT_PORT:-8089}
+COLLECTOR_SYSLOG_PORT=${COLLECTOR_SYSLOG_PORT:-514}
+COLLECTOR_SFLOW_PORT=${COLLECTOR_SFLOW_PORT:-6343}
+COLLECTOR_IPFIX_PORT=${COLLECTOR_IPFIX_PORT:-4739}
+COLLECTOR_PROTOBUF_PORT=${COLLECTOR_PROTOBUF_PORT:-3333}
+COLLECTOR_STRUCTURED_SYSLOG_PORT=${COLLECTOR_STRUCTURED_SYSLOG_PORT:-3514}
+SNMPCOLLECTOR_INTROSPECT_PORT=${SNMPCOLLECTOR_INTROSPECT_PORT:-5920}
+COLLECTOR_SERVERS=${COLLECTOR_SERVERS:-`get_server_list ANALYTICS ":$COLLECTOR_PORT "`}
+*/
 //metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // ServiceStatus provides information on the current status of the service
@@ -334,6 +365,36 @@ func GetCassandraNodes(name string, namespace string, client client.Client) ([]s
 	return cassandraNodes, port, cqlPort, jmxPort, nil
 }
 
+func GetControlNodes(name string, role string, namespace string, myclient client.Client) ([]string, error) {
+	var controlNodes []string
+	if name != "" {
+		controlInstance := &Control{}
+		err := myclient.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, controlInstance)
+		if err != nil {
+			return controlNodes, err
+		}
+		for _, ip := range controlInstance.Status.Nodes {
+			controlNodes = append(controlNodes, ip)
+		}
+	}
+	if role != "" {
+		labelSelector := labels.SelectorFromSet(map[string]string{"control_role": role})
+		listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+		controlList := &ControlList{}
+		err := myclient.List(context.TODO(), listOps, controlList)
+		if err != nil {
+			return controlNodes, err
+		}
+		if len(controlList.Items) > 0 {
+			for _, ip := range controlList.Items[0].Status.Nodes {
+				controlNodes = append(controlNodes, ip)
+			}
+		}
+	}
+
+	return controlNodes, nil
+}
+
 func GetZookeeperNodes(name string, namespace string, client client.Client) ([]string, int, error) {
 	var zookeeperNodes []string
 	var port int
@@ -366,4 +427,21 @@ func GetRabbitmqNodes(name string, namespace string, myclient client.Client) ([]
 		port = rabbitmqList.Items[0].Spec.ServiceConfiguration.Port
 	}
 	return rabbitmqNodes, port, nil
+}
+
+func GetConfigNodes(name string, namespace string, myclient client.Client) ([]string, error) {
+	var configNodes []string
+	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": name})
+	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+	configList := &ConfigList{}
+	err := myclient.List(context.TODO(), listOps, configList)
+	if err != nil {
+		return configNodes, err
+	}
+	if len(configList.Items) > 0 {
+		for _, ip := range configList.Items[0].Status.Nodes {
+			configNodes = append(configNodes, ip)
+		}
+	}
+	return configNodes, nil
 }

@@ -447,7 +447,7 @@ func schema_pkg_apis_contrail_v1alpha1_ControlConfiguration(ref common.Reference
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ControlConfiguration is the Spec for the cassandras API",
+				Description: "ControlConfiguration is the Spec for the controls API",
 				Properties: map[string]spec.Schema{
 					"images": {
 						SchemaProps: spec.SchemaProps{
@@ -462,6 +462,18 @@ func schema_pkg_apis_contrail_v1alpha1_ControlConfiguration(ref common.Reference
 							},
 						},
 					},
+					"cassandraInstance": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"zookeeperInstance": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"images"},
 			},
@@ -474,7 +486,7 @@ func schema_pkg_apis_contrail_v1alpha1_ControlSpec(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ControlSpec is the Spec for the cassandras API",
+				Description: "ControlSpec is the Spec for the controls API",
 				Properties: map[string]spec.Schema{
 					"commonConfiguration": {
 						SchemaProps: spec.SchemaProps{
@@ -1309,6 +1321,12 @@ func schema_pkg_apis_contrail_v1alpha1_WebuiConfiguration(ref common.ReferenceCa
 									},
 								},
 							},
+						},
+					},
+					"cassandraInstance": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},

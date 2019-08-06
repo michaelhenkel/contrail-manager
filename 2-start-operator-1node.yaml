@@ -83,7 +83,7 @@ spec:
             servicemonitor: hub.juniper.net/contrail-nightly/contrail-controller-config-svcmonitor:5.2.0-0.740
             analyticsapi: hub.juniper.net/contrail-nightly/contrail-analytics-api:5.2.0-0.740
             collector: hub.juniper.net/contrail-nightly/contrail-analytics-collector:5.2.0-0.740
-            redis: hub.juniper.net/contrail-nightly/contrail-external-redis:5.2.0-0.740
+            redis: redis:4.0.2
             nodemanagerconfig: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
             nodemanageranalytics: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
             nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
@@ -117,6 +117,42 @@ spec:
           ipFabricForwarding: true
           ipFabricSnat: true
           kubernetesTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    controls:
+    - metadata:
+        name: control1
+        labels:
+          contrail_cluster: cluster1
+          control_role: master
+      spec:
+        commonConfiguration:
+          activate: true
+          create: true
+        serviceConfiguration:
+          cassandraInstance: cassandra1
+          zookeeperInstance: zookeeper1
+          images:
+            control: hub.juniper.net/contrail-nightly/contrail-controller-control-control:5.2.0-0.740
+            dns: hub.juniper.net/contrail-nightly/contrail-controller-control-dns:5.2.0-0.740
+            named: hub.juniper.net/contrail-nightly/contrail-controller-control-named:5.2.0-0.740
+            nodemanager: hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740
+            nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
+            init: busybox
+    webui:
+      metadata:
+        name: webui1
+        labels:
+          contrail_cluster: cluster1
+      spec:
+        commonConfiguration:
+          activate: true
+          create: true
+        serviceConfiguration:
+          cassandraInstance: cassandra1
+          images:
+            webuiweb: hub.juniper.net/contrail-nightly/contrail-controller-webui-web:5.2.0-0.740
+            webuijob: hub.juniper.net/contrail-nightly/contrail-controller-webui-job:5.2.0-0.740
+            redis: redis:4.0.2
+            nodeinit: hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740
 
 
 

@@ -488,6 +488,11 @@ func (in *KubemanagerConfiguration) DeepCopyInto(out *KubemanagerConfiguration) 
 			(*out)[key] = val
 		}
 	}
+	if in.KubernetesAPIPort != nil {
+		in, out := &in.KubernetesAPIPort, &out.KubernetesAPIPort
+		*out = new(int)
+		**out = **in
+	}
 	return
 }
 

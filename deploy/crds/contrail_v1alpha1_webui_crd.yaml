@@ -70,6 +70,8 @@ spec:
               type: object
             serviceConfiguration:
               properties:
+                cassandraInstance:
+                  type: string
                 images:
                   additionalProperties:
                     type: string

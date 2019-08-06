@@ -22,33 +22,59 @@ spec:
         contrail_manager: webui
     spec:
       containers:
-      - envFrom:
-        - configMapRef:
-            name: webui
-        image: docker.io/michaelhenkel/contrail-controller-webui-web:5.2.0-dev1
+      - image: docker.io/michaelhenkel/contrail-controller-webui-web:5.2.0-dev1
+        env:
+        - name: WEBUI_SSL_KEY_FILE
+          value: /etc/contrail/webui_ssl/cs-key.pem
+        - name: WEBUI_SSL_CERT_FILE
+          value: /etc/contrail/webui_ssl/cs-cert.pem
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: webuiweb
         volumeMounts:
         - mountPath: /var/log/contrail
           name: webui-logs
-      - envFrom:
-        - configMapRef:
-            name: webui
-        image: docker.io/michaelhenkel/contrail-controller-webui-job:5.2.0-dev1
+      - image: docker.io/michaelhenkel/contrail-controller-webui-job:5.2.0-dev1
+        env:
+        - name: WEBUI_SSL_KEY_FILE
+          value: /etc/contrail/webui_ssl/cs-key.pem
+        - name: WEBUI_SSL_CERT_FILE
+          value: /etc/contrail/webui_ssl/cs-cert.pem
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: webuijob
         volumeMounts:
         - mountPath: /var/log/contrail
           name: webui-logs
+      - image: docker.io/michaelhenkel/contrail-external-redis:5.2.0-dev1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        imagePullPolicy: Always
+        name: redis
+        volumeMounts:
+        - mountPath: /var/log/contrail
+          name: webui-logs
+        - mountPath: /var/lib/redis
+          name: webui-data
       dnsPolicy: ClusterFirst
       hostNetwork: true
       initContainers:
       - env:
         - name: CONTRAIL_STATUS_IMAGE
           value: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
-        envFrom:
-        - configMapRef:
-            name: webui
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         image: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
         imagePullPolicy: Always
         name: nodeinit
@@ -67,13 +93,29 @@ spec:
         operator: Exists
       volumes:
       - hostPath:
+          path: /var/lib/contrail/webui
+          type: ""
+        name: webui-data
+      - hostPath:
           path: /var/log/contrail/webui
           type: ""
         name: webui-logs
       - hostPath:
           path: /usr/bin
           type: ""
-        name: host-usr-bin`
+        name: host-usr-bin
+      - downwardAPI:
+          defaultMode: 420
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.labels
+            path: pod_labels
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.labels
+            path: pod_labelsx
+        name: status`
 
 func GetDeployment() *appsv1.Deployment{
 	deployment := appsv1.Deployment{}

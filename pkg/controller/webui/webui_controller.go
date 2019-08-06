@@ -1,7 +1,13 @@
 package webui
 
 import (
-	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	"context"
+
+	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/utils"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -27,7 +33,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileWebui{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileWebui{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -39,41 +45,55 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Webui
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Webui{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &v1alpha1.Webui{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner Webui
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Cassandra{}}, &handler.EnqueueRequestForOwner{
+	// Watch for changes to PODs
+	srcPod := &source.Kind{Type: &corev1.Pod{}}
+	podHandler := &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &contrailv1alpha1.Manager{},
-	})
+		OwnerType:    &appsv1.ReplicaSet{},
+	}
+	predInitStatus := utils.PodInitStatusChange(map[string]string{"contrail_manager": "webui"})
+	predPodIPChange := utils.PodIPChange(map[string]string{"contrail_manager": "webui"})
+	err = c.Watch(srcPod, podHandler, predPodIPChange)
+	if err != nil {
+		return err
+	}
+	err = c.Watch(srcPod, podHandler, predInitStatus)
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Zookeeper{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &contrailv1alpha1.Manager{},
-	})
+	// Watch for changes to Manager
+	srcCassandra := &source.Kind{Type: &v1alpha1.Cassandra{}}
+	cassandraHandler := &handler.EnqueueRequestForObject{}
+	predCassandraSizeChange := utils.CassandraActiveChange()
+	// Watch for Manager events.
+	err = c.Watch(srcCassandra, cassandraHandler, predCassandraSizeChange)
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Rabbitmq{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &contrailv1alpha1.Manager{},
-	})
+	// Watch for changes to Manager
+	srcConfig := &source.Kind{Type: &v1alpha1.Config{}}
+	configHandler := &handler.EnqueueRequestForObject{}
+	predConfigSizeChange := utils.ConfigActiveChange()
+	// Watch for Manager events.
+	err = c.Watch(srcConfig, configHandler, predConfigSizeChange)
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Config{}}, &handler.EnqueueRequestForOwner{
+	srcDeployment := &source.Kind{Type: &appsv1.Deployment{}}
+	deploymentHandler := &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &contrailv1alpha1.Manager{},
-	})
+		OwnerType:    &v1alpha1.Webui{},
+	}
+	deploymentPred := utils.DeploymentStatusChange(utils.WebuiGroupKind())
+	err = c.Watch(srcDeployment, deploymentHandler, deploymentPred)
 	if err != nil {
 		return err
 	}
@@ -88,8 +108,8 @@ var _ reconcile.Reconciler = &ReconcileWebui{}
 type ReconcileWebui struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	Client client.Client
+	Scheme *runtime.Scheme
 }
 
 // Reconcile reads that state of the cluster for a Webui object and makes changes based on the state read
@@ -100,218 +120,172 @@ type ReconcileWebui struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	/*
-		reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-		reqLogger.Info("Reconciling Webui")
-
-		// Fetch the Webui instance
-		instance := &contrailv1alpha1.Webui{}
-		err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	var err error
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger.Info("Reconciling Webui")
+	instanceType := "webui"
+	instance := &v1alpha1.Webui{}
+	var i v1alpha1.Instance = instance
+	err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil && errors.IsNotFound(err) {
+		isReplicaset := i.IsReplicaset(&request, instanceType, r.Client)
+		isConfig := i.IsConfig(&request, r.Client)
+		if !isConfig && !isReplicaset {
+			return reconcile.Result{}, nil
+		}
+		err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				// Request object not found, could have been deleted after reconcile request.
-				// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-				// Return and don't requeue
-				return reconcile.Result{}, nil
+			return reconcile.Result{}, nil
+		}
+	}
+	configActive := false
+	configActive = utils.IsConfigActive(instance.Labels["contrail_cluster"],
+		request.Namespace, r.Client)
+	if !configActive {
+		return reconcile.Result{}, nil
+	}
+
+	managerInstance, err := i.OwnedByManager(r.Client, request)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if managerInstance != nil {
+		if managerInstance.Spec.Services.Webui != nil {
+			webuiManagerInstance := managerInstance.Spec.Services.Webui
+			instance.Spec.CommonConfiguration = utils.MergeCommonConfiguration(
+				managerInstance.Spec.CommonConfiguration,
+				webuiManagerInstance.Spec.CommonConfiguration)
+			err = r.Client.Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
 			}
-			// Error reading the object - requeue the request.
+		}
+	}
+	configMap, err := i.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
+		r.Client,
+		r.Scheme,
+		request)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	intendedDeployment, err := i.PrepareIntendedDeployment(GetDeployment(),
+		&instance.Spec.CommonConfiguration,
+		request,
+		r.Scheme)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	i.AddVolumesToIntendedDeployments(intendedDeployment,
+		map[string]string{configMap.Name: request.Name + "-" + instanceType + "-volume"})
+
+	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
+		if container.Name == "webuiweb" {
+			command := []string{"bash", "-c",
+				"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh ;; sleep 3;; /usr/bin/node /usr/src/contrail/contrail-web-core/webServerStart.js --conf_file /etc/mycontrail/config.global.js.${POD_IP}"}
+			//command = []string{"bash", "-c",
+			//	"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh && while true; do echo hello; sleep 10;done"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
+			}
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "webuijob" {
+			command := []string{"bash", "-c",
+				"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh ;; sleep 3;;/usr/bin/node /usr/src/contrail/contrail-web-core/jobServerStart.js --conf_file /etc/mycontrail/config.global.js.${POD_IP}"}
+			//command = []string{"bash", "-c",
+			//	"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh && while true; do echo hello; sleep 10;done"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
+			}
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "redis" {
+			command := []string{"bash", "-c",
+				"redis-server --lua-time-limit 15000 --dbfilename '' --bind 127.0.0.1 ${POD_IP} --port 6380"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
+			}
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+	}
+
+	for idx, container := range intendedDeployment.Spec.Template.Spec.InitContainers {
+		for containerName, image := range instance.Spec.ServiceConfiguration.Images {
+			if containerName == container.Name {
+				(&intendedDeployment.Spec.Template.Spec.InitContainers[idx]).Image = image
+			}
+		}
+	}
+
+	err = i.CompareIntendedWithCurrentDeployment(intendedDeployment,
+		&instance.Spec.CommonConfiguration,
+		request,
+		r.Scheme,
+		r.Client,
+		false)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	podIPList, podIPMap, err := i.GetPodIPListAndIPMap(request, r.Client)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(podIPList.Items) > 0 {
+		err = i.CreateInstanceConfiguration(request,
+			podIPList,
+			r.Client)
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		// Get cassandra, zk and rmq status
-
-		cassandraInstance := &contrailv1alpha1.Cassandra{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, cassandraInstance)
+		err = i.SetPodsToReady(podIPList, r.Client)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				reqLogger.Info("No Cassandra Instance")
-				return reconcile.Result{}, err
-			}
-		}
-		cassandraStatus := false
-		if cassandraInstance.Status.Active != nil {
-			cassandraStatus = *cassandraInstance.Status.Active
+			return reconcile.Result{}, err
 		}
 
-		zookeeperInstance := &contrailv1alpha1.Zookeeper{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, zookeeperInstance)
+		err = i.ManageNodeStatus(podIPMap, r.Client)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				reqLogger.Info("No Zookeeper Instance")
-				return reconcile.Result{}, err
-			}
+			return reconcile.Result{}, err
 		}
-		zookeeperStatus := false
-		if zookeeperInstance.Status.Active != nil {
-			zookeeperStatus = *zookeeperInstance.Status.Active
-		}
+	}
 
-		rabbitmqInstance := &contrailv1alpha1.Rabbitmq{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, rabbitmqInstance)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				reqLogger.Info("No Rabbitmq Instance")
-				return reconcile.Result{}, err
-			}
-		}
-		rabbitmqStatus := false
-		if rabbitmqInstance.Status.Active != nil {
-			rabbitmqStatus = *rabbitmqInstance.Status.Active
-		}
+	err = i.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
-		configInstance := &contrailv1alpha1.Config{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, configInstance)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				reqLogger.Info("No Config Instance")
-				return reconcile.Result{}, err
-			}
-		}
-		configStatus := false
-		if configInstance.Status.Active != nil {
-			configStatus = *configInstance.Status.Active
-		}
-
-		if !rabbitmqStatus || !zookeeperStatus || !cassandraStatus || !configStatus {
-			reqLogger.Info("cassandra, zookeeper, rmq or config not ready")
-			return reconcile.Result{}, nil
-		}
-
-		var rabbitmqNodes []string
-		for _, ip := range rabbitmqInstance.Status.Nodes {
-			rabbitmqNodes = append(rabbitmqNodes, ip)
-		}
-		rabbitmqNodeList := strings.Join(rabbitmqNodes, ",")
-
-		var zookeeperNodes []string
-		for _, ip := range zookeeperInstance.Status.Nodes {
-			zookeeperNodes = append(zookeeperNodes, ip)
-		}
-		zookeeperNodeList := strings.Join(zookeeperNodes, ",")
-
-		var cassandraNodes []string
-		for _, ip := range cassandraInstance.Status.Nodes {
-			cassandraNodes = append(cassandraNodes, ip)
-		}
-		cassandraNodeList := strings.Join(cassandraNodes, ",")
-
-		var configNodes []string
-		for _, ip := range configInstance.Status.Nodes {
-			configNodes = append(configNodes, ip)
-		}
-		configNodeList := strings.Join(configNodes, ",")
-
-		managerInstance := &contrailv1alpha1.Manager{}
-		err = r.client.Get(context.TODO(), request.NamespacedName, managerInstance)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				reqLogger.Info("No Manager Instance")
-			}
-		} else {
-			instance.Spec = managerInstance.Spec.Services.Webui
-			if managerInstance.Spec.Services.Webui.Size != nil {
-				instance.Spec.Size = managerInstance.Spec.Services.Webui.Size
-			} else {
-				instance.Spec.Size = managerInstance.Spec.Size
-			}
-			if managerInstance.Spec.HostNetwork != nil {
-				instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
-			}
-		}
-
-		// Get default Deployment
-		deployment := GetDeployment()
-
-		if managerInstance.Spec.ImagePullSecrets != nil {
-			var imagePullSecretsList []corev1.LocalObjectReference
-			for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
-				imagePullSecret := corev1.LocalObjectReference{
-					Name: imagePullSecretName,
-				}
-				imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
-			}
-			deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
-		}
-
-		if instance.Spec.Configuration == nil {
-			instance.Spec.Configuration = make(map[string]string)
-			reqLogger.Info("config map empty, initializing it")
-		}
-
-		instance.Spec.Configuration["RABBITMQ_NODES"] = rabbitmqNodeList
-		instance.Spec.Configuration["ZOOKEEPER_NODES"] = zookeeperNodeList
-		instance.Spec.Configuration["CONFIGDB_NODES"] = cassandraNodeList
-		instance.Spec.Configuration["CONFIG_NODES"] = configNodeList
-		instance.Spec.Configuration["CONTROLLER_NODES"] = configNodeList
-		instance.Spec.Configuration["ANALYTICS_NODES"] = configNodeList
-		instance.Spec.Configuration["CONFIGDB_CQL_PORT"] = cassandraInstance.Status.Ports["cqlPort"]
-		instance.Spec.Configuration["CONFIGDB_PORT"] = cassandraInstance.Status.Ports["port"]
-		instance.Spec.Configuration["RABBITMQ_NODE_PORT"] = rabbitmqInstance.Status.Ports["port"]
-		instance.Spec.Configuration["ZOOKEEPER_NODE_PORT"] = zookeeperInstance.Status.Ports["port"]
-
-		// Create initial ConfigMap
-		configMap := corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "webui-" + instance.Name,
-				Namespace: instance.Namespace,
-			},
-			Data: instance.Spec.Configuration,
-		}
-		controllerutil.SetControllerReference(instance, &configMap, r.scheme)
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "webui-" + instance.Name, Namespace: instance.Namespace}, &configMap)
-		if err != nil && errors.IsNotFound(err) {
-			err = r.client.Create(context.TODO(), &configMap)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", instance.Namespace, "Name", "webui-"+instance.Name)
-				return reconcile.Result{}, err
-			}
-		}
-
-		// Set Deployment Name & Namespace
-
-		deployment.ObjectMeta.Name = "webui-" + instance.Name
-		deployment.ObjectMeta.Namespace = instance.Namespace
-
-		// Configure Containers
-		for idx, container := range deployment.Spec.Template.Spec.Containers {
-			for containerName, image := range instance.Spec.Images {
-				if containerName == container.Name {
-					(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
-					(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "webui-" + instance.Name
-				}
-			}
-		}
-
-		// Configure InitContainers
-		for idx, container := range deployment.Spec.Template.Spec.InitContainers {
-			for containerName, image := range instance.Spec.Images {
-				if containerName == container.Name {
-					(&deployment.Spec.Template.Spec.InitContainers[idx]).Image = image
-					(&deployment.Spec.Template.Spec.InitContainers[idx]).EnvFrom[0].ConfigMapRef.Name = "webui-" + instance.Name
-				}
-			}
-		}
-
-		// Set HostNetwork
-		deployment.Spec.Template.Spec.HostNetwork = *instance.Spec.HostNetwork
-
-		// Set Selector and Label
-		deployment.Spec.Selector.MatchLabels["app"] = "webui-" + instance.Name
-		deployment.Spec.Template.ObjectMeta.Labels["app"] = "webui-" + instance.Name
-
-		// Set Size
-		deployment.Spec.Replicas = instance.Spec.Size
-
-		// Create Deployment
-		controllerutil.SetControllerReference(instance, deployment, r.scheme)
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "webui-" + instance.Name, Namespace: instance.Namespace}, deployment)
-		if err != nil && errors.IsNotFound(err) {
-			err = r.client.Create(context.TODO(), deployment)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create Deployment", "Namespace", instance.Namespace, "Name", "webui-"+instance.Name)
-				return reconcile.Result{}, err
-			}
-		}
-	*/
 	return reconcile.Result{}, nil
 }

@@ -282,6 +282,26 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 			if err != nil {
 				return reconcile.Result{}, err
 			}
+			status := &v1alpha1.ServiceStatus{}
+			cassandraStatusList := []*v1alpha1.ServiceStatus{}
+			if instance.Status.Cassandras != nil {
+				for _, cassandraStatus := range instance.Status.Cassandras {
+					if cassandraService.Name == *cassandraStatus.Name {
+						status = cassandraStatus
+						status.Created = &create
+					}
+				}
+			} else {
+				status.Name = &cr.Name
+				status.Created = &create
+				cassandraStatusList = append(cassandraStatusList, status)
+				instance.Status.Cassandras = cassandraStatusList
+			}
+
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 
 		}
 	}
@@ -377,35 +397,55 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 			if err != nil {
 				return reconcile.Result{}, err
 			}
+			status := &v1alpha1.ServiceStatus{}
+			zookeeperStatusList := []*v1alpha1.ServiceStatus{}
+			if instance.Status.Zookeepers != nil {
+				for _, zookeeperStatus := range instance.Status.Zookeepers {
+					if zookeeperService.Name == *zookeeperStatus.Name {
+						status = zookeeperStatus
+						status.Created = &create
+					}
+				}
+			} else {
+				status.Name = &cr.Name
+				status.Created = &create
+				zookeeperStatusList = append(zookeeperStatusList, status)
+				instance.Status.Zookeepers = zookeeperStatusList
+			}
+
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 
 		}
 	}
 
-	if instance.Spec.Services.Rabbitmq != nil {
-		rabbitmqService := instance.Spec.Services.Rabbitmq
-		create := *rabbitmqService.Spec.CommonConfiguration.Create
+	if instance.Spec.Services.Webui != nil {
+		webuiService := instance.Spec.Services.Webui
+		create := *webuiService.Spec.CommonConfiguration.Create
 		delete := false
 		update := false
-		if instance.Status.Rabbitmq != nil {
-			if *rabbitmqService.Spec.CommonConfiguration.Create && *instance.Status.Rabbitmq.Created {
+		if instance.Status.Webui != nil {
+			if *webuiService.Spec.CommonConfiguration.Create && *instance.Status.Webui.Created {
 				create = false
 				delete = false
 				update = true
 			}
-			if !*rabbitmqService.Spec.CommonConfiguration.Create && *instance.Status.Rabbitmq.Created {
+			if !*webuiService.Spec.CommonConfiguration.Create && *instance.Status.Webui.Created {
 				create = false
 				delete = true
 				update = false
 			}
 		}
 
-		cr := cr.GetRabbitmqCr()
-		cr.ObjectMeta = rabbitmqService.ObjectMeta
-		cr.Labels = rabbitmqService.ObjectMeta.Labels
+		cr := cr.GetWebuiCr()
+		cr.ObjectMeta = webuiService.ObjectMeta
+		cr.Labels = webuiService.ObjectMeta.Labels
 		cr.Namespace = instance.Namespace
-		cr.Spec.ServiceConfiguration = rabbitmqService.Spec.ServiceConfiguration
+		cr.Spec.ServiceConfiguration = webuiService.Spec.ServiceConfiguration
 		cr.TypeMeta.APIVersion = "contrail.juniper.net/v1alpha1"
-		cr.TypeMeta.Kind = "Rabbitmq"
+		cr.TypeMeta.Kind = "Webui"
 		if create {
 			err = r.client.Get(context.TODO(), request.NamespacedName, instance)
 			if err != nil {
@@ -423,13 +463,13 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 			}
 
 			status := &v1alpha1.ServiceStatus{}
-			if instance.Status.Rabbitmq != nil {
-				status = instance.Status.Rabbitmq
+			if instance.Status.Webui != nil {
+				status = instance.Status.Webui
 				status.Created = &create
 			} else {
 				status.Name = &cr.Name
 				status.Created = &create
-				instance.Status.Rabbitmq = status
+				instance.Status.Webui = status
 			}
 
 			err = r.client.Status().Update(context.TODO(), instance)
@@ -444,8 +484,8 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 				return reconcile.Result{}, err
 			}
 			replicas := instance.Spec.CommonConfiguration.Replicas
-			if rabbitmqService.Spec.CommonConfiguration.Replicas != nil {
-				replicas = rabbitmqService.Spec.CommonConfiguration.Replicas
+			if webuiService.Spec.CommonConfiguration.Replicas != nil {
+				replicas = webuiService.Spec.CommonConfiguration.Replicas
 			}
 			if cr.Spec.CommonConfiguration.Replicas != nil {
 				if *replicas != *cr.Spec.CommonConfiguration.Replicas {
@@ -466,7 +506,20 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 			if err != nil {
 				return reconcile.Result{}, err
 			}
+			status := &v1alpha1.ServiceStatus{}
+			if instance.Status.Webui != nil {
+				status = instance.Status.Webui
+				status.Created = &create
+			} else {
+				status.Name = &cr.Name
+				status.Created = &create
+				instance.Status.Webui = status
+			}
 
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 	}
 
@@ -552,6 +605,20 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 				return reconcile.Result{}, err
 			}
 			err = r.client.Delete(context.TODO(), cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			status := &v1alpha1.ServiceStatus{}
+			if instance.Status.Config != nil {
+				status = instance.Status.Config
+				status.Created = &create
+			} else {
+				status.Name = &cr.Name
+				status.Created = &create
+				instance.Status.Config = status
+			}
+
+			err = r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -647,6 +714,244 @@ func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Resul
 				return reconcile.Result{}, err
 			}
 			err = r.client.Delete(context.TODO(), cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			status := &v1alpha1.ServiceStatus{}
+			kubemanagerStatusList := []*v1alpha1.ServiceStatus{}
+			if instance.Status.Kubemanagers != nil {
+				for _, kubemanagerStatus := range instance.Status.Kubemanagers {
+					if kubemanagerService.Name == *kubemanagerStatus.Name {
+						status = kubemanagerStatus
+						status.Created = &create
+					}
+				}
+			} else {
+				status.Name = &cr.Name
+				status.Created = &create
+				kubemanagerStatusList = append(kubemanagerStatusList, status)
+				instance.Status.Kubemanagers = kubemanagerStatusList
+			}
+
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+		}
+	}
+
+	for _, controlService := range instance.Spec.Services.Controls {
+		create := *controlService.Spec.CommonConfiguration.Create
+		delete := false
+		update := false
+		for _, controlStatus := range instance.Status.Controls {
+			if controlService.Name == *controlStatus.Name {
+				if *controlService.Spec.CommonConfiguration.Create && *controlStatus.Created {
+					create = false
+					delete = false
+					update = true
+				}
+				if !*controlService.Spec.CommonConfiguration.Create && *controlStatus.Created {
+					create = false
+					delete = true
+					update = false
+				}
+			}
+		}
+		cr := cr.GetControlCr()
+		cr.ObjectMeta = controlService.ObjectMeta
+		cr.Labels = controlService.ObjectMeta.Labels
+		cr.Namespace = instance.Namespace
+		cr.Spec.ServiceConfiguration = controlService.Spec.ServiceConfiguration
+		cr.TypeMeta.APIVersion = "contrail.juniper.net/v1alpha1"
+		cr.TypeMeta.Kind = "Control"
+		if create {
+			err = r.client.Get(context.TODO(), request.NamespacedName, instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					controllerutil.SetControllerReference(instance, cr, r.scheme)
+					err = r.client.Create(context.TODO(), cr)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+
+			status := &v1alpha1.ServiceStatus{}
+			controlStatusList := []*v1alpha1.ServiceStatus{}
+			if instance.Status.Controls != nil {
+				for _, controlStatus := range instance.Status.Controls {
+					if controlService.Name == *controlStatus.Name {
+						status = controlStatus
+						status.Created = &create
+					}
+				}
+			} else {
+				status.Name = &cr.Name
+				status.Created = &create
+				controlStatusList = append(controlStatusList, status)
+				instance.Status.Controls = controlStatusList
+			}
+
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+		}
+		if update {
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			replicas := instance.Spec.CommonConfiguration.Replicas
+			if controlService.Spec.CommonConfiguration.Replicas != nil {
+				replicas = controlService.Spec.CommonConfiguration.Replicas
+			}
+			if cr.Spec.CommonConfiguration.Replicas != nil {
+				if *replicas != *cr.Spec.CommonConfiguration.Replicas {
+					cr.Spec.CommonConfiguration.Replicas = replicas
+					err = r.client.Update(context.TODO(), cr)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+		}
+		if delete {
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.client.Delete(context.TODO(), cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			status := &v1alpha1.ServiceStatus{}
+			controlStatusList := []*v1alpha1.ServiceStatus{}
+			if instance.Status.Controls != nil {
+				for _, controlStatus := range instance.Status.Controls {
+					if controlService.Name == *controlStatus.Name {
+						status = controlStatus
+						status.Created = &create
+					}
+				}
+			} else {
+				status.Name = &cr.Name
+				status.Created = &create
+				controlStatusList = append(controlStatusList, status)
+				instance.Status.Controls = controlStatusList
+			}
+
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+		}
+	}
+
+	if instance.Spec.Services.Rabbitmq != nil {
+		rabbitmqService := instance.Spec.Services.Rabbitmq
+		create := *rabbitmqService.Spec.CommonConfiguration.Create
+		delete := false
+		update := false
+		if instance.Status.Rabbitmq != nil {
+			if *rabbitmqService.Spec.CommonConfiguration.Create && *instance.Status.Rabbitmq.Created {
+				create = false
+				delete = false
+				update = true
+			}
+			if !*rabbitmqService.Spec.CommonConfiguration.Create && *instance.Status.Rabbitmq.Created {
+				create = false
+				delete = true
+				update = false
+			}
+		}
+
+		cr := cr.GetRabbitmqCr()
+		cr.ObjectMeta = rabbitmqService.ObjectMeta
+		cr.Labels = rabbitmqService.ObjectMeta.Labels
+		cr.Namespace = instance.Namespace
+		cr.Spec.ServiceConfiguration = rabbitmqService.Spec.ServiceConfiguration
+		cr.TypeMeta.APIVersion = "contrail.juniper.net/v1alpha1"
+		cr.TypeMeta.Kind = "Rabbitmq"
+		if create {
+			err = r.client.Get(context.TODO(), request.NamespacedName, instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					controllerutil.SetControllerReference(instance, cr, r.scheme)
+					err = r.client.Create(context.TODO(), cr)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+
+			status := &v1alpha1.ServiceStatus{}
+			if instance.Status.Rabbitmq != nil {
+				status = instance.Status.Rabbitmq
+				status.Created = &create
+			} else {
+				status.Name = &cr.Name
+				status.Created = &create
+				instance.Status.Rabbitmq = status
+			}
+
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+		}
+		if update {
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			replicas := instance.Spec.CommonConfiguration.Replicas
+			if rabbitmqService.Spec.CommonConfiguration.Replicas != nil {
+				replicas = rabbitmqService.Spec.CommonConfiguration.Replicas
+			}
+			if cr.Spec.CommonConfiguration.Replicas != nil {
+				if *replicas != *cr.Spec.CommonConfiguration.Replicas {
+					cr.Spec.CommonConfiguration.Replicas = replicas
+					err = r.client.Update(context.TODO(), cr)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+		}
+		if delete {
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.client.Delete(context.TODO(), cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			status := &v1alpha1.ServiceStatus{}
+			if instance.Status.Rabbitmq != nil {
+				status = instance.Status.Rabbitmq
+				status.Created = &create
+			} else {
+				status.Name = &cr.Name
+				status.Created = &create
+				instance.Status.Rabbitmq = status
+			}
+
+			err = r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
