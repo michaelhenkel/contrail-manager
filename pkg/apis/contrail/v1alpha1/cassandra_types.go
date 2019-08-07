@@ -30,8 +30,8 @@ type Cassandra struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CassandraSpec `json:"spec,omitempty"`
-	Status Status        `json:"status,omitempty"`
+	Spec   CassandraSpec   `json:"spec,omitempty"`
+	Status CassandraStatus `json:"status,omitempty"`
 }
 
 // CassandraSpec is the Spec for the cassandras API
@@ -47,14 +47,30 @@ type CassandraConfiguration struct {
 	Images         map[string]string `json:"images"`
 	ClusterName    string            `json:"clusterName,omitempty"`
 	ListenAddress  string            `json:"listenAddress,omitempty"`
-	Port           int               `json:"port,omitempty"`
-	CqlPort        int               `json:"cqlPort,omitempty"`
+	Port           *int              `json:"port,omitempty"`
+	CqlPort        *int              `json:"cqlPort,omitempty"`
 	SslStoragePort int               `json:"sslStoragePort,omitempty"`
 	StoragePort    int               `json:"storagePort,omitempty"`
-	JmxLocalPort   int               `json:"jmxLocalPort,omitempty"`
+	JmxLocalPort   *int              `json:"jmxLocalPort,omitempty"`
 	MaxHeapSize    string            `json:"maxHeapSize,omitempty"`
 	MinHeapSize    string            `json:"minHeapSize,omitempty"`
 	StartRpc       bool              `json:"startRpc,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type CassandraStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	Active *bool                `json:"active,omitempty"`
+	Nodes  map[string]string    `json:"nodes,omitempty"`
+	Ports  CassandraStatusPorts `json:"ports,omitempty"`
+}
+
+type CassandraStatusPorts struct {
+	Port    *int `json:"port,omitempty"`
+	CqlPort *int `json:"cqlPort,omitempty"`
+	JmxPort *int `json:"jmxPort,omitempty"`
 }
 
 // CassandraList contains a list of Cassandra
@@ -88,7 +104,8 @@ func (c *Cassandra) CreateInstanceConfiguration(request reconcile.Request,
 	//currentConfigMap := *configMapInstanceDynamicConfig
 
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
-
+	cassandraConfigInterface := c.GetConfigurationParameters()
+	cassandraConfig := cassandraConfigInterface.(CassandraConfiguration)
 	for idx := range podList.Items {
 		var seeds []string
 		for idx2 := range podList.Items {
@@ -114,9 +131,9 @@ func (c *Cassandra) CreateInstanceConfiguration(request reconcile.Request,
 			SslStoragePort:      strconv.Itoa(c.Spec.ServiceConfiguration.SslStoragePort),
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			BroadcastAddress:    podList.Items[idx].Status.PodIP,
-			CQLPort:             strconv.Itoa(c.Spec.ServiceConfiguration.CqlPort),
+			CQLPort:             strconv.Itoa(*cassandraConfig.CqlPort),
 			StartRPC:            strconv.FormatBool(c.Spec.ServiceConfiguration.StartRpc),
-			RPCPort:             strconv.Itoa(c.Spec.ServiceConfiguration.Port),
+			RPCPort:             strconv.Itoa(*cassandraConfig.Port),
 			RPCAddress:          podList.Items[idx].Status.PodIP,
 			RPCBroadcastAddress: podList.Items[idx].Status.PodIP,
 		})
@@ -190,12 +207,12 @@ func (c *Cassandra) SetPodsToReady(podIPList *corev1.PodList, client client.Clie
 
 func (c *Cassandra) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
-
 	c.Status.Nodes = podNameIPMap
-	portMap := map[string]string{"port": strconv.Itoa(c.Spec.ServiceConfiguration.Port),
-		"cqlPort": strconv.Itoa(c.Spec.ServiceConfiguration.CqlPort)}
-
-	c.Status.Ports = portMap
+	cassandraConfigInterface := c.GetConfigurationParameters()
+	cassandraConfig := cassandraConfigInterface.(CassandraConfiguration)
+	c.Status.Ports.Port = cassandraConfig.Port
+	c.Status.Ports.CqlPort = cassandraConfig.CqlPort
+	c.Status.Ports.JmxPort = cassandraConfig.JmxLocalPort
 	err := client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err
@@ -239,7 +256,29 @@ func (c *Cassandra) IsConfig(request *reconcile.Request, client client.Client) b
 	return true
 }
 
-func (c *Cassandra) GetConfigurationParameters() map[string]string {
-	var configurationMap = make(map[string]string)
-	return configurationMap
+func (c *Cassandra) GetConfigurationParameters() interface{} {
+	cassandraConfiguration := CassandraConfiguration{}
+	var port int
+	var cqlPort int
+	var jmxPort int
+	if c.Spec.ServiceConfiguration.Port != nil {
+		port = *c.Spec.ServiceConfiguration.Port
+	} else {
+		port = CassandraPort
+	}
+	cassandraConfiguration.Port = &port
+	if c.Spec.ServiceConfiguration.CqlPort != nil {
+		cqlPort = *c.Spec.ServiceConfiguration.CqlPort
+	} else {
+		cqlPort = CassandraCqlPort
+	}
+	cassandraConfiguration.CqlPort = &cqlPort
+	if c.Spec.ServiceConfiguration.JmxLocalPort != nil {
+		jmxPort = *c.Spec.ServiceConfiguration.JmxLocalPort
+	} else {
+		jmxPort = CassandraJmxLocalPort
+	}
+	cassandraConfiguration.JmxLocalPort = &jmxPort
+
+	return cassandraConfiguration
 }

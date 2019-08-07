@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"sort"
-	"strconv"
-	"strings"
 
 	configtemplates "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1/templates"
 	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
@@ -32,8 +30,8 @@ type Webui struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   WebuiSpec `json:"spec,omitempty"`
-	Status Status    `json:"status,omitempty"`
+	Spec   WebuiSpec   `json:"spec,omitempty"`
+	Status WebuiStatus `json:"status,omitempty"`
 }
 
 // WebuiSpec is the Spec for the cassandras API
@@ -48,6 +46,15 @@ type WebuiSpec struct {
 type WebuiConfiguration struct {
 	Images            map[string]string `json:"images"`
 	CassandraInstance string            `json:"cassandraInstance,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type WebuiStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	Active *bool             `json:"active,omitempty"`
+	Nodes  map[string]string `json:"nodes,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -79,23 +86,18 @@ func (c *Webui) CreateInstanceConfiguration(request reconcile.Request,
 		return err
 	}
 
-	controlNodes, err := GetControlNodes("", "master",
+	controlNodesInformation, err := GetControlNodes("", "master",
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
-	var controlNodeList string
-	controlNodeList = strings.Join(controlNodes, "','")
-	controlNodeList = "['" + controlNodeList + "']"
 
-	cassandraNodes, _, cassandraCqlPort, _, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
+	cassandraNodesInformation, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
-	var cassandraServerList string
-	cassandraServerList = strings.Join(cassandraNodes, "','")
-	cassandraServerList = "['" + cassandraServerList + "']"
+
 	configNodesInformation, err := GetConfigNodesStatus(c.Labels["contrail_cluster"],
 		request.Namespace, client)
 	if err != nil {
@@ -128,10 +130,10 @@ func (c *Webui) CreateInstanceConfiguration(request reconcile.Request,
 			APIServerPort:       configNodesInformation.APIServerPort,
 			AnalyticsServerList: configNodesInformation.AnalyticsServerListQuotedCommaSeparated,
 			AnalyticsServerPort: configNodesInformation.AnalyticsServerPort,
-			ControlNodeList:     controlNodeList,
-			DnsNodePort:         "8092",
-			CassandraServerList: cassandraServerList,
-			CassandraPort:       strconv.Itoa(cassandraCqlPort),
+			ControlNodeList:     controlNodesInformation.ServerListCommanSeparatedQuoted,
+			DnsNodePort:         controlNodesInformation.DNSIntrospectPort,
+			CassandraServerList: cassandraNodesInformation.ServerListCommanSeparatedQuoted,
+			CassandraPort:       cassandraNodesInformation.CQLPort,
 			RedisServerList:     "127.0.0.1",
 		})
 		data["config.global.js."+podList.Items[idx].Status.PodIP] = webuiWebConfigBuffer.String()

@@ -32,8 +32,8 @@ type Config struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ConfigSpec `json:"spec,omitempty"`
-	Status Status     `json:"status,omitempty"`
+	Spec   ConfigSpec   `json:"spec,omitempty"`
+	Status ConfigStatus `json:"status,omitempty"`
 }
 
 // ConfigSpec is the Spec for the cassandras API
@@ -50,12 +50,29 @@ type ConfigConfiguration struct {
 	APIPort           *int              `json:"apiPort,omitempty"`
 	AnalyticsPort     *int              `json:"analyticsPort,omitempty"`
 	CollectorPort     *int              `json:"collectorPort,omitempty"`
+	RedisPort         *int              `json:"redisPort,omitempty"`
 	CassandraInstance string            `json:"cassandraInstance,omitempty"`
 	ZookeeperInstance string            `json:"zookeeperInstance,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type ConfigStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	Active *bool             `json:"active,omitempty"`
+	Nodes  map[string]string `json:"nodes,omitempty"`
+	Ports  ConfigStatusPorts `json:"ports,omitempty"`
+}
 
+type ConfigStatusPorts struct {
+	APIPort       *int `json:"apiPort,omitempty"`
+	AnalyticsPort *int `json:"analyticsPort,omitempty"`
+	CollectorPort *int `json:"collectorPort,omitempty"`
+	RedisPort     *int `json:"redisPort,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // ConfigList contains a list of Config
 type ConfigList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -83,54 +100,42 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 		return err
 	}
 
-	cassandraNodes, cassandraPort, cassandraCqlPort, cassandraJmxPort, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
+	cassandraNodesInformation, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
-	var cassandraServerSpaceSeparatedList, cassandraCqlServerSpaceSeparateList string
-	cassandraServerSpaceSeparatedList = strings.Join(cassandraNodes, ":"+strconv.Itoa(cassandraPort)+" ")
-	cassandraServerSpaceSeparatedList = cassandraServerSpaceSeparatedList + ":" + strconv.Itoa(cassandraPort)
-	cassandraCqlServerSpaceSeparateList = strings.Join(cassandraNodes, ":"+strconv.Itoa(cassandraCqlPort)+" ")
-	cassandraCqlServerSpaceSeparateList = cassandraCqlServerSpaceSeparateList + ":" + strconv.Itoa(cassandraCqlPort)
 
-	zookeeperNodes, zookeeperPort, err := GetZookeeperNodes(c.Spec.ServiceConfiguration.ZookeeperInstance,
+	zookeeperNodesInformation, err := GetZookeeperNodes(c.Spec.ServiceConfiguration.ZookeeperInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
-	var zookeeperServerSpaceSeparateList, zookeeperServerCommaSeparateList string
-	zookeeperServerSpaceSeparateList = strings.Join(zookeeperNodes, ":"+strconv.Itoa(zookeeperPort)+" ")
-	zookeeperServerSpaceSeparateList = zookeeperServerSpaceSeparateList + ":" + strconv.Itoa(zookeeperPort)
-	zookeeperServerCommaSeparateList = strings.Join(zookeeperNodes, ":"+strconv.Itoa(zookeeperPort)+",")
-	zookeeperServerCommaSeparateList = zookeeperServerCommaSeparateList + ":" + strconv.Itoa(zookeeperPort)
 
-	rabbitmqNodes, rabbitmqPort, err := GetRabbitmqNodes(c.Labels["contrail_cluster"],
+	rabbitmqNodesInformation, err := GetRabbitmqNodes(c.Labels["contrail_cluster"],
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
-	var rabbitmqServerCommaSeparatedList, rabbitmqServerSpaceSeparatedList string
-	rabbitmqServerCommaSeparatedList = strings.Join(rabbitmqNodes, ":"+strconv.Itoa(rabbitmqPort)+",")
-	rabbitmqServerCommaSeparatedList = rabbitmqServerCommaSeparatedList + ":" + strconv.Itoa(rabbitmqPort)
-	rabbitmqServerSpaceSeparatedList = strings.Join(rabbitmqNodes, ":"+strconv.Itoa(rabbitmqPort)+" ")
-	rabbitmqServerSpaceSeparatedList = rabbitmqServerSpaceSeparatedList + ":" + strconv.Itoa(rabbitmqPort)
+
+	configConfigInterface := c.GetConfigurationParameters()
+	configConfig := configConfigInterface.(ConfigConfiguration)
 
 	var collectorServerList, analyticsServerList, apiServerList, analyticsServerSpaceSeparatedList, apiServerSpaceSeparatedList, redisServerSpaceSeparatedList string
 	var podIPList []string
 	for _, pod := range podList.Items {
 		podIPList = append(podIPList, pod.Status.PodIP)
 	}
-	collectorServerList = strings.Join(podIPList, ":8086 ")
-	collectorServerList = collectorServerList + ":8086"
+	collectorServerList = strings.Join(podIPList, ":"+strconv.Itoa(*configConfig.CollectorPort)+" ")
+	collectorServerList = collectorServerList + ":" + strconv.Itoa(*configConfig.CollectorPort)
 	analyticsServerList = strings.Join(podIPList, ",")
 	apiServerList = strings.Join(podIPList, ",")
-	analyticsServerSpaceSeparatedList = strings.Join(podIPList, ":8081 ")
-	analyticsServerSpaceSeparatedList = analyticsServerSpaceSeparatedList + ":8081"
-	apiServerSpaceSeparatedList = strings.Join(podIPList, ":8082 ")
-	apiServerSpaceSeparatedList = apiServerSpaceSeparatedList + ":8082"
-	redisServerSpaceSeparatedList = strings.Join(podIPList, ":6379 ")
-	redisServerSpaceSeparatedList = redisServerSpaceSeparatedList + ":6379"
+	analyticsServerSpaceSeparatedList = strings.Join(podIPList, ":"+strconv.Itoa(*configConfig.AnalyticsPort)+" ")
+	analyticsServerSpaceSeparatedList = analyticsServerSpaceSeparatedList + ":" + strconv.Itoa(*configConfig.AnalyticsPort)
+	apiServerSpaceSeparatedList = strings.Join(podIPList, ":"+strconv.Itoa(*configConfig.APIPort)+" ")
+	apiServerSpaceSeparatedList = apiServerSpaceSeparatedList + ":" + strconv.Itoa(*configConfig.APIPort)
+	redisServerSpaceSeparatedList = strings.Join(podIPList, ":"+strconv.Itoa(*configConfig.RedisPort)+" ")
+	redisServerSpaceSeparatedList = redisServerSpaceSeparatedList + ":" + strconv.Itoa(*configConfig.RedisPort)
 
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 	var data = make(map[string]string)
@@ -145,10 +150,10 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 			CollectorServerList string
 		}{
 			ListenAddress:       podList.Items[idx].Status.PodIP,
-			ListenPort:          "8082",
-			CassandraServerList: cassandraServerSpaceSeparatedList,
-			ZookeeperServerList: zookeeperServerCommaSeparateList,
-			RabbitmqServerList:  rabbitmqServerCommaSeparatedList,
+			ListenPort:          strconv.Itoa(*configConfig.APIPort),
+			CassandraServerList: cassandraNodesInformation.ServerListSpaceSeparated,
+			ZookeeperServerList: zookeeperNodesInformation.ServerListCommaSeparated,
+			RabbitmqServerList:  rabbitmqNodesInformation.ServerListCommaSeparated,
 			CollectorServerList: collectorServerList,
 		})
 		data["api."+podList.Items[idx].Status.PodIP] = configApiConfigBuffer.String()
@@ -166,9 +171,9 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			ApiServerList:       apiServerList,
 			AnalyticsServerList: analyticsServerList,
-			CassandraServerList: cassandraServerSpaceSeparatedList,
-			ZookeeperServerList: zookeeperServerCommaSeparateList,
-			RabbitmqServerList:  rabbitmqServerCommaSeparatedList,
+			CassandraServerList: cassandraNodesInformation.ServerListSpaceSeparated,
+			ZookeeperServerList: zookeeperNodesInformation.ServerListSpaceSeparated,
+			RabbitmqServerList:  rabbitmqNodesInformation.ServerListCommaSeparated,
 			CollectorServerList: collectorServerList,
 		})
 		data["devicemanager."+podList.Items[idx].Status.PodIP] = configDevicemanagerConfigBuffer.String()
@@ -186,9 +191,9 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			ApiServerList:       apiServerList,
 			AnalyticsServerList: analyticsServerList,
-			CassandraServerList: cassandraServerSpaceSeparatedList,
-			ZookeeperServerList: zookeeperServerCommaSeparateList,
-			RabbitmqServerList:  rabbitmqServerCommaSeparatedList,
+			CassandraServerList: cassandraNodesInformation.ServerListSpaceSeparated,
+			ZookeeperServerList: zookeeperNodesInformation.ServerListSpaceSeparated,
+			RabbitmqServerList:  rabbitmqNodesInformation.ServerListCommaSeparated,
 			CollectorServerList: collectorServerList,
 		})
 		data["schematransformer."+podList.Items[idx].Status.PodIP] = configSchematransformerConfigBuffer.String()
@@ -206,9 +211,9 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			ApiServerList:       apiServerList,
 			AnalyticsServerList: analyticsServerSpaceSeparatedList,
-			CassandraServerList: cassandraServerSpaceSeparatedList,
-			ZookeeperServerList: zookeeperServerCommaSeparateList,
-			RabbitmqServerList:  rabbitmqServerCommaSeparatedList,
+			CassandraServerList: cassandraNodesInformation.ServerListSpaceSeparated,
+			ZookeeperServerList: zookeeperNodesInformation.ServerListSpaceSeparated,
+			RabbitmqServerList:  rabbitmqNodesInformation.ServerListCommaSeparated,
 			CollectorServerList: collectorServerList,
 		})
 		data["servicemonitor."+podList.Items[idx].Status.PodIP] = configServicemonitorConfigBuffer.String()
@@ -227,9 +232,9 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			ApiServerList:       apiServerSpaceSeparatedList,
 			AnalyticsServerList: analyticsServerSpaceSeparatedList,
-			CassandraServerList: cassandraServerSpaceSeparatedList,
-			ZookeeperServerList: zookeeperServerSpaceSeparateList,
-			RabbitmqServerList:  rabbitmqServerCommaSeparatedList,
+			CassandraServerList: cassandraNodesInformation.ServerListSpaceSeparated,
+			ZookeeperServerList: zookeeperNodesInformation.ServerListSpaceSeparated,
+			RabbitmqServerList:  rabbitmqNodesInformation.ServerListCommaSeparated,
 			CollectorServerList: collectorServerList,
 			RedisServerList:     redisServerSpaceSeparatedList,
 		})
@@ -245,9 +250,9 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 		}{
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			ApiServerList:       apiServerSpaceSeparatedList,
-			CassandraServerList: cassandraServerSpaceSeparatedList,
-			ZookeeperServerList: zookeeperServerCommaSeparateList,
-			RabbitmqServerList:  rabbitmqServerSpaceSeparatedList,
+			CassandraServerList: cassandraNodesInformation.ServerListSpaceSeparated,
+			ZookeeperServerList: zookeeperNodesInformation.ServerListCommaSeparated,
+			RabbitmqServerList:  rabbitmqNodesInformation.ServerListCommaSeparated,
 		})
 		data["collector."+podList.Items[idx].Status.PodIP] = configCollectorConfigBuffer.String()
 
@@ -260,8 +265,8 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 		}{
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			CollectorServerList: collectorServerList,
-			CassandraPort:       strconv.Itoa(cassandraPort),
-			CassandraJmxPort:    strconv.Itoa(cassandraJmxPort),
+			CassandraPort:       cassandraNodesInformation.Port,
+			CassandraJmxPort:    cassandraNodesInformation.JMXPort,
 		})
 		data["nodemanagerconfig."+podList.Items[idx].Status.PodIP] = configNodemanagerconfigConfigBuffer.String()
 
@@ -274,8 +279,8 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 		}{
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			CollectorServerList: collectorServerList,
-			CassandraPort:       strconv.Itoa(cassandraPort),
-			CassandraJmxPort:    strconv.Itoa(cassandraJmxPort),
+			CassandraPort:       cassandraNodesInformation.Port,
+			CassandraJmxPort:    cassandraNodesInformation.JMXPort,
 		})
 		data["nodemanageranalytics."+podList.Items[idx].Status.PodIP] = configNodemanageranalyticsConfigBuffer.String()
 	}
@@ -341,28 +346,34 @@ func (c *Config) SetPodsToReady(podIPList *corev1.PodList, client client.Client)
 func (c *Config) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
 	c.Status.Nodes = podNameIPMap
-	var apiPort string
-	var analyticsPort string
-	var collectorPort string
+	var apiPort int
+	var analyticsPort int
+	var collectorPort int
+	var redisPort int
 	if c.Spec.ServiceConfiguration.APIPort != nil {
-		apiPort = strconv.Itoa(ConfigApiPort)
+		apiPort = *c.Spec.ServiceConfiguration.APIPort
 	} else {
-		apiPort = strconv.Itoa(*c.Spec.ServiceConfiguration.APIPort)
+		apiPort = ConfigApiPort
 	}
 	if c.Spec.ServiceConfiguration.AnalyticsPort != nil {
-		analyticsPort = strconv.Itoa(AnalyticsApiPort)
+		analyticsPort = *c.Spec.ServiceConfiguration.AnalyticsPort
 	} else {
-		analyticsPort = strconv.Itoa(*c.Spec.ServiceConfiguration.AnalyticsPort)
+		analyticsPort = AnalyticsApiPort
 	}
 	if c.Spec.ServiceConfiguration.CollectorPort != nil {
-		collectorPort = strconv.Itoa(CollectorPort)
+		collectorPort = *c.Spec.ServiceConfiguration.CollectorPort
 	} else {
-		collectorPort = strconv.Itoa(*c.Spec.ServiceConfiguration.CollectorPort)
+		collectorPort = CollectorPort
 	}
-	portMap := map[string]string{"apiPort": apiPort,
-		"analyticsPort": analyticsPort,
-		"collectorPort": collectorPort}
-	c.Status.Ports = portMap
+	if c.Spec.ServiceConfiguration.RedisPort != nil {
+		redisPort = *c.Spec.ServiceConfiguration.RedisPort
+	} else {
+		redisPort = RedisServerPort
+	}
+	c.Status.Ports.APIPort = &apiPort
+	c.Status.Ports.AnalyticsPort = &analyticsPort
+	c.Status.Ports.CollectorPort = &collectorPort
+	c.Status.Ports.RedisPort = &redisPort
 	err := client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err
@@ -468,7 +479,31 @@ func (c *Config) IsConfig(request *reconcile.Request, client client.Client) bool
 	return true
 }
 
-func (c *Config) GetConfigurationParameters() map[string]string {
-	var configurationMap = make(map[string]string)
-	return configurationMap
+func (c *Config) GetConfigurationParameters() interface{} {
+	configConfiguration := ConfigConfiguration{}
+	var apiPort int
+	var analyticsPort int
+	var collectorPort int
+	if c.Spec.ServiceConfiguration.APIPort != nil {
+		apiPort = *c.Spec.ServiceConfiguration.APIPort
+	} else {
+		apiPort = ConfigApiPort
+	}
+	configConfiguration.APIPort = &apiPort
+
+	if c.Spec.ServiceConfiguration.AnalyticsPort != nil {
+		analyticsPort = *c.Spec.ServiceConfiguration.AnalyticsPort
+	} else {
+		analyticsPort = AnalyticsApiPort
+	}
+	configConfiguration.AnalyticsPort = &analyticsPort
+
+	if c.Spec.ServiceConfiguration.CollectorPort != nil {
+		collectorPort = *c.Spec.ServiceConfiguration.CollectorPort
+	} else {
+		collectorPort = CollectorPort
+	}
+	configConfiguration.CollectorPort = &collectorPort
+	return configConfiguration
+
 }

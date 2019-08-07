@@ -33,19 +33,23 @@ type ZookeeperSpec struct {
 // +k8s:openapi-gen=true
 type ZookeeperConfiguration struct {
 	Images       map[string]string `json:"images"`
-	ClientPort   int               `json:"clientPort,omitempty"`
-	ElectionPort int               `json:"electionPort,omitempty"`
-	ServerPort   int               `json:"serverPort,omitempty"`
+	ClientPort   *int              `json:"clientPort,omitempty"`
+	ElectionPort *int              `json:"electionPort,omitempty"`
+	ServerPort   *int              `json:"serverPort,omitempty"`
 }
 
-// ZookeeperStatus defines the observed state of Zookeeper
 // +k8s:openapi-gen=true
 type ZookeeperStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Active *bool             `json:"active"`
-	Nodes  map[string]string `json:"nodes"`
+	Active *bool                `json:"active,omitempty"`
+	Nodes  map[string]string    `json:"nodes,omitempty"`
+	Ports  ZookeeperStatusPorts `json:"ports,omitempty"`
+}
+
+type ZookeeperStatusPorts struct {
+	ClientPort *int `json:"clientPort,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -57,8 +61,8 @@ type Zookeeper struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ZookeeperSpec `json:"spec,omitempty"`
-	Status Status        `json:"status,omitempty"`
+	Spec   ZookeeperSpec   `json:"spec,omitempty"`
+	Status ZookeeperStatus `json:"status,omitempty"`
 }
 
 func (z Zookeeper) GetCrd() *apiextensionsv1beta1.CustomResourceDefinition {
@@ -96,6 +100,9 @@ func (c *Zookeeper) CreateInstanceConfiguration(request reconcile.Request,
 	if err != nil {
 		return err
 	}
+
+	zookeeperConfigInterface := c.GetConfigurationParameters()
+	zookeeperConfig := zookeeperConfigInterface.(ZookeeperConfiguration)
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 	for idx := range podList.Items {
 		if configMapInstanceDynamicConfig.Data == nil {
@@ -108,7 +115,7 @@ func (c *Zookeeper) CreateInstanceConfiguration(request reconcile.Request,
 		for idx2 := range podList.Items {
 			zkServerString = zkServerString + fmt.Sprintf("server.%d=%s:%s:participant\n",
 				idx2+1, podList.Items[idx2].Status.PodIP,
-				strconv.Itoa(c.Spec.ServiceConfiguration.ServerPort)+":"+strconv.Itoa(c.Spec.ServiceConfiguration.ElectionPort))
+				strconv.Itoa(*zookeeperConfig.ServerPort)+":"+strconv.Itoa(*zookeeperConfig.ElectionPort))
 		}
 		configMapInstanceDynamicConfig.Data["zoo.cfg.dynamic.100000000"] = zkServerString
 		err = client.Update(context.TODO(), configMapInstanceDynamicConfig)
@@ -120,7 +127,7 @@ func (c *Zookeeper) CreateInstanceConfiguration(request reconcile.Request,
 		configtemplates.ZookeeperConfig.Execute(&zookeeperConfigBuffer, struct {
 			ClientPort string
 		}{
-			ClientPort: strconv.Itoa(c.Spec.ServiceConfiguration.ClientPort),
+			ClientPort: strconv.Itoa(*zookeeperConfig.ClientPort),
 		})
 		configtemplates.ZookeeperAuthConfig.Execute(&zookeeperAuthBuffer, struct{}{})
 		configtemplates.ZookeeperLogConfig.Execute(&zookeeperLogBuffer, struct{}{})
@@ -192,8 +199,9 @@ func (c *Zookeeper) SetPodsToReady(podIPList *corev1.PodList, client client.Clie
 func (c *Zookeeper) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
 	c.Status.Nodes = podNameIPMap
-	portMap := map[string]string{"port": strconv.Itoa(c.Spec.ServiceConfiguration.ClientPort)}
-	c.Status.Ports = portMap
+	zookeeperConfigInterface := c.GetConfigurationParameters()
+	zookeeperConfig := zookeeperConfigInterface.(ZookeeperConfiguration)
+	c.Status.Ports.ClientPort = zookeeperConfig.ClientPort
 	err := client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err
@@ -237,7 +245,29 @@ func (c *Zookeeper) IsConfig(request *reconcile.Request, client client.Client) b
 	return true
 }
 
-func (c *Zookeeper) GetConfigurationParameters() map[string]string {
-	var configurationMap = make(map[string]string)
-	return configurationMap
+func (c *Zookeeper) GetConfigurationParameters() interface{} {
+	zookeeperConfiguration := ZookeeperConfiguration{}
+	var clientPort int
+	var electionPort int
+	var serverPort int
+	if c.Spec.ServiceConfiguration.ClientPort != nil {
+		clientPort = *c.Spec.ServiceConfiguration.ClientPort
+	} else {
+		clientPort = ZookeeperPort
+	}
+	if c.Spec.ServiceConfiguration.ElectionPort != nil {
+		electionPort = *c.Spec.ServiceConfiguration.ElectionPort
+	} else {
+		electionPort = ZookeeperElectionPort
+	}
+	if c.Spec.ServiceConfiguration.ServerPort != nil {
+		serverPort = *c.Spec.ServiceConfiguration.ServerPort
+	} else {
+		serverPort = ZookeeperServerPort
+	}
+	zookeeperConfiguration.ClientPort = &clientPort
+	zookeeperConfiguration.ElectionPort = &electionPort
+	zookeeperConfiguration.ServerPort = &serverPort
+
+	return zookeeperConfiguration
 }

@@ -5,7 +5,6 @@ import (
 	"context"
 	"sort"
 	"strconv"
-	"strings"
 
 	configtemplates "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1/templates"
 	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
@@ -31,8 +30,8 @@ type Control struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ControlSpec `json:"spec,omitempty"`
-	Status Status      `json:"status,omitempty"`
+	Spec   ControlSpec   `json:"spec,omitempty"`
+	Status ControlStatus `json:"status,omitempty"`
 }
 
 // ControlSpec is the Spec for the controls API
@@ -50,6 +49,27 @@ type ControlConfiguration struct {
 	ZookeeperInstance string            `json:"zookeeperInstance,omitempty"`
 	BGPPort           *int              `json:"bgpPort,omitempty"`
 	ASNNumber         *int              `json:"asnNumber,omitempty"`
+	XMPPPort          *int              `json:"xmppPort,omitempty"`
+	DNSPort           *int              `json:"dnsPort,omitempty"`
+	DNSIntrospectPort *int              `json:"dnsIntrospectPort,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type ControlStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	Active *bool              `json:"active,omitempty"`
+	Nodes  map[string]string  `json:"nodes,omitempty"`
+	Ports  ControlStatusPorts `json:"ports,omitempty"`
+}
+
+type ControlStatusPorts struct {
+	BGPPort           *int `json:"bgpPort,omitempty"`
+	ASNNumber         *int `json:"asnNumber,omitempty"`
+	XMPPPort          *int `json:"xmppPort,omitempty"`
+	DNSPort           *int `json:"dnsPort,omitempty"`
+	DNSIntrospectPort *int `json:"dnsIntrospectPort,omitempty"`
 }
 
 // ControlList contains a list of Control
@@ -80,38 +100,23 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 		return err
 	}
 
-	cassandraNodes, cassandraPort, cassandraCqlPort, cassandraJmxPort, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
+	cassandraNodesInformation, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
-	var cassandraServerSpaceSeparatedList, cassandraCqlServerSpaceSeparateList string
-	cassandraServerSpaceSeparatedList = strings.Join(cassandraNodes, ":"+strconv.Itoa(cassandraPort)+" ")
-	cassandraServerSpaceSeparatedList = cassandraServerSpaceSeparatedList + ":" + strconv.Itoa(cassandraPort)
-	cassandraCqlServerSpaceSeparateList = strings.Join(cassandraNodes, ":"+strconv.Itoa(cassandraCqlPort)+" ")
-	cassandraCqlServerSpaceSeparateList = cassandraCqlServerSpaceSeparateList + ":" + strconv.Itoa(cassandraCqlPort)
 
-	zookeeperNodes, zookeeperPort, err := GetZookeeperNodes(c.Spec.ServiceConfiguration.ZookeeperInstance,
+	zookeeperNodesInformation, err := GetZookeeperNodes(c.Spec.ServiceConfiguration.ZookeeperInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
-	var zookeeperServerSpaceSeparateList, zookeeperServerCommaSeparateList string
-	zookeeperServerSpaceSeparateList = strings.Join(zookeeperNodes, ":"+strconv.Itoa(zookeeperPort)+" ")
-	zookeeperServerSpaceSeparateList = zookeeperServerSpaceSeparateList + ":" + strconv.Itoa(zookeeperPort)
-	zookeeperServerCommaSeparateList = strings.Join(zookeeperNodes, ":"+strconv.Itoa(zookeeperPort)+",")
-	zookeeperServerCommaSeparateList = zookeeperServerCommaSeparateList + ":" + strconv.Itoa(zookeeperPort)
 
-	rabbitmqNodes, rabbitmqPort, err := GetRabbitmqNodes(c.Labels["contrail_cluster"],
+	rabbitmqNodesInformation, err := GetRabbitmqNodes(c.Labels["contrail_cluster"],
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
-	var rabbitmqServerCommaSeparatedList, rabbitmqServerSpaceSeparatedList string
-	rabbitmqServerCommaSeparatedList = strings.Join(rabbitmqNodes, ":"+strconv.Itoa(rabbitmqPort)+",")
-	rabbitmqServerCommaSeparatedList = rabbitmqServerCommaSeparatedList + ":" + strconv.Itoa(rabbitmqPort)
-	rabbitmqServerSpaceSeparatedList = strings.Join(rabbitmqNodes, ":"+strconv.Itoa(rabbitmqPort)+" ")
-	rabbitmqServerSpaceSeparatedList = rabbitmqServerSpaceSeparatedList + ":" + strconv.Itoa(rabbitmqPort)
 
 	configNodesInformation, err := GetConfigNodesStatus(c.Labels["contrail_cluster"],
 		request.Namespace, client)
@@ -124,7 +129,8 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 		podIPList = append(podIPList, pod.Status.PodIP)
 	}
 
-	configurationMap := c.GetConfigurationParameters()
+	controlConfigInterface := c.GetConfigurationParameters()
+	controlConfig := controlConfigInterface.(ControlConfiguration)
 
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 	var data = make(map[string]string)
@@ -145,14 +151,14 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 		}{
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			Hostname:            podList.Items[idx].Name,
-			BGPPort:             configurationMap["bgpPort"],
-			ASNNumber:           configurationMap["asnNumber"],
+			BGPPort:             strconv.Itoa(*controlConfig.BGPPort),
+			ASNNumber:           strconv.Itoa(*controlConfig.ASNNumber),
 			APIServerList:       configNodesInformation.APIServerListSpaceSeparated,
 			APIServerPort:       configNodesInformation.APIServerPort,
-			CassandraServerList: cassandraCqlServerSpaceSeparateList,
-			ZookeeperServerList: zookeeperServerCommaSeparateList,
-			RabbitmqServerList:  rabbitmqServerSpaceSeparatedList,
-			RabbitmqServerPort:  strconv.Itoa(rabbitmqPort),
+			CassandraServerList: cassandraNodesInformation.ServerListCQLCommaSeparated,
+			ZookeeperServerList: zookeeperNodesInformation.ServerListCommaSeparated,
+			RabbitmqServerList:  rabbitmqNodesInformation.ServerListSpaceSeparated,
+			RabbitmqServerPort:  rabbitmqNodesInformation.Port,
 			CollectorServerList: configNodesInformation.CollectorServerListSpaceSeparated,
 		})
 		data["control."+podList.Items[idx].Status.PodIP] = controlControlConfigBuffer.String()
@@ -178,10 +184,10 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 			Hostname:            podList.Items[idx].Name,
 			APIServerList:       configNodesInformation.APIServerListSpaceSeparated,
 			APIServerPort:       configNodesInformation.APIServerPort,
-			CassandraServerList: cassandraCqlServerSpaceSeparateList,
-			ZookeeperServerList: zookeeperServerCommaSeparateList,
-			RabbitmqServerList:  rabbitmqServerSpaceSeparatedList,
-			RabbitmqServerPort:  strconv.Itoa(rabbitmqPort),
+			CassandraServerList: cassandraNodesInformation.ServerListCQLCommaSeparated,
+			ZookeeperServerList: zookeeperNodesInformation.ServerListCommaSeparated,
+			RabbitmqServerList:  rabbitmqNodesInformation.ServerListSpaceSeparated,
+			RabbitmqServerPort:  rabbitmqNodesInformation.Port,
 			CollectorServerList: configNodesInformation.CollectorServerListSpaceSeparated,
 		})
 		data["dns."+podList.Items[idx].Status.PodIP] = controlDnsConfigBuffer.String()
@@ -195,8 +201,8 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 		}{
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			CollectorServerList: configNodesInformation.CollectorServerListSpaceSeparated,
-			CassandraPort:       strconv.Itoa(cassandraPort),
-			CassandraJmxPort:    strconv.Itoa(cassandraJmxPort),
+			CassandraPort:       cassandraNodesInformation.Port,
+			CassandraJmxPort:    cassandraNodesInformation.JMXPort,
 		})
 		data["nodemanager."+podList.Items[idx].Status.PodIP] = controlNodemanagerBuffer.String()
 
@@ -210,8 +216,8 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 		}{
 			ListenAddress: podList.Items[idx].Status.PodIP,
 			APIServerList: configNodesInformation.APIServerListCommaSeparated,
-			ASNNumber:     configurationMap["asnNumber"],
-			BGPPort:       configurationMap["bgpPort"],
+			ASNNumber:     strconv.Itoa(*controlConfig.ASNNumber),
+			BGPPort:       strconv.Itoa(*controlConfig.BGPPort),
 			APIServerPort: configNodesInformation.APIServerPort,
 		})
 		data["provision.sh."+podList.Items[idx].Status.PodIP] = controlProvisionBuffer.String()
@@ -224,9 +230,9 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 			APIServerList string
 			APIServerPort string
 		}{
-			User:          ContrailDefaultUser,
-			Password:      ContrailDefaultPassword,
-			Tenant:        ContrailDefaultTenant,
+			User:          KeystoneAuthAdminUser,
+			Password:      KeystoneAuthAdminPassword,
+			Tenant:        KeystoneAuthAdminTenant,
 			APIServerList: configNodesInformation.APIServerListQuotedCommaSeparated,
 			APIServerPort: configNodesInformation.APIServerPort,
 		})
@@ -292,12 +298,14 @@ func (c *Control) SetPodsToReady(podIPList *corev1.PodList, client client.Client
 
 func (c *Control) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
-	configurationMap := c.GetConfigurationParameters()
-	var portStatus = make(map[string]string)
-	portStatus["bgpPort"] = configurationMap["bgpPort"]
-	portStatus["asnNumber"] = configurationMap["asnNumber"]
-	c.Status.Ports = portStatus
 	c.Status.Nodes = podNameIPMap
+	controlConfigInterface := c.GetConfigurationParameters()
+	controlConfig := controlConfigInterface.(ControlConfiguration)
+	c.Status.Ports.BGPPort = controlConfig.BGPPort
+	c.Status.Ports.ASNNumber = controlConfig.ASNNumber
+	c.Status.Ports.XMPPPort = controlConfig.XMPPPort
+	c.Status.Ports.DNSPort = controlConfig.DNSPort
+	c.Status.Ports.DNSIntrospectPort = controlConfig.DNSIntrospectPort
 	err := client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err
@@ -417,22 +425,46 @@ func (c *Control) IsConfig(request *reconcile.Request, myclient client.Client) b
 	return false
 }
 
-func (c *Control) GetConfigurationParameters() map[string]string {
-	var configurationMap = make(map[string]string)
-	var bgpPort string
+func (c *Control) GetConfigurationParameters() interface{} {
+	controlConfiguration := ControlConfiguration{}
+	var bgpPort int
+	var asnNumber int
+	var xmppPort int
+	var dnsPort int
 	if c.Spec.ServiceConfiguration.BGPPort != nil {
-		bgpPort = strconv.Itoa(*c.Spec.ServiceConfiguration.BGPPort)
+		bgpPort = *c.Spec.ServiceConfiguration.BGPPort
 	} else {
-		bgpPort = strconv.Itoa(BGPPort)
+		bgpPort = BgpPort
 	}
-	configurationMap["bgpPort"] = bgpPort
 
-	var asnNumber string
 	if c.Spec.ServiceConfiguration.ASNNumber != nil {
-		asnNumber = strconv.Itoa(*c.Spec.ServiceConfiguration.ASNNumber)
+		asnNumber = *c.Spec.ServiceConfiguration.ASNNumber
 	} else {
-		asnNumber = strconv.Itoa(BGPAsn)
+		asnNumber = BgpAsn
 	}
-	configurationMap["asnNumber"] = asnNumber
-	return configurationMap
+
+	if c.Spec.ServiceConfiguration.XMPPPort != nil {
+		xmppPort = *c.Spec.ServiceConfiguration.XMPPPort
+	} else {
+		xmppPort = XmppServerPort
+	}
+
+	if c.Spec.ServiceConfiguration.DNSPort != nil {
+		dnsPort = *c.Spec.ServiceConfiguration.DNSPort
+	} else {
+		dnsPort = DnsServerPort
+	}
+
+	if c.Spec.ServiceConfiguration.DNSIntrospectPort != nil {
+		dnsPort = *c.Spec.ServiceConfiguration.DNSIntrospectPort
+	} else {
+		dnsPort = DnsIntrospectPort
+	}
+	controlConfiguration.BGPPort = &bgpPort
+	controlConfiguration.ASNNumber = &asnNumber
+	controlConfiguration.XMPPPort = &xmppPort
+	controlConfiguration.DNSPort = &dnsPort
+	controlConfiguration.DNSIntrospectPort = &dnsPort
+
+	return controlConfiguration
 }

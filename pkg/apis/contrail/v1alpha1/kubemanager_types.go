@@ -6,7 +6,6 @@ import (
 	"net"
 	"sort"
 	"strconv"
-	"strings"
 
 	configtemplates "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1/templates"
 	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
@@ -35,8 +34,8 @@ type Kubemanager struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   KubemanagerSpec `json:"spec,omitempty"`
-	Status Status          `json:"status,omitempty"`
+	Spec   KubemanagerSpec   `json:"spec,omitempty"`
+	Status KubemanagerStatus `json:"status,omitempty"`
 }
 
 // KubemanagerSpec is the Spec for the kubemanagers API
@@ -44,6 +43,15 @@ type Kubemanager struct {
 type KubemanagerSpec struct {
 	CommonConfiguration  CommonConfiguration      `json:"commonConfiguration"`
 	ServiceConfiguration KubemanagerConfiguration `json:"serviceConfiguration"`
+}
+
+// +k8s:openapi-gen=true
+type KubemanagerStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	Active *bool             `json:"active,omitempty"`
+	Nodes  map[string]string `json:"nodes,omitempty"`
 }
 
 // KubemanagerConfiguration is the Spec for the kubemanagers API
@@ -95,55 +103,34 @@ func (c *Kubemanager) CreateInstanceConfiguration(request reconcile.Request,
 		return err
 	}
 
-	cassandraNodes, cassandraPort, cassandraCqlPort, _, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
+	cassandraNodesInformation, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
-	var cassandraServerSpaceSeparatedList, cassandraCqlServerSpaceSeparateList string
-	cassandraServerSpaceSeparatedList = strings.Join(cassandraNodes, ":"+strconv.Itoa(cassandraPort)+" ")
-	cassandraServerSpaceSeparatedList = cassandraServerSpaceSeparatedList + ":" + strconv.Itoa(cassandraPort)
-	cassandraCqlServerSpaceSeparateList = strings.Join(cassandraNodes, ":"+strconv.Itoa(cassandraCqlPort)+" ")
-	cassandraCqlServerSpaceSeparateList = cassandraCqlServerSpaceSeparateList + ":" + strconv.Itoa(cassandraCqlPort)
 
-	zookeeperNodes, zookeeperPort, err := GetZookeeperNodes(c.Spec.ServiceConfiguration.ZookeeperInstance,
+	configNodesInformation, err := GetConfigNodesStatus(c.Labels["contrail_cluster"],
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
-	var zookeeperServerSpaceSeparateList, zookeeperServerCommaSeparateList string
-	zookeeperServerSpaceSeparateList = strings.Join(zookeeperNodes, ":"+strconv.Itoa(zookeeperPort)+" ")
-	zookeeperServerSpaceSeparateList = zookeeperServerSpaceSeparateList + ":" + strconv.Itoa(zookeeperPort)
-	zookeeperServerCommaSeparateList = strings.Join(zookeeperNodes, ":"+strconv.Itoa(zookeeperPort)+",")
-	zookeeperServerCommaSeparateList = zookeeperServerCommaSeparateList + ":" + strconv.Itoa(zookeeperPort)
 
-	rabbitmqNodes, rabbitmqPort, err := GetRabbitmqNodes(c.Labels["contrail_cluster"],
+	zookeeperNodesInformation, err := GetZookeeperNodes(c.Spec.ServiceConfiguration.ZookeeperInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
-	var rabbitmqServerCommaSeparatedList, rabbitmqServerSpaceSeparatedList, rabbitmqServerList string
-	rabbitmqServerCommaSeparatedList = strings.Join(rabbitmqNodes, ":"+strconv.Itoa(rabbitmqPort)+",")
-	rabbitmqServerCommaSeparatedList = rabbitmqServerCommaSeparatedList + ":" + strconv.Itoa(rabbitmqPort)
-	rabbitmqServerSpaceSeparatedList = strings.Join(rabbitmqNodes, ":"+strconv.Itoa(rabbitmqPort)+" ")
-	rabbitmqServerSpaceSeparatedList = rabbitmqServerSpaceSeparatedList + ":" + strconv.Itoa(rabbitmqPort)
-	rabbitmqServerList = strings.Join(rabbitmqNodes, ",")
 
-	var collectorServerList, apiServerList, analyticsServerSpaceSeparatedList, apiServerSpaceSeparatedList, redisServerSpaceSeparatedList string
+	rabbitmqNodesInformation, err := GetRabbitmqNodes(c.Labels["contrail_cluster"],
+		request.Namespace, client)
+	if err != nil {
+		return err
+	}
+
 	var podIPList []string
 	for _, pod := range podList.Items {
 		podIPList = append(podIPList, pod.Status.PodIP)
 	}
-	collectorServerList = strings.Join(podIPList, ":8086 ")
-	collectorServerList = collectorServerList + ":8086"
-	apiServerList = strings.Join(podIPList, ",")
-	analyticsServerSpaceSeparatedList = strings.Join(podIPList, ":8081 ")
-	analyticsServerSpaceSeparatedList = analyticsServerSpaceSeparatedList + ":8081"
-	apiServerSpaceSeparatedList = strings.Join(podIPList, ":8082 ")
-	apiServerSpaceSeparatedList = apiServerSpaceSeparatedList + ":8082"
-	apiServerList = strings.Join(podIPList, ",")
-	redisServerSpaceSeparatedList = strings.Join(podIPList, ":6379 ")
-	redisServerSpaceSeparatedList = redisServerSpaceSeparatedList + ":6379"
 
 	var PodSubnet string
 	var KubernetesClusterName string
@@ -232,13 +219,13 @@ func (c *Kubemanager) CreateInstanceConfiguration(request reconcile.Request,
 			ServiceSubnet:         ServiceSubnet,
 			IPFabricForwarding:    strconv.FormatBool(c.Spec.ServiceConfiguration.IPFabricForwarding),
 			IPFabricSnat:          strconv.FormatBool(c.Spec.ServiceConfiguration.IPFabricSnat),
-			APIServerList:         apiServerList,
-			APIServerPort:         "8082",
-			CassandraServerList:   cassandraServerSpaceSeparatedList,
-			ZookeeperServerList:   zookeeperServerCommaSeparateList,
-			RabbitmqServerList:    rabbitmqServerList,
-			RabbitmqServerPort:    strconv.Itoa(rabbitmqPort),
-			CollectorServerList:   collectorServerList,
+			APIServerList:         configNodesInformation.APIServerListCommaSeparated,
+			APIServerPort:         configNodesInformation.APIServerPort,
+			CassandraServerList:   cassandraNodesInformation.ServerListCommaSeparated,
+			ZookeeperServerList:   zookeeperNodesInformation.ServerListCommaSeparated,
+			RabbitmqServerList:    rabbitmqNodesInformation.ServerListCommaSeparated,
+			RabbitmqServerPort:    rabbitmqNodesInformation.Port,
+			CollectorServerList:   configNodesInformation.CollectorServerListSpaceSeparated,
 		})
 		data["kubemanager."+podList.Items[idx].Status.PodIP] = kubemanagerConfigBuffer.String()
 	}

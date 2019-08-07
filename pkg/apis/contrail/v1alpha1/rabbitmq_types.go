@@ -31,8 +31,8 @@ type Rabbitmq struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RabbitmqSpec `json:"spec,omitempty"`
-	Status Status       `json:"status,omitempty"`
+	Spec   RabbitmqSpec   `json:"spec,omitempty"`
+	Status RabbitmqStatus `json:"status,omitempty"`
 }
 
 // RabbitmqSpec is the Spec for the cassandras API
@@ -46,8 +46,22 @@ type RabbitmqSpec struct {
 // +k8s:openapi-gen=true
 type RabbitmqConfiguration struct {
 	Images       map[string]string `json:"images"`
-	Port         int               `json:"port,omitempty"`
+	Port         *int              `json:"port,omitempty"`
 	ErlangCookie string            `json:"erlangCookie,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type RabbitmqStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	Active *bool               `json:"active,omitempty"`
+	Nodes  map[string]string   `json:"nodes,omitempty"`
+	Ports  RabbitmqStatusPorts `json:"ports,omitempty"`
+}
+
+type RabbitmqStatusPorts struct {
+	Port *int `json:"port,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -87,7 +101,10 @@ func (c *Rabbitmq) CreateInstanceConfiguration(request reconcile.Request,
 	}
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 
-	rabbitmqConfigString := fmt.Sprintf("listeners.tcp.default = %s\n", strconv.Itoa(c.Spec.ServiceConfiguration.Port))
+	rabbitmqConfigInterface := c.GetConfigurationParameters()
+	rabbitmqConfig := rabbitmqConfigInterface.(RabbitmqConfiguration)
+
+	rabbitmqConfigString := fmt.Sprintf("listeners.tcp.default = %d\n", *rabbitmqConfig.Port)
 	rabbitmqConfigString = rabbitmqConfigString + fmt.Sprintf("loopback_users = none\n")
 
 	data := map[string]string{"rabbitmq.conf": rabbitmqConfigString,
@@ -175,8 +192,9 @@ func (c *Rabbitmq) SetPodsToReady(podIPList *corev1.PodList, client client.Clien
 func (c *Rabbitmq) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
 	c.Status.Nodes = podNameIPMap
-	portMap := map[string]string{"port": strconv.Itoa(c.Spec.ServiceConfiguration.Port)}
-	c.Status.Ports = portMap
+	rabbitmqConfigInterface := c.GetConfigurationParameters()
+	rabbitmqConfig := rabbitmqConfigInterface.(RabbitmqConfiguration)
+	c.Status.Ports.Port = rabbitmqConfig.Port
 	err := client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err
@@ -220,7 +238,15 @@ func (c *Rabbitmq) IsConfig(request *reconcile.Request, client client.Client) bo
 	return true
 }
 
-func (c *Rabbitmq) GetConfigurationParameters() map[string]string {
-	var configurationMap = make(map[string]string)
-	return configurationMap
+func (c *Rabbitmq) GetConfigurationParameters() interface{} {
+	rabbitmqConfiguration := RabbitmqConfiguration{}
+	var port int
+	if c.Spec.ServiceConfiguration.Port != nil {
+		port = *c.Spec.ServiceConfiguration.Port
+	} else {
+		port = RabbitmqNodePort
+	}
+	rabbitmqConfiguration.Port = &port
+
+	return rabbitmqConfiguration
 }
