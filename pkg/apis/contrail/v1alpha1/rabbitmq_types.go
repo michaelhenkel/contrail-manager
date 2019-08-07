@@ -219,3 +219,8 @@ func (c *Rabbitmq) IsReplicaset(request *reconcile.Request, instanceType string,
 func (c *Rabbitmq) IsConfig(request *reconcile.Request, client client.Client) bool {
 	return true
 }
+
+func (c *Rabbitmq) GetConfigurationParameters() map[string]string {
+	var configurationMap = make(map[string]string)
+	return configurationMap
+}

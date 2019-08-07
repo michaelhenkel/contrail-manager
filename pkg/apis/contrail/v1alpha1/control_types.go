@@ -48,6 +48,8 @@ type ControlConfiguration struct {
 	Images            map[string]string `json:"images"`
 	CassandraInstance string            `json:"cassandraInstance,omitempty"`
 	ZookeeperInstance string            `json:"zookeeperInstance,omitempty"`
+	BGPPort           *int              `json:"bgpPort,omitempty"`
+	ASNNumber         *int              `json:"asnNumber,omitempty"`
 }
 
 // ControlList contains a list of Control
@@ -111,21 +113,18 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 	rabbitmqServerSpaceSeparatedList = strings.Join(rabbitmqNodes, ":"+strconv.Itoa(rabbitmqPort)+" ")
 	rabbitmqServerSpaceSeparatedList = rabbitmqServerSpaceSeparatedList + ":" + strconv.Itoa(rabbitmqPort)
 
-	var collectorServerList, apiServerList, analyticsServerSpaceSeparatedList, apiServerSpaceSeparatedList, redisServerSpaceSeparatedList string
+	configNodesInformation, err := GetConfigNodesStatus(c.Labels["contrail_cluster"],
+		request.Namespace, client)
+	if err != nil {
+		return err
+	}
+
 	var podIPList []string
 	for _, pod := range podList.Items {
 		podIPList = append(podIPList, pod.Status.PodIP)
 	}
-	collectorServerList = strings.Join(podIPList, ":8086 ")
-	collectorServerList = collectorServerList + ":8086"
-	apiServerList = strings.Join(podIPList, ",")
-	analyticsServerSpaceSeparatedList = strings.Join(podIPList, ":8081 ")
-	analyticsServerSpaceSeparatedList = analyticsServerSpaceSeparatedList + ":8081"
-	apiServerSpaceSeparatedList = strings.Join(podIPList, ":8082 ")
-	apiServerSpaceSeparatedList = apiServerSpaceSeparatedList + ":8082"
-	apiServerList = strings.Join(podIPList, ",")
-	redisServerSpaceSeparatedList = strings.Join(podIPList, ":6379 ")
-	redisServerSpaceSeparatedList = redisServerSpaceSeparatedList + ":6379"
+
+	configurationMap := c.GetConfigurationParameters()
 
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 	var data = make(map[string]string)
@@ -134,6 +133,8 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 		configtemplates.ControlControlConfig.Execute(&controlControlConfigBuffer, struct {
 			ListenAddress       string
 			Hostname            string
+			BGPPort             string
+			ASNNumber           string
 			APIServerList       string
 			APIServerPort       string
 			CassandraServerList string
@@ -144,13 +145,15 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 		}{
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			Hostname:            podList.Items[idx].Name,
-			APIServerList:       apiServerList,
-			APIServerPort:       "8082",
+			BGPPort:             configurationMap["bgpPort"],
+			ASNNumber:           configurationMap["asnNumber"],
+			APIServerList:       configNodesInformation.APIServerListSpaceSeparated,
+			APIServerPort:       configNodesInformation.APIServerPort,
 			CassandraServerList: cassandraCqlServerSpaceSeparateList,
 			ZookeeperServerList: zookeeperServerCommaSeparateList,
 			RabbitmqServerList:  rabbitmqServerSpaceSeparatedList,
 			RabbitmqServerPort:  strconv.Itoa(rabbitmqPort),
-			CollectorServerList: collectorServerList,
+			CollectorServerList: configNodesInformation.CollectorServerListSpaceSeparated,
 		})
 		data["control."+podList.Items[idx].Status.PodIP] = controlControlConfigBuffer.String()
 
@@ -173,29 +176,61 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 		}{
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			Hostname:            podList.Items[idx].Name,
-			APIServerList:       apiServerList,
-			APIServerPort:       "8082",
+			APIServerList:       configNodesInformation.APIServerListSpaceSeparated,
+			APIServerPort:       configNodesInformation.APIServerPort,
 			CassandraServerList: cassandraCqlServerSpaceSeparateList,
 			ZookeeperServerList: zookeeperServerCommaSeparateList,
 			RabbitmqServerList:  rabbitmqServerSpaceSeparatedList,
 			RabbitmqServerPort:  strconv.Itoa(rabbitmqPort),
-			CollectorServerList: collectorServerList,
+			CollectorServerList: configNodesInformation.CollectorServerListSpaceSeparated,
 		})
 		data["dns."+podList.Items[idx].Status.PodIP] = controlDnsConfigBuffer.String()
 
-		var configNodemanagerBuffer bytes.Buffer
-		configtemplates.ControlNodemanagerConfig.Execute(&configNodemanagerBuffer, struct {
+		var controlNodemanagerBuffer bytes.Buffer
+		configtemplates.ControlNodemanagerConfig.Execute(&controlNodemanagerBuffer, struct {
 			ListenAddress       string
 			CollectorServerList string
 			CassandraPort       string
 			CassandraJmxPort    string
 		}{
 			ListenAddress:       podList.Items[idx].Status.PodIP,
-			CollectorServerList: collectorServerList,
+			CollectorServerList: configNodesInformation.CollectorServerListSpaceSeparated,
 			CassandraPort:       strconv.Itoa(cassandraPort),
 			CassandraJmxPort:    strconv.Itoa(cassandraJmxPort),
 		})
-		data["nodemanager."+podList.Items[idx].Status.PodIP] = configNodemanagerBuffer.String()
+		data["nodemanager."+podList.Items[idx].Status.PodIP] = controlNodemanagerBuffer.String()
+
+		var controlProvisionBuffer bytes.Buffer
+		configtemplates.ControlProvisionConfig.Execute(&controlProvisionBuffer, struct {
+			ListenAddress string
+			APIServerList string
+			ASNNumber     string
+			BGPPort       string
+			APIServerPort string
+		}{
+			ListenAddress: podList.Items[idx].Status.PodIP,
+			APIServerList: configNodesInformation.APIServerListCommaSeparated,
+			ASNNumber:     configurationMap["asnNumber"],
+			BGPPort:       configurationMap["bgpPort"],
+			APIServerPort: configNodesInformation.APIServerPort,
+		})
+		data["provision.sh."+podList.Items[idx].Status.PodIP] = controlProvisionBuffer.String()
+
+		var controlDeProvisionBuffer bytes.Buffer
+		configtemplates.ControlDeProvisionConfig.Execute(&controlDeProvisionBuffer, struct {
+			User          string
+			Password      string
+			Tenant        string
+			APIServerList string
+			APIServerPort string
+		}{
+			User:          ContrailDefaultUser,
+			Password:      ContrailDefaultPassword,
+			Tenant:        ContrailDefaultTenant,
+			APIServerList: configNodesInformation.APIServerListQuotedCommaSeparated,
+			APIServerPort: configNodesInformation.APIServerPort,
+		})
+		data["deprovision.py."+podList.Items[idx].Status.PodIP] = controlDeProvisionBuffer.String()
 	}
 	configMapInstanceDynamicConfig.Data = data
 	err = client.Update(context.TODO(), configMapInstanceDynamicConfig)
@@ -257,7 +292,11 @@ func (c *Control) SetPodsToReady(podIPList *corev1.PodList, client client.Client
 
 func (c *Control) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
-
+	configurationMap := c.GetConfigurationParameters()
+	var portStatus = make(map[string]string)
+	portStatus["bgpPort"] = configurationMap["bgpPort"]
+	portStatus["asnNumber"] = configurationMap["asnNumber"]
+	c.Status.Ports = portStatus
 	c.Status.Nodes = podNameIPMap
 	err := client.Status().Update(context.TODO(), c)
 	if err != nil {
@@ -376,4 +415,24 @@ func (c *Control) IsConfig(request *reconcile.Request, myclient client.Client) b
 		}
 	}
 	return false
+}
+
+func (c *Control) GetConfigurationParameters() map[string]string {
+	var configurationMap = make(map[string]string)
+	var bgpPort string
+	if c.Spec.ServiceConfiguration.BGPPort != nil {
+		bgpPort = strconv.Itoa(*c.Spec.ServiceConfiguration.BGPPort)
+	} else {
+		bgpPort = strconv.Itoa(BGPPort)
+	}
+	configurationMap["bgpPort"] = bgpPort
+
+	var asnNumber string
+	if c.Spec.ServiceConfiguration.ASNNumber != nil {
+		asnNumber = strconv.Itoa(*c.Spec.ServiceConfiguration.ASNNumber)
+	} else {
+		asnNumber = strconv.Itoa(BGPAsn)
+	}
+	configurationMap["asnNumber"] = asnNumber
+	return configurationMap
 }

@@ -182,11 +182,38 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 
 	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
 		if container.Name == "webuiweb" {
+			envList := (&intendedDeployment.Spec.Template.Spec.Containers[idx]).Env
+			env := corev1.EnvVar{
+				Name:  "SSL_ENABLE",
+				Value: "true",
+			}
+			envList = append(envList, env)
+			env = corev1.EnvVar{
+				Name:  "SERVER_CERTFILE",
+				Value: "/etc/contrail/webui_ssl/cs-cert.pem",
+			}
+			envList = append(envList, env)
+			env = corev1.EnvVar{
+				Name:  "SERVER_KEYFILE",
+				Value: "/etc/contrail/webui_ssl/cs-key.pem",
+			}
+			envList = append(envList, env)
+			env = corev1.EnvVar{
+				Name:  "SERVER_CA_KEYFILE",
+				Value: "",
+			}
+			envList = append(envList, env)
+			env = corev1.EnvVar{
+				Name:  "SERVER_CA_CERTFILE",
+				Value: "",
+			}
+			envList = append(envList, env)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Env = envList
 			command := []string{"bash", "-c",
-				"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh; sleep 3; /usr/bin/node /usr/src/contrail/contrail-web-core/webServerStart.js --conf_file /etc/mycontrail/config.global.js.${POD_IP}"}
+				"/certs-init.sh; sleep 5; /usr/bin/node /usr/src/contrail/contrail-web-core/webServerStart.js --conf_file /etc/mycontrail/config.global.js.${POD_IP}"}
 			//command = []string{"bash", "-c",
 			//	"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh && while true; do echo hello; sleep 10;done"}
-			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
 			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 
 			volumeMountList := []corev1.VolumeMount{}
@@ -202,11 +229,38 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
 		}
 		if container.Name == "webuijob" {
+			envList := (&intendedDeployment.Spec.Template.Spec.Containers[idx]).Env
+			env := corev1.EnvVar{
+				Name:  "SSL_ENABLE",
+				Value: "true",
+			}
+			envList = append(envList, env)
+			env = corev1.EnvVar{
+				Name:  "SERVER_CERTFILE",
+				Value: "/etc/contrail/webui_ssl/cs-cert.pem",
+			}
+			envList = append(envList, env)
+			env = corev1.EnvVar{
+				Name:  "SERVER_KEYFILE",
+				Value: "/etc/contrail/webui_ssl/cs-key.pem",
+			}
+			envList = append(envList, env)
+			env = corev1.EnvVar{
+				Name:  "SERVER_CA_KEYFILE",
+				Value: "",
+			}
+			envList = append(envList, env)
+			env = corev1.EnvVar{
+				Name:  "SERVER_CA_CERTFILE",
+				Value: "",
+			}
+			envList = append(envList, env)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Env = envList
 			command := []string{"bash", "-c",
-				"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh; sleep 3;/usr/bin/node /usr/src/contrail/contrail-web-core/jobServerStart.js --conf_file /etc/mycontrail/config.global.js.${POD_IP}"}
+				"/certs-init.sh; sleep 5;/usr/bin/node /usr/src/contrail/contrail-web-core/jobServerStart.js --conf_file /etc/mycontrail/config.global.js.${POD_IP}"}
 			//command = []string{"bash", "-c",
 			//	"SSL_ENABLE=true SERVER_CERTFILE=\"$WEBUI_SSL_CERT_FILE\" SERVER_KEYFILE=\"$WEBUI_SSL_KEY_FILE\" SERVER_CA_KEYFILE='' SERVER_CA_CERTFILE='' /certs-init.sh && while true; do echo hello; sleep 10;done"}
-			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
 			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 
 			volumeMountList := []corev1.VolumeMount{}

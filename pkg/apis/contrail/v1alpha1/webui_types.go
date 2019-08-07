@@ -96,25 +96,15 @@ func (c *Webui) CreateInstanceConfiguration(request reconcile.Request,
 	var cassandraServerList string
 	cassandraServerList = strings.Join(cassandraNodes, "','")
 	cassandraServerList = "['" + cassandraServerList + "']"
-
-	configAPINodes, err := GetConfigNodes(c.Labels["contrail_cluster"],
+	configNodesInformation, err := GetConfigNodesStatus(c.Labels["contrail_cluster"],
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
-
-	var collectorServerList, apiServerList, analyticsServerList string
 	var podIPList []string
 	for _, pod := range podList.Items {
 		podIPList = append(podIPList, pod.Status.PodIP)
 	}
-	collectorServerList = strings.Join(configAPINodes, ":8086 ")
-	collectorServerList = collectorServerList + ":8086"
-	apiServerList = strings.Join(configAPINodes, "','")
-	apiServerList = "['" + apiServerList + "']"
-	analyticsServerList = strings.Join(configAPINodes, "','")
-	analyticsServerList = "['" + analyticsServerList + "']"
-
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 	var data = make(map[string]string)
 	for idx := range podList.Items {
@@ -134,18 +124,18 @@ func (c *Webui) CreateInstanceConfiguration(request reconcile.Request,
 		}{
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			Hostname:            podList.Items[idx].Name,
-			APIServerList:       apiServerList,
-			APIServerPort:       "8082",
-			AnalyticsServerList: analyticsServerList,
-			AnalyticsServerPort: "8081",
+			APIServerList:       configNodesInformation.APIServerListQuotedCommaSeparated,
+			APIServerPort:       configNodesInformation.APIServerPort,
+			AnalyticsServerList: configNodesInformation.AnalyticsServerListQuotedCommaSeparated,
+			AnalyticsServerPort: configNodesInformation.AnalyticsServerPort,
 			ControlNodeList:     controlNodeList,
 			DnsNodePort:         "8092",
 			CassandraServerList: cassandraServerList,
 			CassandraPort:       strconv.Itoa(cassandraCqlPort),
-			RedisServerList:     apiServerList,
+			RedisServerList:     "127.0.0.1",
 		})
 		data["config.global.js."+podList.Items[idx].Status.PodIP] = webuiWebConfigBuffer.String()
-
+		//fmt.Println("DATA ", data)
 		var webuiAuthConfigBuffer bytes.Buffer
 		configtemplates.WebuiAuthConfig.Execute(&webuiAuthConfigBuffer, struct {
 		}{})
@@ -156,7 +146,6 @@ func (c *Webui) CreateInstanceConfiguration(request reconcile.Request,
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -288,4 +277,9 @@ func (c *Webui) IsConfig(request *reconcile.Request, myclient client.Client) boo
 
 func (c *Webui) IsRabbitmq(request *reconcile.Request, client client.Client) bool {
 	return true
+}
+
+func (c *Webui) GetConfigurationParameters() map[string]string {
+	var configurationMap = make(map[string]string)
+	return configurationMap
 }

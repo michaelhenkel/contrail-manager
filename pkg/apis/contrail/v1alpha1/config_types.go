@@ -47,7 +47,9 @@ type ConfigSpec struct {
 // +k8s:openapi-gen=true
 type ConfigConfiguration struct {
 	Images            map[string]string `json:"images"`
-	Port              int               `json:"port,omitempty"`
+	APIPort           *int              `json:"apiPort,omitempty"`
+	AnalyticsPort     *int              `json:"analyticsPort,omitempty"`
+	CollectorPort     *int              `json:"collectorPort,omitempty"`
 	CassandraInstance string            `json:"cassandraInstance,omitempty"`
 	ZookeeperInstance string            `json:"zookeeperInstance,omitempty"`
 }
@@ -339,7 +341,27 @@ func (c *Config) SetPodsToReady(podIPList *corev1.PodList, client client.Client)
 func (c *Config) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
 	c.Status.Nodes = podNameIPMap
-	portMap := map[string]string{"port": strconv.Itoa(c.Spec.ServiceConfiguration.Port)}
+	var apiPort string
+	var analyticsPort string
+	var collectorPort string
+	if c.Spec.ServiceConfiguration.APIPort != nil {
+		apiPort = strconv.Itoa(ConfigApiPort)
+	} else {
+		apiPort = strconv.Itoa(*c.Spec.ServiceConfiguration.APIPort)
+	}
+	if c.Spec.ServiceConfiguration.AnalyticsPort != nil {
+		analyticsPort = strconv.Itoa(AnalyticsApiPort)
+	} else {
+		analyticsPort = strconv.Itoa(*c.Spec.ServiceConfiguration.AnalyticsPort)
+	}
+	if c.Spec.ServiceConfiguration.CollectorPort != nil {
+		collectorPort = strconv.Itoa(CollectorPort)
+	} else {
+		collectorPort = strconv.Itoa(*c.Spec.ServiceConfiguration.CollectorPort)
+	}
+	portMap := map[string]string{"apiPort": apiPort,
+		"analyticsPort": analyticsPort,
+		"collectorPort": collectorPort}
 	c.Status.Ports = portMap
 	err := client.Status().Update(context.TODO(), c)
 	if err != nil {
@@ -444,4 +466,9 @@ func (c *Config) IsReplicaset(request *reconcile.Request, instanceType string, c
 
 func (c *Config) IsConfig(request *reconcile.Request, client client.Client) bool {
 	return true
+}
+
+func (c *Config) GetConfigurationParameters() map[string]string {
+	var configurationMap = make(map[string]string)
+	return configurationMap
 }

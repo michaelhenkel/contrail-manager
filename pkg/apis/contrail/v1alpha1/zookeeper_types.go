@@ -236,3 +236,8 @@ func (c *Zookeeper) IsReplicaset(request *reconcile.Request, instanceType string
 func (c *Zookeeper) IsConfig(request *reconcile.Request, client client.Client) bool {
 	return true
 }
+
+func (c *Zookeeper) GetConfigurationParameters() map[string]string {
+	var configurationMap = make(map[string]string)
+	return configurationMap
+}

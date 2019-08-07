@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,10 +19,6 @@ import (
 
 const (
 	ConfigAPIPort             int    = 8082
-	CassandraStoragePort      int    = 7000
-	EncapPriority             string = "MPLSoUDP,MPLSoGRE,VXLAN"
-	AAAMode                   string = "no-auth"
-	AuthMode                  string = "noauth"
 	AnalyticsAPIPort          int    = 8081
 	AnalyticsIntrospectPort   int    = 8090
 	AnalyticsCassandraPort    int    = 9160
@@ -29,24 +26,11 @@ const (
 	BGPPort                   int    = 179
 	BGPAsn                    int    = 64512
 	BGPAutoMesh               bool   = true
-	CollectorPort             int    = 8086
-	CollectorIntrospectPort   int    = 8089
-	CollectorSyslogPort       int    = 514
-	CollectorSflowPort        int    = 6343
-	CollectorIpfixPort        int    = 4739
+	ContrailDefaultPassword   string = "contrail123"
+	ContrailDefaultUser       string = "admin"
+	ContrailDefaultTenant     string = "admin"
 )
 
-/*
-COLLECTOR_PORT=${COLLECTOR_PORT:-8086}
-COLLECTOR_INTROSPECT_PORT=${COLLECTOR_INTROSPECT_PORT:-8089}
-COLLECTOR_SYSLOG_PORT=${COLLECTOR_SYSLOG_PORT:-514}
-COLLECTOR_SFLOW_PORT=${COLLECTOR_SFLOW_PORT:-6343}
-COLLECTOR_IPFIX_PORT=${COLLECTOR_IPFIX_PORT:-4739}
-COLLECTOR_PROTOBUF_PORT=${COLLECTOR_PROTOBUF_PORT:-3333}
-COLLECTOR_STRUCTURED_SYSLOG_PORT=${COLLECTOR_STRUCTURED_SYSLOG_PORT:-3514}
-SNMPCOLLECTOR_INTROSPECT_PORT=${SNMPCOLLECTOR_INTROSPECT_PORT:-5920}
-COLLECTOR_SERVERS=${COLLECTOR_SERVERS:-`get_server_list ANALYTICS ":$COLLECTOR_PORT "`}
-*/
 //metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // ServiceStatus provides information on the current status of the service
@@ -123,6 +107,7 @@ type Instance interface {
 	IsZookeeper(*reconcile.Request, client.Client) bool
 	IsCassandra(*reconcile.Request, client.Client) bool
 	IsConfig(*reconcile.Request, client.Client) bool
+	GetConfigurationParameters() map[string]string
 }
 
 func SetInstanceActive(client client.Client, status *Status, deployment *appsv1.Deployment, request reconcile.Request) error {
@@ -429,19 +414,58 @@ func GetRabbitmqNodes(name string, namespace string, myclient client.Client) ([]
 	return rabbitmqNodes, port, nil
 }
 
-func GetConfigNodes(name string, namespace string, myclient client.Client) ([]string, error) {
+func GetConfigNodesStatus(name string, namespace string, myclient client.Client) (ConfigCluster, error) {
 	var configNodes []string
+	var configCluster ConfigCluster
 	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": name})
 	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
 	configList := &ConfigList{}
 	err := myclient.List(context.TODO(), listOps, configList)
 	if err != nil {
-		return configNodes, err
+		return configCluster, err
 	}
+	var apiServerPort, analyticsServerPort, collectorServerPort string
 	if len(configList.Items) > 0 {
 		for _, ip := range configList.Items[0].Status.Nodes {
 			configNodes = append(configNodes, ip)
 		}
+		apiServerPort = configList.Items[0].Status.Ports["apiPort"]
+		analyticsServerPort = configList.Items[0].Status.Ports["analyticsPort"]
+		collectorServerPort = configList.Items[0].Status.Ports["collectorPort"]
 	}
-	return configNodes, nil
+	apiServerListQuotedCommaSeparated := strings.Join(configNodes, "','")
+	apiServerListQuotedCommaSeparated = "'" + apiServerListQuotedCommaSeparated + "'"
+	analyticsServerListQuotedCommaSeparated := strings.Join(configNodes, "','")
+	analyticsServerListQuotedCommaSeparated = "'" + analyticsServerListQuotedCommaSeparated + "'"
+	apiServerListCommaSeparated := strings.Join(configNodes, ",")
+	apiServerListSpaceSeparated := strings.Join(configNodes, ":"+apiServerPort+" ")
+	apiServerListSpaceSeparated = apiServerListSpaceSeparated + ":" + apiServerPort
+	analyticsServerListSpaceSeparated := strings.Join(configNodes, ":"+analyticsServerPort+" ")
+	analyticsServerListSpaceSeparated = analyticsServerListSpaceSeparated + ":" + analyticsServerPort
+	collectorServerListSpaceSeparated := strings.Join(configNodes, ":"+collectorServerPort+" ")
+	collectorServerListSpaceSeparated = collectorServerListSpaceSeparated + ":" + collectorServerPort
+	configCluster = ConfigCluster{
+		APIServerPort:                           apiServerPort,
+		APIServerListQuotedCommaSeparated:       apiServerListQuotedCommaSeparated,
+		APIServerListCommaSeparated:             apiServerListCommaSeparated,
+		APIServerListSpaceSeparated:             apiServerListSpaceSeparated,
+		AnalyticsServerPort:                     analyticsServerPort,
+		AnalyticsServerListSpaceSeparated:       analyticsServerListSpaceSeparated,
+		AnalyticsServerListQuotedCommaSeparated: analyticsServerListQuotedCommaSeparated,
+		CollectorPort:                           collectorServerPort,
+		CollectorServerListSpaceSeparated:       collectorServerListSpaceSeparated,
+	}
+	return configCluster, nil
+}
+
+type ConfigCluster struct {
+	APIServerPort                           string
+	APIServerListSpaceSeparated             string
+	APIServerListQuotedCommaSeparated       string
+	APIServerListCommaSeparated             string
+	AnalyticsServerPort                     string
+	AnalyticsServerListSpaceSeparated       string
+	AnalyticsServerListQuotedCommaSeparated string
+	CollectorServerListSpaceSeparated       string
+	CollectorPort                           string
 }

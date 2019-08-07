@@ -283,7 +283,7 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 		if container.Name == "nodemanager" {
 			command := []string{"bash", "-c",
-				"sed \"s/hostip=.*/hostip=${POD_IP}/g\" /etc/mycontrail/nodemanager.${POD_IP} > /etc/contrail/contrail-control-nodemgr.conf; /usr/bin/python /usr/bin/contrail-nodemgr --nodetype=contrail-control"}
+				"bash /etc/mycontrail/provision.sh.${POD_IP} add; /usr/bin/python /usr/bin/contrail-nodemgr --nodetype=contrail-control"}
 			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
 			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
 

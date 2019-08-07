@@ -131,3 +131,34 @@ server_list={{ .CollectorServerList }}
 [SANDESH]
 introspect_ssl_enable=False
 sandesh_ssl_enable=False`))
+
+var ControlProvisionConfig = template.Must(template.New("").Parse(`#!/bin/bash
+sed "s/hostip=.*/hostip=${POD_IP}/g" /etc/mycontrail/nodemanager.${POD_IP} > /etc/contrail/contrail-control-nodemgr.conf
+servers=$(echo {{ .APIServerList }} | tr ',' ' ')
+for server in $servers ; do
+  python /opt/contrail/utils/provision_control.py --oper $1 \
+  --host_name $(hostname) \
+  --host_ip {{ .ListenAddress }} \
+  --router_asn {{ .ASNNumber }} \
+  --bgp_server_port {{ .BGPPort }} \
+  --api_server_ip $server \
+  --api_server_port {{ .APIServerPort }}
+  if [[ $? -eq 0 ]]; then
+	break
+  fi
+done
+`))
+
+var ControlDeProvisionConfig = template.Must(template.New("").Parse(`#!/usr/bin/python
+from vnc_api import vnc_api
+import socket
+vncServerList = [{{ .APIServerList }}]
+hostname = socket.gethostname()
+vnc_client = vnc_api.VncApi(
+            username = '{{ .User }}',
+            password = '{{ .Password }}',
+            tenant_name = '{{ .Tenant }}',
+            api_server_host= vncServerList[0],
+            api_server_port={{ .APIServerPort }})
+vnc_client.bgp_router_delete(fq_name=['default-domain','default-project','ip-fabric','__default__', hostname ])
+`))

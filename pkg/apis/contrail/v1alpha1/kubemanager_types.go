@@ -422,3 +422,8 @@ func (c *Kubemanager) IsConfig(request *reconcile.Request, myclient client.Clien
 	}
 	return false
 }
+
+func (c *Kubemanager) GetConfigurationParameters() map[string]string {
+	var configurationMap = make(map[string]string)
+	return configurationMap
+}
