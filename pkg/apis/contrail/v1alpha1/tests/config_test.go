@@ -62,6 +62,20 @@ var controlSingle = &v1alpha1.Control{
 	},
 }
 
+var controlHa = &v1alpha1.Control{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "control1",
+		Namespace: "default",
+		Labels: map[string]string{
+			"contrail_cluster": "cluster1",
+			"control_role":     "master",
+		},
+	},
+	Status: v1alpha1.Status{
+		Nodes: map[string]string{"node1": "1.1.1.1", "node2": "1.1.1.2", "node3": "1.1.1.3"},
+	},
+}
+
 var cassandraSingle = &v1alpha1.Cassandra{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cassandra1",
@@ -77,6 +91,25 @@ var cassandraSingle = &v1alpha1.Cassandra{
 	},
 	Status: v1alpha1.Status{
 		Nodes: map[string]string{"node1": "1.1.1.1"},
+		Ports: map[string]string{"cqlPort": "9042"},
+	},
+}
+
+var cassandraHa = &v1alpha1.Cassandra{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cassandra1",
+		Namespace: "default",
+		Labels: map[string]string{
+			"contrail_cluster": "cluster1",
+		},
+	},
+	Spec: v1alpha1.CassandraSpec{
+		ServiceConfiguration: v1alpha1.CassandraConfiguration{
+			CqlPort: 9042,
+		},
+	},
+	Status: v1alpha1.Status{
+		Nodes: map[string]string{"node1": "1.1.1.1", "node2": "1.1.1.2", "node3": "1.1.1.3"},
 		Ports: map[string]string{"cqlPort": "9042"},
 	},
 }
@@ -177,8 +210,8 @@ func TestWebuiConfigHa(t *testing.T) {
 		},
 	}
 	config := configHa
-	control := controlSingle
-	cassandra := cassandraSingle
+	control := controlHa
+	cassandra := cassandraHa
 	pod := pod1
 
 	configMap := &corev1.ConfigMap{
@@ -442,7 +475,7 @@ config.analytics.strictSSL = false;
 config.analytics.ca = '';
 config.analytics.statusURL = '/analytics/uves/bgp-peers';
 config.dns = {};
-config.dns.server_ip = ['1.1.1.1'];
+config.dns.server_ip = ['1.1.1.1','1.1.1.2','1.1.1.3'];
 config.dns.server_port = '8092';
 config.dns.statusURL = '/Snh_PageReq?x=AllEntries%20VdnsServersReq';
 config.vcenter = {};
@@ -467,7 +500,7 @@ config.jobServer.server_port = '3000';
 config.files = {};
 config.files.download_path = '/tmp';
 config.cassandra = {};
-config.cassandra.server_ips = ['1.1.1.1'];
+config.cassandra.server_ips = ['1.1.1.1','1.1.1.2','1.1.1.3'];
 config.cassandra.server_port = '9042';
 config.cassandra.enable_edit = false;
 config.cassandra.use_ssl = false;
