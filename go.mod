@@ -3,10 +3,12 @@ module github.com/michaelhenkel/contrail-manager
 require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-openapi/spec v0.18.0
+	github.com/kylelemons/godebug v1.1.0
 	github.com/michaelhenkel/app-operator v0.0.0-20190714012817-050728ec04a9 // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/operator-framework/operator-sdk v0.8.2-0.20190522220659-031d71ef8154
+	github.com/operator-framework/operator-sdk-samples v0.0.0-20190529081445-bd30254f3a7e // indirect
 	github.com/spf13/pflag v1.0.3
-	google.golang.org/genproto v0.0.0-20190307195333-5fe7a883aa19
 	gopkg.in/yaml.v2 v2.2.2
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190228180357-d002e88f6236

@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"context"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -86,7 +87,7 @@ type Instance interface {
 	CreateInstanceConfiguration(reconcile.Request, *corev1.PodList, client.Client) error
 	SetPodsToReady(*corev1.PodList, client.Client) error
 	ManageNodeStatus(map[string]string, client.Client) error
-	SetInstanceActive(client.Client, *Status, *appsv1.Deployment, reconcile.Request) error
+	SetInstanceActive(client.Client, interface{}, *appsv1.Deployment, reconcile.Request) error
 	IsReplicaset(*reconcile.Request, string, client.Client) bool
 	IsManager(*reconcile.Request, client.Client) bool
 	IsRabbitmq(*reconcile.Request, client.Client) bool
@@ -94,22 +95,6 @@ type Instance interface {
 	IsCassandra(*reconcile.Request, client.Client) bool
 	IsConfig(*reconcile.Request, client.Client) bool
 	GetConfigurationParameters() interface{}
-}
-
-func SetInstanceActive(client client.Client, status *Status, deployment *appsv1.Deployment, request reconcile.Request) error {
-	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
-		deployment)
-	if err != nil {
-		return err
-	}
-	active := false
-
-	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
-		active = true
-	}
-
-	status.Active = &active
-	return nil
 }
 
 func SetPodsToReady(podList *corev1.PodList, client client.Client) error {
@@ -178,7 +163,11 @@ func SetDeploymentCommonConfiguration(deployment *appsv1.Deployment,
 	deployment.Spec.Replicas = commonConfiguration.Replicas
 	deployment.Spec.Template.Spec.Tolerations = commonConfiguration.Tolerations
 	deployment.Spec.Template.Spec.NodeSelector = commonConfiguration.NodeSelector
-	deployment.Spec.Template.Spec.HostNetwork = *commonConfiguration.HostNetwork
+	if commonConfiguration.HostNetwork != nil {
+		deployment.Spec.Template.Spec.HostNetwork = *commonConfiguration.HostNetwork
+	} else {
+		deployment.Spec.Template.Spec.HostNetwork = false
+	}
 	if len(commonConfiguration.ImagePullSecrets) > 0 {
 		imagePullSecretList := []corev1.LocalObjectReference{}
 		for _, imagePullSecretName := range commonConfiguration.ImagePullSecrets {
@@ -336,12 +325,19 @@ func GetCassandraNodes(name string, namespace string, client client.Client) (Cas
 	port = strconv.Itoa(*cassandraConfig.Port)
 	cqlPort = strconv.Itoa(*cassandraConfig.CqlPort)
 	jmxPort = strconv.Itoa(*cassandraConfig.JmxLocalPort)
+	sort.SliceStable(cassandraNodes, func(i, j int) bool { return cassandraNodes[i] < cassandraNodes[j] })
 	serverListCommaSeparated := strings.Join(cassandraNodes, ":"+port+",")
+	serverListCommaSeparated = serverListCommaSeparated + ":" + port
 	serverListSpaceSeparated := strings.Join(cassandraNodes, ":"+port+" ")
+	serverListSpaceSeparated = serverListSpaceSeparated + ":" + port
 	serverListCQLCommaSeparated := strings.Join(cassandraNodes, ":"+cqlPort+",")
+	serverListCQLCommaSeparated = serverListCQLCommaSeparated + ":" + cqlPort
 	serverListCQLSpaceSeparated := strings.Join(cassandraNodes, ":"+cqlPort+" ")
+	serverListCQLSpaceSeparated = serverListCQLSpaceSeparated + ":" + cqlPort
 	serverListJMXCommaSeparated := strings.Join(cassandraNodes, ":"+jmxPort+",")
+	serverListJMXCommaSeparated = serverListJMXCommaSeparated + ":" + jmxPort
 	serverListJMXSpaceSeparated := strings.Join(cassandraNodes, ":"+jmxPort+" ")
+	serverListJMXSpaceSeparated = serverListJMXSpaceSeparated + ":" + jmxPort
 	serverListCommanSeparatedQuoted := strings.Join(cassandraNodes, "','")
 	serverListCommanSeparatedQuoted = "'" + serverListCommanSeparatedQuoted + "'"
 	cassandraCluster = CassandraCluster{
@@ -399,10 +395,15 @@ func GetControlNodes(name string, role string, namespace string, myclient client
 	dnsPort = strconv.Itoa(*controlConfig.DNSPort)
 	xmppPort = strconv.Itoa(*controlConfig.XMPPPort)
 	dnsIntrospectPort = strconv.Itoa(*controlConfig.DNSIntrospectPort)
+	sort.SliceStable(controlNodes, func(i, j int) bool { return controlNodes[i] < controlNodes[j] })
 	serverListXmppCommaSeparated := strings.Join(controlNodes, ":"+xmppPort+",")
+	serverListXmppCommaSeparated = serverListXmppCommaSeparated + ":" + xmppPort
 	serverListXmppSpaceSeparated := strings.Join(controlNodes, ":"+xmppPort+" ")
+	serverListXmppSpaceSeparated = serverListXmppSpaceSeparated + ":" + xmppPort
 	serverListDnsCommaSeparated := strings.Join(controlNodes, ":"+dnsPort+",")
+	serverListDnsCommaSeparated = serverListDnsCommaSeparated + ":" + dnsPort
 	serverListDnsSpaceSeparated := strings.Join(controlNodes, ":"+dnsPort+" ")
+	serverListDnsSpaceSeparated = serverListDnsSpaceSeparated + ":" + dnsPort
 	serverListCommanSeparatedQuoted := strings.Join(controlNodes, "','")
 	serverListCommanSeparatedQuoted = "'" + serverListCommanSeparatedQuoted + "'"
 	controlCluster = ControlCluster{
@@ -435,8 +436,11 @@ func GetZookeeperNodes(name string, namespace string, client client.Client) (Zoo
 	zookeeperConfigInterface := zookeeperInstance.GetConfigurationParameters()
 	zookeeperConfig := zookeeperConfigInterface.(ZookeeperConfiguration)
 	port = strconv.Itoa(*zookeeperConfig.ClientPort)
+	sort.SliceStable(zookeeperNodes, func(i, j int) bool { return zookeeperNodes[i] < zookeeperNodes[j] })
 	serverListCommaSeparated := strings.Join(zookeeperNodes, ":"+port+",")
+	serverListCommaSeparated = serverListCommaSeparated + ":" + port
 	serverListSpaceSeparated := strings.Join(zookeeperNodes, ":"+port+" ")
+	serverListSpaceSeparated = serverListSpaceSeparated + ":" + port
 	zookeeperCluster = ZookeeperCluster{
 		ClientPort:               port,
 		ServerListCommaSeparated: serverListCommaSeparated,
@@ -465,8 +469,11 @@ func GetRabbitmqNodes(name string, namespace string, myclient client.Client) (Ra
 		rabbitmqConfig := rabbitmqConfigInterface.(RabbitmqConfiguration)
 		port = strconv.Itoa(*rabbitmqConfig.Port)
 	}
+	sort.SliceStable(rabbitmqNodes, func(i, j int) bool { return rabbitmqNodes[i] < rabbitmqNodes[j] })
 	serverListCommaSeparated := strings.Join(rabbitmqNodes, ":"+port+",")
+	serverListCommaSeparated = serverListCommaSeparated + ":" + port
 	serverListSpaceSeparated := strings.Join(rabbitmqNodes, ":"+port+" ")
+	serverListSpaceSeparated = serverListSpaceSeparated + ":" + port
 	rabbitmqCluster = RabbitmqCluster{
 		Port:                     port,
 		ServerListCommaSeparated: serverListCommaSeparated,
@@ -502,6 +509,7 @@ func GetConfigNodesStatus(name string, namespace string, myclient client.Client)
 		collectorServerPort = strconv.Itoa(*configConfig.CollectorPort)
 		redisServerPort = strconv.Itoa(*configConfig.RedisPort)
 	}
+	sort.SliceStable(configNodes, func(i, j int) bool { return configNodes[i] < configNodes[j] })
 	apiServerListQuotedCommaSeparated := strings.Join(configNodes, "','")
 	apiServerListQuotedCommaSeparated = "'" + apiServerListQuotedCommaSeparated + "'"
 	analyticsServerListQuotedCommaSeparated := strings.Join(configNodes, "','")

@@ -66,10 +66,10 @@ type ConfigStatus struct {
 }
 
 type ConfigStatusPorts struct {
-	APIPort       *int `json:"apiPort,omitempty"`
-	AnalyticsPort *int `json:"analyticsPort,omitempty"`
-	CollectorPort *int `json:"collectorPort,omitempty"`
-	RedisPort     *int `json:"redisPort,omitempty"`
+	APIPort       string `json:"apiPort,omitempty"`
+	AnalyticsPort string `json:"analyticsPort,omitempty"`
+	CollectorPort string `json:"collectorPort,omitempty"`
+	RedisPort     string `json:"redisPort,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -126,6 +126,8 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 	for _, pod := range podList.Items {
 		podIPList = append(podIPList, pod.Status.PodIP)
 	}
+	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
+
 	collectorServerList = strings.Join(podIPList, ":"+strconv.Itoa(*configConfig.CollectorPort)+" ")
 	collectorServerList = collectorServerList + ":" + strconv.Itoa(*configConfig.CollectorPort)
 	analyticsServerList = strings.Join(podIPList, ",")
@@ -137,7 +139,6 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 	redisServerSpaceSeparatedList = strings.Join(podIPList, ":"+strconv.Itoa(*configConfig.RedisPort)+" ")
 	redisServerSpaceSeparatedList = redisServerSpaceSeparatedList + ":" + strconv.Itoa(*configConfig.RedisPort)
 
-	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 	var data = make(map[string]string)
 	for idx := range podList.Items {
 		var configApiConfigBuffer bytes.Buffer
@@ -172,7 +173,7 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 			ApiServerList:       apiServerList,
 			AnalyticsServerList: analyticsServerList,
 			CassandraServerList: cassandraNodesInformation.ServerListSpaceSeparated,
-			ZookeeperServerList: zookeeperNodesInformation.ServerListSpaceSeparated,
+			ZookeeperServerList: zookeeperNodesInformation.ServerListCommaSeparated,
 			RabbitmqServerList:  rabbitmqNodesInformation.ServerListCommaSeparated,
 			CollectorServerList: collectorServerList,
 		})
@@ -346,34 +347,12 @@ func (c *Config) SetPodsToReady(podIPList *corev1.PodList, client client.Client)
 func (c *Config) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
 	c.Status.Nodes = podNameIPMap
-	var apiPort int
-	var analyticsPort int
-	var collectorPort int
-	var redisPort int
-	if c.Spec.ServiceConfiguration.APIPort != nil {
-		apiPort = *c.Spec.ServiceConfiguration.APIPort
-	} else {
-		apiPort = ConfigApiPort
-	}
-	if c.Spec.ServiceConfiguration.AnalyticsPort != nil {
-		analyticsPort = *c.Spec.ServiceConfiguration.AnalyticsPort
-	} else {
-		analyticsPort = AnalyticsApiPort
-	}
-	if c.Spec.ServiceConfiguration.CollectorPort != nil {
-		collectorPort = *c.Spec.ServiceConfiguration.CollectorPort
-	} else {
-		collectorPort = CollectorPort
-	}
-	if c.Spec.ServiceConfiguration.RedisPort != nil {
-		redisPort = *c.Spec.ServiceConfiguration.RedisPort
-	} else {
-		redisPort = RedisServerPort
-	}
-	c.Status.Ports.APIPort = &apiPort
-	c.Status.Ports.AnalyticsPort = &analyticsPort
-	c.Status.Ports.CollectorPort = &collectorPort
-	c.Status.Ports.RedisPort = &redisPort
+	configConfigInterface := c.GetConfigurationParameters()
+	configConfig := configConfigInterface.(ConfigConfiguration)
+	c.Status.Ports.APIPort = strconv.Itoa(*configConfig.APIPort)
+	c.Status.Ports.AnalyticsPort = strconv.Itoa(*configConfig.AnalyticsPort)
+	c.Status.Ports.CollectorPort = strconv.Itoa(*configConfig.CollectorPort)
+	c.Status.Ports.RedisPort = strconv.Itoa(*configConfig.RedisPort)
 	err := client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err
@@ -381,11 +360,20 @@ func (c *Config) ManageNodeStatus(podNameIPMap map[string]string,
 	return nil
 }
 
-func (c *Config) SetInstanceActive(client client.Client, status *Status, deployment *appsv1.Deployment, request reconcile.Request) error {
-	err := SetInstanceActive(client, status, deployment, request)
+func (c *Config) SetInstanceActive(client client.Client, statusInterface interface{}, deployment *appsv1.Deployment, request reconcile.Request) error {
+	status := statusInterface.(ConfigStatus)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
+		deployment)
 	if err != nil {
 		return err
 	}
+	active := false
+
+	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
+		active = true
+	}
+
+	status.Active = &active
 	err = client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err
@@ -484,6 +472,7 @@ func (c *Config) GetConfigurationParameters() interface{} {
 	var apiPort int
 	var analyticsPort int
 	var collectorPort int
+	var redisPort int
 	if c.Spec.ServiceConfiguration.APIPort != nil {
 		apiPort = *c.Spec.ServiceConfiguration.APIPort
 	} else {
@@ -504,6 +493,14 @@ func (c *Config) GetConfigurationParameters() interface{} {
 		collectorPort = CollectorPort
 	}
 	configConfiguration.CollectorPort = &collectorPort
+
+	if c.Spec.ServiceConfiguration.RedisPort != nil {
+		redisPort = *c.Spec.ServiceConfiguration.RedisPort
+	} else {
+		redisPort = RedisServerPort
+	}
+	configConfiguration.RedisPort = &redisPort
+
 	return configConfiguration
 
 }

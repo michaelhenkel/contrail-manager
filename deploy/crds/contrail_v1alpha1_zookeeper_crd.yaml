@@ -103,8 +103,9 @@ spec:
                 type: string
               type: object
             ports:
-              additionalProperties:
-                type: string
+              properties:
+                clientPort:
+                  type: string
               type: object
           type: object
   version: v1alpha1

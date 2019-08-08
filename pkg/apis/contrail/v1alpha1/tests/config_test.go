@@ -6,7 +6,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/kylelemons/godebug/diff"
 	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,7 +18,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-var configSingle = &v1alpha1.Config{
+var config = &v1alpha1.Config{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "config1",
 		Namespace: "default",
@@ -24,31 +26,9 @@ var configSingle = &v1alpha1.Config{
 			"contrail_cluster": "cluster1",
 		},
 	},
-	Status: v1alpha1.Status{
-		Nodes: map[string]string{"node1": "1.1.1.1"},
-		Ports: map[string]string{"apiPort": "8082",
-			"analyticsPort": "8086",
-			"collectorPort": "8081"},
-	},
 }
 
-var configHa = &v1alpha1.Config{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "config1",
-		Namespace: "default",
-		Labels: map[string]string{
-			"contrail_cluster": "cluster1",
-		},
-	},
-	Status: v1alpha1.Status{
-		Nodes: map[string]string{"node1": "1.1.1.1", "node2": "1.1.1.2", "node3": "1.1.1.3"},
-		Ports: map[string]string{"apiPort": "8082",
-			"analyticsPort": "8086",
-			"collectorPort": "8081"},
-	},
-}
-
-var controlSingle = &v1alpha1.Control{
+var control = &v1alpha1.Control{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "control1",
 		Namespace: "default",
@@ -57,47 +37,29 @@ var controlSingle = &v1alpha1.Control{
 			"control_role":     "master",
 		},
 	},
-	Status: v1alpha1.Status{
-		Nodes: map[string]string{"node1": "1.1.1.1"},
-	},
 }
 
-var controlHa = &v1alpha1.Control{
+var kubemanager = &v1alpha1.Kubemanager{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      "control1",
-		Namespace: "default",
-		Labels: map[string]string{
-			"contrail_cluster": "cluster1",
-			"control_role":     "master",
-		},
-	},
-	Status: v1alpha1.Status{
-		Nodes: map[string]string{"node1": "1.1.1.1",
-			"node2": "1.1.1.2",
-			"node3": "1.1.1.3"},
-	},
-}
-
-var cassandraSingle = &v1alpha1.Cassandra{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "cassandra1",
+		Name:      "kubemanager1",
 		Namespace: "default",
 		Labels: map[string]string{
 			"contrail_cluster": "cluster1",
 		},
 	},
-	Spec: v1alpha1.CassandraSpec{
-		ServiceConfiguration: v1alpha1.CassandraConfiguration{
-			CqlPort: 9042,
+}
+
+var webui = &v1alpha1.Webui{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "webui1",
+		Namespace: "default",
+		Labels: map[string]string{
+			"contrail_cluster": "cluster1",
 		},
-	},
-	Status: v1alpha1.Status{
-		Nodes: map[string]string{"node1": "1.1.1.1"},
-		Ports: map[string]string{"cqlPort": "9042"},
 	},
 }
 
-var cassandraHa = &v1alpha1.Cassandra{
+var cassandra = &v1alpha1.Cassandra{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cassandra1",
 		Namespace: "default",
@@ -105,16 +67,25 @@ var cassandraHa = &v1alpha1.Cassandra{
 			"contrail_cluster": "cluster1",
 		},
 	},
-	Spec: v1alpha1.CassandraSpec{
-		ServiceConfiguration: v1alpha1.CassandraConfiguration{
-			CqlPort: 9042,
+}
+
+var zookeeper = &v1alpha1.Zookeeper{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "zookeeper1",
+		Namespace: "default",
+		Labels: map[string]string{
+			"contrail_cluster": "cluster1",
 		},
 	},
-	Status: v1alpha1.Status{
-		Nodes: map[string]string{"node1": "1.1.1.1",
-			"node2": "1.1.1.2",
-			"node3": "1.1.1.3"},
-		Ports: map[string]string{"cqlPort": "9042"},
+}
+
+var rabbitmq = &v1alpha1.Rabbitmq{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "rabbitmq",
+		Namespace: "default",
+		Labels: map[string]string{
+			"contrail_cluster": "cluster1",
+		},
 	},
 }
 
@@ -128,141 +99,192 @@ var pod1 = &corev1.Pod{
 	},
 }
 
-func TestWebuiConfigSingle(t *testing.T) {
-	logf.SetLogger(logf.ZapLogger(true))
-	// A Memcached object with metadata and spec.
-	webui := &v1alpha1.Webui{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "webui1",
-			Namespace: "default",
-			Labels: map[string]string{
-				"label-key": "label-value123",
-			},
-		},
-	}
-	config := configSingle
-	control := controlSingle
-	cassandra := cassandraSingle
-	pod := pod1
+var pod2 = &corev1.Pod{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "pod2",
+		Namespace: "default",
+	},
+	Status: corev1.PodStatus{
+		PodIP: "1.1.1.2",
+	},
+}
 
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "webui1-webui-configmap",
-			Namespace: "default",
-		},
-	}
-	webuiList := &v1alpha1.WebuiList{}
-	configList := &v1alpha1.ConfigList{}
-	controlList := &v1alpha1.ControlList{}
-	cassandraList := &v1alpha1.CassandraList{}
+var pod3 = &corev1.Pod{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "pod3",
+		Namespace: "default",
+	},
+	Status: corev1.PodStatus{
+		PodIP: "1.1.1.3",
+	},
+}
+
+var rabbitmqList = &v1alpha1.RabbitmqList{}
+var zookeeperList = &v1alpha1.ZookeeperList{}
+var cassandraList = &v1alpha1.CassandraList{}
+var configList = &v1alpha1.ConfigList{}
+var controlList = &v1alpha1.ControlList{}
+var kubemanagerList = &v1alpha1.KubemanagerList{}
+var webuiList = &v1alpha1.WebuiList{}
+
+var configMap = &corev1.ConfigMap{}
+
+type Environment struct {
+	client              *client.Client
+	podList             corev1.PodList
+	configInstance      v1alpha1.Instance
+	controlInstance     v1alpha1.Instance
+	cassandraInstance   v1alpha1.Instance
+	zookeeperInstance   v1alpha1.Instance
+	rabbitmqInstance    v1alpha1.Instance
+	kubemanagerInstance v1alpha1.Instance
+	webuiInstance       v1alpha1.Instance
+}
+
+func SetupEnv() Environment {
+	logf.SetLogger(logf.ZapLogger(true))
+	configConfigMap := *configMap
+	rabbitmqConfigMap := *configMap
+	zookeeperConfigMap := *configMap
+	cassandraConfigMap := *configMap
+	controlConfigMap := *configMap
+	kubemanagerConfigMap := *configMap
+	webuiConfigMap := *configMap
+
+	configConfigMap.Name = "config1-config-configmap"
+	configConfigMap.Namespace = "default"
+
+	rabbitmqConfigMap.Name = "rabbitmq1-rabbitmq-configmap"
+	rabbitmqConfigMap.Namespace = "default"
+
+	zookeeperConfigMap.Name = "zookeeper1-zookeeper-configmap"
+	zookeeperConfigMap.Namespace = "default"
+
+	cassandraConfigMap.Name = "cassandra1-cassandra-configmap"
+	cassandraConfigMap.Namespace = "default"
+
+	controlConfigMap.Name = "control1-control-configmap"
+	controlConfigMap.Namespace = "default"
+
+	kubemanagerConfigMap.Name = "kubemanager1-kubemanager-configmap"
+	kubemanagerConfigMap.Namespace = "default"
+
+	webuiConfigMap.Name = "webui1-webui-configmap"
+	webuiConfigMap.Namespace = "default"
 
 	s := scheme.Scheme
-	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, webui,
-		webuiList,
+	s.AddKnownTypes(v1alpha1.SchemeGroupVersion,
 		config,
-		configList,
-		control,
-		controlList,
 		cassandra,
-		cassandraList)
+		zookeeper,
+		rabbitmq,
+		control,
+		kubemanager,
+		webui,
+		rabbitmqList,
+		zookeeperList,
+		cassandraList,
+		configList,
+		controlList,
+		kubemanagerList,
+		webuiList)
 
-	var i v1alpha1.Instance
-	i = webui
+	objs := []runtime.Object{config,
+		cassandra,
+		zookeeper,
+		rabbitmq,
+		control,
+		kubemanager,
+		webui,
+		&configConfigMap,
+		&controlConfigMap,
+		&cassandraConfigMap,
+		&zookeeperConfigMap,
+		&rabbitmqConfigMap,
+		&kubemanagerConfigMap,
+		&webuiConfigMap}
+
+	cl := fake.NewFakeClient(objs...)
+
+	var configInstance, rabbitmqInstance, cassandraInstance, zookeeperInstance, controlInstance, kubemanagerInstance, webuiInstance v1alpha1.Instance
+
+	configInstance = config
+	rabbitmqInstance = rabbitmq
+	cassandraInstance = cassandra
+	zookeeperInstance = zookeeper
+	controlInstance = control
+	kubemanagerInstance = kubemanager
+	webuiInstance = webui
+
+	var configPods = map[string]string{"pod1": "1.1.1.1", "pod2": "1.1.1.2", "pod3": "1.1.1.3"}
+	var rabbitmqPods = map[string]string{"pod1": "1.1.4.1", "pod2": "1.1.4.2", "pod3": "1.1.4.3"}
+	var cassandraPods = map[string]string{"pod1": "1.1.2.1", "pod2": "1.1.2.2", "pod3": "1.1.2.3"}
+	var zookeeperPods = map[string]string{"pod1": "1.1.3.1", "pod2": "1.1.3.2", "pod3": "1.1.3.3"}
+	var controlPods = map[string]string{"pod1": "1.1.5.1", "pod2": "1.1.5.2", "pod3": "1.1.5.3"}
+	var kubemanagerPods = map[string]string{"pod1": "1.1.6.1", "pod2": "1.1.6.2", "pod3": "1.1.6.3"}
+	var webuiPods = map[string]string{"pod1": "1.1.7.1", "pod2": "1.1.7.2", "pod3": "1.1.7.3"}
+
+	configInstance.ManageNodeStatus(configPods, cl)
+	rabbitmqInstance.ManageNodeStatus(rabbitmqPods, cl)
+	cassandraInstance.ManageNodeStatus(cassandraPods, cl)
+	zookeeperInstance.ManageNodeStatus(zookeeperPods, cl)
+	controlInstance.ManageNodeStatus(controlPods, cl)
+	kubemanagerInstance.ManageNodeStatus(kubemanagerPods, cl)
+	webuiInstance.ManageNodeStatus(webuiPods, cl)
 
 	podItems := []corev1.Pod{}
-	podItems = append(podItems, *pod)
+	podItems = append(podItems, *pod1)
+	podItems = append(podItems, *pod2)
+	podItems = append(podItems, *pod3)
 	podList := corev1.PodList{
 		Items: podItems,
 	}
+	environment := Environment{
+		client:              &cl,
+		podList:             podList,
+		configInstance:      configInstance,
+		controlInstance:     controlInstance,
+		cassandraInstance:   cassandraInstance,
+		zookeeperInstance:   zookeeperInstance,
+		rabbitmqInstance:    rabbitmqInstance,
+		kubemanagerInstance: kubemanagerInstance,
+		webuiInstance:       webuiInstance,
+	}
+	return environment
+}
+func TestConfigConfig(t *testing.T) {
+	logf.SetLogger(logf.ZapLogger(true))
 
-	// Objects to track in the fake client.
-
-	objs := []runtime.Object{webui,
-		config,
-		control,
-		cassandra,
-		pod,
-		configMap}
-	// Create a fake client to mock API calls.
-	cl := fake.NewFakeClient(objs...)
-
-	err := i.CreateInstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "webui1", Namespace: "default"}}, &podList, cl)
+	environment := SetupEnv()
+	cl := *environment.client
+	err := environment.configInstance.CreateInstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "config1", Namespace: "default"}}, &environment.podList, cl)
 	if err != nil {
-		t.Fatalf("list webui: (%v)", err)
+		t.Fatalf("get configmap: (%v)", err)
 	}
 	err = cl.Get(context.TODO(),
-		types.NamespacedName{Name: "webui1-webui-configmap", Namespace: "default"},
+		types.NamespacedName{Name: "config1-config-configmap", Namespace: "default"},
 		configMap)
 	if err != nil {
 		t.Fatalf("get configmap: (%v)", err)
 	}
-	if configMap.Data["config.global.js.1.1.1.1"] != webuiConfigSingle {
-		t.Fatalf("get configmap: %v", configMap.Data["config.global.js.1.1.1.1"])
+	if configMap.Data["api.1.1.1.1"] != configConfigHa {
+		configDiff := diff.Diff(configMap.Data["api.1.1.1.1"], configConfigHa)
+		t.Fatalf("get devicemanager config: \n%v\n", configDiff)
+	}
+	if configMap.Data["devicemanager.1.1.1.1"] != configDevicemanagerHa {
+		devicemanagerDiff := diff.Diff(configMap.Data["devicemanager.1.1.1.1"], configDevicemanagerHa)
+		t.Fatalf("get devicemanager config: \n%v\n", devicemanagerDiff)
 	}
 }
 
-/*
-func TestWebuiConfigHa(t *testing.T) {
+func TestWebuiConfig(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(true))
-	// A Memcached object with metadata and spec.
-	webui := &v1alpha1.Webui{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "webui1",
-			Namespace: "default",
-			Labels: map[string]string{
-				"label-key": "label-value123",
-			},
-		},
-	}
-	config := configHa
-	control := controlHa
-	cassandra := cassandraHa
-	pod := pod1
 
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "webui1-webui-configmap",
-			Namespace: "default",
-		},
-	}
-	webuiList := &v1alpha1.WebuiList{}
-	configList := &v1alpha1.ConfigList{}
-	controlList := &v1alpha1.ControlList{}
-	cassandraList := &v1alpha1.CassandraList{}
-
-	s := scheme.Scheme
-	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, webui,
-		webuiList,
-		config,
-		configList,
-		control,
-		controlList,
-		cassandra,
-		cassandraList)
-
-	var i v1alpha1.Instance
-	i = webui
-
-	podItems := []corev1.Pod{}
-	podItems = append(podItems, *pod)
-	podList := corev1.PodList{
-		Items: podItems,
-	}
-
-	// Objects to track in the fake client.
-
-	objs := []runtime.Object{webui,
-		config,
-		control,
-		cassandra,
-		pod,
-		configMap}
-	// Create a fake client to mock API calls.
-	cl := fake.NewFakeClient(objs...)
-
-	err := i.CreateInstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "webui1", Namespace: "default"}}, &podList, cl)
+	environment := SetupEnv()
+	cl := *environment.client
+	err := environment.webuiInstance.CreateInstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "webui1", Namespace: "default"}}, &environment.podList, cl)
 	if err != nil {
-		t.Fatalf("list webui: (%v)", err)
+		t.Fatalf("get configmap: (%v)", err)
 	}
 	err = cl.Get(context.TODO(),
 		types.NamespacedName{Name: "webui1-webui-configmap", Namespace: "default"},
@@ -271,10 +293,10 @@ func TestWebuiConfigHa(t *testing.T) {
 		t.Fatalf("get configmap: (%v)", err)
 	}
 	if configMap.Data["config.global.js.1.1.1.1"] != webuiConfigHa {
-		t.Fatalf("get configmap ha: %v", configMap.Data["config.global.js.1.1.1.1"])
+		configDiff := diff.Diff(configMap.Data["config.global.js.1.1.1.1"], webuiConfigHa)
+		t.Fatalf("get webui config: \n%v\n", configDiff)
 	}
 }
-*/
 
 var webuiConfigSingle = `/*
 * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
@@ -549,3 +571,63 @@ config.staticAuth[0].username = 'admin';
 config.staticAuth[0].password = 'contrail123';
 config.staticAuth[0].roles = ['cloudAdmin'];
 `
+
+var configConfigHa = `[DEFAULTS]
+listen_ip_addr=1.1.1.1
+listen_port=8082
+http_server_port=8084
+http_server_ip=0.0.0.0
+log_file=/var/log/contrail/contrail-api.log
+log_level=SYS_NOTICE
+log_local=1
+list_optimization_enabled=True
+auth=noauth
+aaa_mode=no-auth
+cloud_admin_role=admin
+global_read_only_role=
+cassandra_server_list=1.1.2.1:9160 1.1.2.2:9160 1.1.2.3:9160
+cassandra_use_ssl=false
+cassandra_ca_certs=/etc/contrail/ssl/certs/ca-cert.pem
+zk_server_ip=1.1.3.1:2181,1.1.3.2:2181,1.1.3.3:2181
+rabbit_server=1.1.4.1:5673,1.1.4.2:5673,1.1.4.3:5673
+rabbit_vhost=/
+rabbit_user=guest
+rabbit_password=guest
+rabbit_use_ssl=False
+rabbit_health_check_interval=10
+collectors=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False`
+
+var configDevicemanagerHa = `[DEFAULTS]
+host_ip=1.1.1.1
+http_server_ip=0.0.0.0
+api_server_ip=1.1.1.1,1.1.1.2,1.1.1.3
+api_server_port=8082
+api_server_use_ssl=False
+analytics_server_ip=1.1.1.1,1.1.1.2,1.1.1.3
+analytics_server_port=8081
+push_mode=1
+log_file=/var/log/contrail/contrail-device-manager.log
+log_level=SYS_NOTICE
+log_local=1
+cassandra_server_list=1.1.2.1:9160 1.1.2.2:9160 1.1.2.3:9160
+cassandra_use_ssl=false
+cassandra_ca_certs=/etc/contrail/ssl/certs/ca-cert.pem
+zk_server_ip=1.1.3.1:2181,1.1.3.2:2181,1.1.3.3:2181
+# configure directories for job manager
+# the same directories must be mounted to dnsmasq and DM container
+dnsmasq_conf_dir=/etc/dnsmasq
+tftp_dir=/etc/tftp
+dhcp_leases_file=/var/lib/dnsmasq/dnsmasq.leases
+rabbit_server=1.1.4.1:5673,1.1.4.2:5673,1.1.4.3:5673
+rabbit_vhost=/
+rabbit_user=guest
+rabbit_password=guest
+rabbit_use_ssl=False
+rabbit_health_check_interval=10
+collectors=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False`

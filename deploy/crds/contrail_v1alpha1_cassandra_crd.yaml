@@ -119,8 +119,13 @@ spec:
                 type: string
               type: object
             ports:
-              additionalProperties:
-                type: string
+              properties:
+                cqlPort:
+                  type: string
+                jmxPort:
+                  type: string
+                port:
+                  type: string
               type: object
           type: object
   version: v1alpha1

@@ -61,7 +61,7 @@ type RabbitmqStatus struct {
 }
 
 type RabbitmqStatusPorts struct {
-	Port *int `json:"port,omitempty"`
+	Port string `json:"port,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -194,7 +194,7 @@ func (c *Rabbitmq) ManageNodeStatus(podNameIPMap map[string]string,
 	c.Status.Nodes = podNameIPMap
 	rabbitmqConfigInterface := c.GetConfigurationParameters()
 	rabbitmqConfig := rabbitmqConfigInterface.(RabbitmqConfiguration)
-	c.Status.Ports.Port = rabbitmqConfig.Port
+	c.Status.Ports.Port = strconv.Itoa(*rabbitmqConfig.Port)
 	err := client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err
@@ -202,11 +202,20 @@ func (c *Rabbitmq) ManageNodeStatus(podNameIPMap map[string]string,
 	return nil
 }
 
-func (c *Rabbitmq) SetInstanceActive(client client.Client, status *Status, deployment *appsv1.Deployment, request reconcile.Request) error {
-	err := SetInstanceActive(client, status, deployment, request)
+func (c *Rabbitmq) SetInstanceActive(client client.Client, statusInterface interface{}, deployment *appsv1.Deployment, request reconcile.Request) error {
+	status := statusInterface.(*RabbitmqStatus)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
+		deployment)
 	if err != nil {
 		return err
 	}
+	active := false
+
+	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
+		active = true
+	}
+
+	status.Active = &active
 	err = client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err

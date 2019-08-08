@@ -68,9 +68,9 @@ type CassandraStatus struct {
 }
 
 type CassandraStatusPorts struct {
-	Port    *int `json:"port,omitempty"`
-	CqlPort *int `json:"cqlPort,omitempty"`
-	JmxPort *int `json:"jmxPort,omitempty"`
+	Port    string `json:"port,omitempty"`
+	CqlPort string `json:"cqlPort,omitempty"`
+	JmxPort string `json:"jmxPort,omitempty"`
 }
 
 // CassandraList contains a list of Cassandra
@@ -210,9 +210,9 @@ func (c *Cassandra) ManageNodeStatus(podNameIPMap map[string]string,
 	c.Status.Nodes = podNameIPMap
 	cassandraConfigInterface := c.GetConfigurationParameters()
 	cassandraConfig := cassandraConfigInterface.(CassandraConfiguration)
-	c.Status.Ports.Port = cassandraConfig.Port
-	c.Status.Ports.CqlPort = cassandraConfig.CqlPort
-	c.Status.Ports.JmxPort = cassandraConfig.JmxLocalPort
+	c.Status.Ports.Port = strconv.Itoa(*cassandraConfig.Port)
+	c.Status.Ports.CqlPort = strconv.Itoa(*cassandraConfig.CqlPort)
+	c.Status.Ports.JmxPort = strconv.Itoa(*cassandraConfig.JmxLocalPort)
 	err := client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err
@@ -220,11 +220,20 @@ func (c *Cassandra) ManageNodeStatus(podNameIPMap map[string]string,
 	return nil
 }
 
-func (c *Cassandra) SetInstanceActive(client client.Client, status *Status, deployment *appsv1.Deployment, request reconcile.Request) error {
-	err := SetInstanceActive(client, status, deployment, request)
+func (c *Cassandra) SetInstanceActive(client client.Client, statusInterface interface{}, deployment *appsv1.Deployment, request reconcile.Request) error {
+	status := statusInterface.(CassandraStatus)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
+		deployment)
 	if err != nil {
 		return err
 	}
+	active := false
+
+	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
+		active = true
+	}
+
+	status.Active = &active
 	err = client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err

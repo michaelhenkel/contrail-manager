@@ -70,13 +70,22 @@ spec:
               type: object
             serviceConfiguration:
               properties:
+                analyticsPort:
+                  format: int64
+                  type: integer
+                apiPort:
+                  format: int64
+                  type: integer
                 cassandraInstance:
                   type: string
+                collectorPort:
+                  format: int64
+                  type: integer
                 images:
                   additionalProperties:
                     type: string
                   type: object
-                port:
+                redisPort:
                   format: int64
                   type: integer
                 zookeeperInstance:
@@ -101,8 +110,15 @@ spec:
                 type: string
               type: object
             ports:
-              additionalProperties:
-                type: string
+              properties:
+                analyticsPort:
+                  type: string
+                apiPort:
+                  type: string
+                collectorPort:
+                  type: string
+                redisPort:
+                  type: string
               type: object
           type: object
   version: v1alpha1

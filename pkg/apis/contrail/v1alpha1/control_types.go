@@ -65,11 +65,11 @@ type ControlStatus struct {
 }
 
 type ControlStatusPorts struct {
-	BGPPort           *int `json:"bgpPort,omitempty"`
-	ASNNumber         *int `json:"asnNumber,omitempty"`
-	XMPPPort          *int `json:"xmppPort,omitempty"`
-	DNSPort           *int `json:"dnsPort,omitempty"`
-	DNSIntrospectPort *int `json:"dnsIntrospectPort,omitempty"`
+	BGPPort           string `json:"bgpPort,omitempty"`
+	ASNNumber         string `json:"asnNumber,omitempty"`
+	XMPPPort          string `json:"xmppPort,omitempty"`
+	DNSPort           string `json:"dnsPort,omitempty"`
+	DNSIntrospectPort string `json:"dnsIntrospectPort,omitempty"`
 }
 
 // ControlList contains a list of Control
@@ -301,11 +301,11 @@ func (c *Control) ManageNodeStatus(podNameIPMap map[string]string,
 	c.Status.Nodes = podNameIPMap
 	controlConfigInterface := c.GetConfigurationParameters()
 	controlConfig := controlConfigInterface.(ControlConfiguration)
-	c.Status.Ports.BGPPort = controlConfig.BGPPort
-	c.Status.Ports.ASNNumber = controlConfig.ASNNumber
-	c.Status.Ports.XMPPPort = controlConfig.XMPPPort
-	c.Status.Ports.DNSPort = controlConfig.DNSPort
-	c.Status.Ports.DNSIntrospectPort = controlConfig.DNSIntrospectPort
+	c.Status.Ports.BGPPort = strconv.Itoa(*controlConfig.BGPPort)
+	c.Status.Ports.ASNNumber = strconv.Itoa(*controlConfig.ASNNumber)
+	c.Status.Ports.XMPPPort = strconv.Itoa(*controlConfig.XMPPPort)
+	c.Status.Ports.DNSPort = strconv.Itoa(*controlConfig.DNSPort)
+	c.Status.Ports.DNSIntrospectPort = strconv.Itoa(*controlConfig.DNSIntrospectPort)
 	err := client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err
@@ -313,11 +313,20 @@ func (c *Control) ManageNodeStatus(podNameIPMap map[string]string,
 	return nil
 }
 
-func (c *Control) SetInstanceActive(client client.Client, status *Status, deployment *appsv1.Deployment, request reconcile.Request) error {
-	err := SetInstanceActive(client, status, deployment, request)
+func (c *Control) SetInstanceActive(client client.Client, statusInterface interface{}, deployment *appsv1.Deployment, request reconcile.Request) error {
+	status := statusInterface.(ControlStatus)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
+		deployment)
 	if err != nil {
 		return err
 	}
+	active := false
+
+	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
+		active = true
+	}
+
+	status.Active = &active
 	err = client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err

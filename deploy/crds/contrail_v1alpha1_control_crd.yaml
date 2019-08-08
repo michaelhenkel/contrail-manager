@@ -70,12 +70,27 @@ spec:
               type: object
             serviceConfiguration:
               properties:
+                asnNumber:
+                  format: int64
+                  type: integer
+                bgpPort:
+                  format: int64
+                  type: integer
                 cassandraInstance:
                   type: string
+                dnsIntrospectPort:
+                  format: int64
+                  type: integer
+                dnsPort:
+                  format: int64
+                  type: integer
                 images:
                   additionalProperties:
                     type: string
                   type: object
+                xmppPort:
+                  format: int64
+                  type: integer
                 zookeeperInstance:
                   type: string
               required:
@@ -98,8 +113,17 @@ spec:
                 type: string
               type: object
             ports:
-              additionalProperties:
-                type: string
+              properties:
+                asnNumber:
+                  type: string
+                bgpPort:
+                  type: string
+                dnsIntrospectPort:
+                  type: string
+                dnsPort:
+                  type: string
+                xmppPort:
+                  type: string
               type: object
           type: object
   version: v1alpha1

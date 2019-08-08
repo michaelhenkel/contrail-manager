@@ -298,11 +298,20 @@ func (c *Kubemanager) ManageNodeStatus(podNameIPMap map[string]string,
 	return nil
 }
 
-func (c *Kubemanager) SetInstanceActive(client client.Client, status *Status, deployment *appsv1.Deployment, request reconcile.Request) error {
-	err := SetInstanceActive(client, status, deployment, request)
+func (c *Kubemanager) SetInstanceActive(client client.Client, statusInterface interface{}, deployment *appsv1.Deployment, request reconcile.Request) error {
+	status := statusInterface.(KubemanagerStatus)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
+		deployment)
 	if err != nil {
 		return err
 	}
+	active := false
+
+	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
+		active = true
+	}
+
+	status.Active = &active
 	err = client.Status().Update(context.TODO(), c)
 	if err != nil {
 		return err
@@ -410,7 +419,7 @@ func (c *Kubemanager) IsConfig(request *reconcile.Request, myclient client.Clien
 	return false
 }
 
-func (c *Kubemanager) GetConfigurationParameters() map[string]string {
+func (c *Kubemanager) GetConfigurationParameters() interface{} {
 	var configurationMap = make(map[string]string)
 	return configurationMap
 }

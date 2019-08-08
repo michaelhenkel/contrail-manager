@@ -99,8 +99,9 @@ spec:
                 type: string
               type: object
             ports:
-              additionalProperties:
-                type: string
+              properties:
+                port:
+                  type: string
               type: object
           type: object
   version: v1alpha1
