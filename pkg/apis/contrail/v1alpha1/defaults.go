@@ -14,7 +14,7 @@ const (
 	NicOffloadEnable                            bool   = false
 	DistSnatProtoPortList                       string = ""
 	FlowExportRate                              int    = 0
-	CloudOrchestrator                           string = "none"
+	CloudOrchestrator                           string = "kubernetes"
 	CloudAdminRole                              string = "admin"
 	AaaMode                                     string = "no-auth"
 	AuthMode                                    string = "noauth"
@@ -157,6 +157,18 @@ const (
 	KeystoneAuthCaCertfile                      string = ""
 	KubemanagerNodes                            string = ""
 	KubernetesApiNodes                          string = ""
+	KubernetesApiServer                         string = "10.96.0.1"
+	KubernetesApiPort                           int    = 8080
+	KubernetesApiSSLPort                        int    = 6443
+	KubernetesClusterName                       string = "kubernetes"
+	KubernetesPodSubnets                        string = "10.32.0.0/12"
+	KubernetesIpFabricSubnets                   string = "10.64.0.0/12"
+	KubernetesServiceSubnets                    string = "10.96.0.0/12"
+	KubernetesIPFrabricForwarding               bool   = true
+	KubernetesIPFrabricSnat                     bool   = true
+	KubernetesHostNetworkService                bool   = false
+	KubernetesUseKubeadm                        bool   = false
+	KubernetesServiceAccount                    string = ""
 	VcenterFabricManagerNodes                   string = ""
 	MetadataProxySecret                         string = "contrail"
 	BarbicanUser                                string = "barbican"

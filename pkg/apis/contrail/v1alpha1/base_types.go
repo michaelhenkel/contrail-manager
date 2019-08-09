@@ -474,10 +474,12 @@ func GetRabbitmqNodes(name string, namespace string, myclient client.Client) (Ra
 	serverListCommaSeparated = serverListCommaSeparated + ":" + port
 	serverListSpaceSeparated := strings.Join(rabbitmqNodes, ":"+port+" ")
 	serverListSpaceSeparated = serverListSpaceSeparated + ":" + port
+	serverListCommaSeparatedWithoutPort := strings.Join(rabbitmqNodes, ",")
 	rabbitmqCluster = RabbitmqCluster{
-		Port:                     port,
-		ServerListCommaSeparated: serverListCommaSeparated,
-		ServerListSpaceSeparated: serverListSpaceSeparated,
+		Port:                                port,
+		ServerListCommaSeparated:            serverListCommaSeparated,
+		ServerListSpaceSeparated:            serverListSpaceSeparated,
+		ServerListCommaSeparatedWithoutPort: serverListCommaSeparatedWithoutPort,
 	}
 	return rabbitmqCluster, nil
 }
@@ -569,9 +571,10 @@ type ZookeeperCluster struct {
 }
 
 type RabbitmqCluster struct {
-	Port                     string
-	ServerListCommaSeparated string
-	ServerListSpaceSeparated string
+	Port                                string
+	ServerListCommaSeparated            string
+	ServerListSpaceSeparated            string
+	ServerListCommaSeparatedWithoutPort string
 }
 
 type CassandraCluster struct {

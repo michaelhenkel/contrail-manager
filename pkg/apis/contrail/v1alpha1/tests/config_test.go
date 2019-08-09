@@ -452,6 +452,27 @@ func TestControlConfig(t *testing.T) {
 	}
 }
 
+func TestKubemanagerConfig(t *testing.T) {
+	logf.SetLogger(logf.ZapLogger(true))
+
+	environment := SetupEnv()
+	cl := *environment.client
+	err := environment.kubemanagerInstance.CreateInstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "kubemanager1", Namespace: "default"}}, &environment.kubemanbagerPodList, cl)
+	if err != nil {
+		t.Fatalf("get configmap: (%v)", err)
+	}
+	err = cl.Get(context.TODO(),
+		types.NamespacedName{Name: "kubemanager1-kubemanager-configmap", Namespace: "default"},
+		&environment.kubemanagerConfigMap)
+	if err != nil {
+		t.Fatalf("get configmap: (%v)", err)
+	}
+	if environment.kubemanagerConfigMap.Data["kubemanager.1.1.6.1"] != kubemanagerConfig {
+		diff := diff.Diff(environment.kubemanagerConfigMap.Data["kubemanager.1.1.6.1"], kubemanagerConfig)
+		t.Fatalf("get kubemanager config: \n%v\n", diff)
+	}
+}
+
 func TestZookeeperConfig(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(true))
 
@@ -1258,4 +1279,47 @@ vnc_client = vnc_api.VncApi(
             api_server_host= vncServerList[0],
             api_server_port=8082)
 vnc_client.bgp_router_delete(fq_name=['default-domain','default-project','ip-fabric','__default__', hostname ])
+`
+
+var kubemanagerConfig = `[DEFAULTS]
+host_ip=1.1.6.1
+orchestrator=kubernetes
+token=eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImNvbnRyYWlsLXNlcnZpY2UtYWNjb3VudC10b2tlbi1zYnZidiIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJjb250cmFpbC1zZXJ2aWNlLWFjY291bnQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI1Mjg5ZjhmNi05ZWJlLTQ5ZDQtYmViOS0wOTExOGEyZTczZTYiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDpjb250cmFpbC1zZXJ2aWNlLWFjY291bnQifQ.e3mxCPhoy7f34VXcIraYQfbXQOmdTE66_MUyHYLBvbFX-1q92_yg_ojSsHMl9L7PiEITJnd3yZxr1vtNPfZEnEgs2olFYFOSirU9urkIb7MI9sKPf-2wKGfu4rdfQ_ym22SCeIFP4b2hdgvpszsqPUhv1xY4JN9oipGhdThAJQv0wGmX69kO7u5fahwW2e9r4QHR8NPXWFCcRQ2cALkIe85QdkTuzTXi7pKgFAFnWNIxt9HFPtal2l1oVTeLFQQFtEBs7eSZ3p5Aek0YTGXCv0glGXu1saEWjWLn3WEo08ce1NWXWao8T9rEGuZDwjIHVkbGrOrCwSx9DK9yn2eitQ
+log_file=/var/log/contrail/contrail-kube-manager.log
+log_level=SYS_DEBUG
+log_local=1
+nested_mode=0
+http_server_ip=0.0.0.0
+[KUBERNETES]
+kubernetes_api_server=10.96.0.1
+kubernetes_api_port=8080
+kubernetes_api_secure_port=6443
+cluster_name=kubernetes
+cluster_project={}
+cluster_network={}
+pod_subnets=10.32.0.0/12
+ip_fabric_subnets=10.64.0.0/12
+service_subnets=10.96.0.0/12
+ip_fabric_forwarding=true
+ip_fabric_snat=true
+host_network_service=false
+[VNC]
+public_fip_pool={}
+vnc_endpoint_ip=1.1.1.1,1.1.1.2,1.1.1.3
+vnc_endpoint_port=8082
+rabbit_server=1.1.4.1,1.1.4.2,1.1.4.3
+rabbit_port=5673
+rabbit_vhost=/
+rabbit_user=guest
+rabbit_password=guest
+rabbit_use_ssl=False
+rabbit_health_check_interval=10
+cassandra_server_list=1.1.2.1:9160 1.1.2.2:9160 1.1.2.3:9160
+cassandra_use_ssl=false
+cassandra_ca_certs=/etc/contrail/ssl/certs/ca-cert.pem
+collectors=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
+zk_server_ip=1.1.3.1:2181,1.1.3.2:2181,1.1.3.3:2181
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False
 `

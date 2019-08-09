@@ -13,17 +13,17 @@ nested_mode=0
 http_server_ip=0.0.0.0
 [KUBERNETES]
 kubernetes_api_server={{ .KubernetesAPIServer }}
-kubernetes_api_port=8080
-kubernetes_api_secure_port={{ .KubernetesAPIPort }}
+kubernetes_api_port={{ .KubernetesAPIPort }}
+kubernetes_api_secure_port={{ .KubernetesAPISSLPort }}
 cluster_name={{ .KubernetesClusterName }}
 cluster_project={}
 cluster_network={}
 pod_subnets={{ .PodSubnet }}
-ip_fabric_subnets={}
+ip_fabric_subnets={{ .IPFabricSubnet }}
 service_subnets={{ .ServiceSubnet }}
 ip_fabric_forwarding={{ .IPFabricForwarding }}
 ip_fabric_snat={{ .IPFabricSnat }}
-host_network_service=false
+host_network_service={{ .HostNetworkService }}
 [VNC]
 public_fip_pool={}
 vnc_endpoint_ip={{ .APIServerList }}

@@ -60,19 +60,22 @@ type KubemanagerConfiguration struct {
 	Images                map[string]string `json:"images"`
 	CassandraInstance     string            `json:"cassandraInstance,omitempty"`
 	ZookeeperInstance     string            `json:"zookeeperInstance,omitempty"`
-	UseKubeadmConfig      bool              `json:"useKubeadmConfig,omitempty"`
+	UseKubeadmConfig      *bool             `json:"useKubeadmConfig,omitempty"`
 	ServiceAccount        string            `json:"serviceAccount,omitempty"`
 	ClusterRole           string            `json:"clusterRole,omitempty"`
 	ClusterRoleBinding    string            `json:"clusterRoleBinding,omitempty"`
 	CloudOrchestrator     string            `json:"cloudOrchestrator,omitempty"`
 	KubernetesAPIServer   string            `json:"kubernetesAPIServer,omitempty"`
 	KubernetesAPIPort     *int              `json:"kubernetesAPIPort,omitempty"`
-	PodSubnet             string            `json:"podSubnet,omitempty"`
-	ServiceSubnet         string            `json:"serviceSubnet,omitempty"`
+	KubernetesAPISSLPort  *int              `json:"kubernetesAPISSLPort,omitempty"`
+	PodSubnets            string            `json:"podSubnets,omitempty"`
+	ServiceSubnets        string            `json:"serviceSubnets,omitempty"`
 	KubernetesClusterName string            `json:"kubernetesClusterName,omitempty"`
-	IPFabricForwarding    bool              `json:"ipFabricForwarding,omitempty"`
-	IPFabricSnat          bool              `json:"ipFabricSnat,omitempty"`
+	IPFabricSubnets       string            `json:"ipFabricSubnets,omitempty"`
+	IPFabricForwarding    *bool             `json:"ipFabricForwarding,omitempty"`
+	IPFabricSnat          *bool             `json:"ipFabricSnat,omitempty"`
 	KubernetesTokenFile   string            `json:"kubernetesTokenFile,omitempty"`
+	HostNetworkService    *bool             `json:"hostNetworkService,omitempty"`
 }
 
 // KubemanagerList contains a list of Kubemanager
@@ -132,21 +135,11 @@ func (c *Kubemanager) CreateInstanceConfiguration(request reconcile.Request,
 		podIPList = append(podIPList, pod.Status.PodIP)
 	}
 
-	var PodSubnet string
-	var KubernetesClusterName string
-	var IPFabricSubnet string
-	var ServiceSubnet string
-	var KubernetesAPIServer string
-	var KubernetesAPIPort string
+	kubemanagerConfigInstance := c.GetConfigurationParameters()
+	kubemanagerConfig := kubemanagerConfigInstance.(KubemanagerConfiguration)
 
-	if c.Spec.ServiceConfiguration.UseKubeadmConfig {
+	if *kubemanagerConfig.UseKubeadmConfig {
 		controlPlaneEndpoint := ""
-		KubernetesClusterName = "kubernetes"
-		PodSubnet = "10.32.0.0/12"
-		ServiceSubnet = "10.96.0.0/12"
-		KubernetesAPIServer = "10.96.0.1"
-		KubernetesAPIPort = "443"
-
 		config, err := rest.InClusterConfig()
 		if err == nil {
 			clientset, err := kubernetes.NewForConfig(config)
@@ -161,29 +154,20 @@ func (c *Kubemanager) CreateInstanceConfiguration(request reconcile.Request,
 					return err
 				}
 				controlPlaneEndpoint = clusterConfigMap["controlPlaneEndpoint"].(string)
-				KubernetesAPIServer, KubernetesAPIPort, _ = net.SplitHostPort(controlPlaneEndpoint)
-				KubernetesClusterName = clusterConfigMap["clusterName"].(string)
+				kubernetesAPIServer, kubernetesAPISSLPort, _ := net.SplitHostPort(controlPlaneEndpoint)
+				kubemanagerConfig.KubernetesAPIServer = kubernetesAPIServer
+				kubernetesAPISSLPortInt, err := strconv.Atoi(kubernetesAPISSLPort)
+				if err != nil {
+					return err
+				}
+				kubemanagerConfig.KubernetesAPISSLPort = &kubernetesAPISSLPortInt
+				kubemanagerConfig.KubernetesClusterName = clusterConfigMap["clusterName"].(string)
 				networkConfig := make(map[interface{}]interface{})
 				networkConfig = clusterConfigMap["networking"].(map[interface{}]interface{})
-				PodSubnet = networkConfig["podSubnet"].(string)
-				ServiceSubnet = networkConfig["serviceSubnet"].(string)
+				kubemanagerConfig.PodSubnets = networkConfig["podSubnet"].(string)
+				kubemanagerConfig.ServiceSubnets = networkConfig["serviceSubnet"].(string)
 			}
 		}
-	}
-	if c.Spec.ServiceConfiguration.KubernetesAPIServer != "" {
-		KubernetesAPIServer = c.Spec.ServiceConfiguration.KubernetesAPIServer
-	}
-	if c.Spec.ServiceConfiguration.KubernetesAPIPort != nil {
-		KubernetesAPIPort = strconv.Itoa(*c.Spec.ServiceConfiguration.KubernetesAPIPort)
-	}
-	if c.Spec.ServiceConfiguration.PodSubnet != "" {
-		PodSubnet = c.Spec.ServiceConfiguration.PodSubnet
-	}
-	if c.Spec.ServiceConfiguration.ServiceSubnet != "" {
-		ServiceSubnet = c.Spec.ServiceConfiguration.ServiceSubnet
-	}
-	if c.Spec.ServiceConfiguration.KubernetesClusterName != "" {
-		KubernetesClusterName = c.Spec.ServiceConfiguration.KubernetesClusterName
 	}
 
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
@@ -195,6 +179,7 @@ func (c *Kubemanager) CreateInstanceConfiguration(request reconcile.Request,
 			CloudOrchestrator     string
 			KubernetesAPIServer   string
 			KubernetesAPIPort     string
+			KubernetesAPISSLPort  string
 			KubernetesClusterName string
 			PodSubnet             string
 			IPFabricSubnet        string
@@ -208,24 +193,27 @@ func (c *Kubemanager) CreateInstanceConfiguration(request reconcile.Request,
 			RabbitmqServerList    string
 			RabbitmqServerPort    string
 			CollectorServerList   string
+			HostNetworkService    string
 		}{
 			ListenAddress:         podList.Items[idx].Status.PodIP,
-			CloudOrchestrator:     c.Spec.ServiceConfiguration.CloudOrchestrator,
-			KubernetesAPIServer:   KubernetesAPIServer,
-			KubernetesAPIPort:     KubernetesAPIPort,
-			KubernetesClusterName: KubernetesClusterName,
-			PodSubnet:             PodSubnet,
-			IPFabricSubnet:        IPFabricSubnet,
-			ServiceSubnet:         ServiceSubnet,
-			IPFabricForwarding:    strconv.FormatBool(c.Spec.ServiceConfiguration.IPFabricForwarding),
-			IPFabricSnat:          strconv.FormatBool(c.Spec.ServiceConfiguration.IPFabricSnat),
+			CloudOrchestrator:     kubemanagerConfig.CloudOrchestrator,
+			KubernetesAPIServer:   kubemanagerConfig.KubernetesAPIServer,
+			KubernetesAPIPort:     strconv.Itoa(*kubemanagerConfig.KubernetesAPIPort),
+			KubernetesAPISSLPort:  strconv.Itoa(*kubemanagerConfig.KubernetesAPISSLPort),
+			KubernetesClusterName: kubemanagerConfig.KubernetesClusterName,
+			PodSubnet:             kubemanagerConfig.PodSubnets,
+			IPFabricSubnet:        kubemanagerConfig.IPFabricSubnets,
+			ServiceSubnet:         kubemanagerConfig.ServiceSubnets,
+			IPFabricForwarding:    strconv.FormatBool(*kubemanagerConfig.IPFabricForwarding),
+			IPFabricSnat:          strconv.FormatBool(*kubemanagerConfig.IPFabricSnat),
 			APIServerList:         configNodesInformation.APIServerListCommaSeparated,
 			APIServerPort:         configNodesInformation.APIServerPort,
-			CassandraServerList:   cassandraNodesInformation.ServerListCommaSeparated,
+			CassandraServerList:   cassandraNodesInformation.ServerListSpaceSeparated,
 			ZookeeperServerList:   zookeeperNodesInformation.ServerListCommaSeparated,
-			RabbitmqServerList:    rabbitmqNodesInformation.ServerListCommaSeparated,
+			RabbitmqServerList:    rabbitmqNodesInformation.ServerListCommaSeparatedWithoutPort,
 			RabbitmqServerPort:    rabbitmqNodesInformation.Port,
 			CollectorServerList:   configNodesInformation.CollectorServerListSpaceSeparated,
+			HostNetworkService:    strconv.FormatBool(*kubemanagerConfig.HostNetworkService),
 		})
 		data["kubemanager."+podList.Items[idx].Status.PodIP] = kubemanagerConfigBuffer.String()
 	}
@@ -420,6 +408,104 @@ func (c *Kubemanager) IsConfig(request *reconcile.Request, myclient client.Clien
 }
 
 func (c *Kubemanager) GetConfigurationParameters() interface{} {
-	var configurationMap = make(map[string]string)
-	return configurationMap
+	kubemanagerConfiguration := KubemanagerConfiguration{}
+	var cloudOrchestrator string
+	var kubernetesApiServer string
+	var kubernetesApiPort int
+	var kubernetesApiSSLPort int
+	var kubernetesClusterName string
+	var podSubnets string
+	var ipFabricSubnets string
+	var serviceSubnets string
+	var ipFabricForwarding bool
+	var ipFabricSnat bool
+	var hostNetworkService bool
+	var useKubeadmConfig bool
+
+	if c.Spec.ServiceConfiguration.CloudOrchestrator != "" {
+		cloudOrchestrator = c.Spec.ServiceConfiguration.CloudOrchestrator
+	} else {
+		cloudOrchestrator = CloudOrchestrator
+	}
+
+	if c.Spec.ServiceConfiguration.KubernetesAPIServer != "" {
+		kubernetesApiServer = c.Spec.ServiceConfiguration.KubernetesAPIServer
+	} else {
+		kubernetesApiServer = KubernetesApiServer
+	}
+
+	if c.Spec.ServiceConfiguration.KubernetesAPIPort != nil {
+		kubernetesApiPort = *c.Spec.ServiceConfiguration.KubernetesAPIPort
+	} else {
+		kubernetesApiPort = KubernetesApiPort
+	}
+
+	if c.Spec.ServiceConfiguration.KubernetesAPISSLPort != nil {
+		kubernetesApiSSLPort = *c.Spec.ServiceConfiguration.KubernetesAPISSLPort
+	} else {
+		kubernetesApiSSLPort = KubernetesApiSSLPort
+	}
+
+	if c.Spec.ServiceConfiguration.KubernetesClusterName != "" {
+		kubernetesClusterName = c.Spec.ServiceConfiguration.KubernetesClusterName
+	} else {
+		kubernetesClusterName = KubernetesClusterName
+	}
+
+	if c.Spec.ServiceConfiguration.PodSubnets != "" {
+		podSubnets = c.Spec.ServiceConfiguration.PodSubnets
+	} else {
+		podSubnets = KubernetesPodSubnets
+	}
+
+	if c.Spec.ServiceConfiguration.IPFabricSubnets != "" {
+		ipFabricSubnets = c.Spec.ServiceConfiguration.IPFabricSubnets
+	} else {
+		ipFabricSubnets = KubernetesIpFabricSubnets
+	}
+
+	if c.Spec.ServiceConfiguration.ServiceSubnets != "" {
+		serviceSubnets = c.Spec.ServiceConfiguration.ServiceSubnets
+	} else {
+		serviceSubnets = KubernetesServiceSubnets
+	}
+
+	if c.Spec.ServiceConfiguration.IPFabricForwarding != nil {
+		ipFabricForwarding = *c.Spec.ServiceConfiguration.IPFabricForwarding
+	} else {
+		ipFabricForwarding = KubernetesIPFrabricForwarding
+	}
+
+	if c.Spec.ServiceConfiguration.HostNetworkService != nil {
+		hostNetworkService = *c.Spec.ServiceConfiguration.HostNetworkService
+	} else {
+		hostNetworkService = KubernetesHostNetworkService
+	}
+
+	if c.Spec.ServiceConfiguration.UseKubeadmConfig != nil {
+		useKubeadmConfig = *c.Spec.ServiceConfiguration.UseKubeadmConfig
+	} else {
+		useKubeadmConfig = KubernetesUseKubeadm
+	}
+
+	if c.Spec.ServiceConfiguration.IPFabricSnat != nil {
+		ipFabricSnat = *c.Spec.ServiceConfiguration.IPFabricSnat
+	} else {
+		ipFabricSnat = KubernetesIPFrabricSnat
+	}
+
+	kubemanagerConfiguration.CloudOrchestrator = cloudOrchestrator
+	kubemanagerConfiguration.KubernetesAPIServer = kubernetesApiServer
+	kubemanagerConfiguration.KubernetesAPIPort = &kubernetesApiPort
+	kubemanagerConfiguration.KubernetesAPISSLPort = &kubernetesApiSSLPort
+	kubemanagerConfiguration.KubernetesClusterName = kubernetesClusterName
+	kubemanagerConfiguration.PodSubnets = podSubnets
+	kubemanagerConfiguration.IPFabricSubnets = ipFabricSubnets
+	kubemanagerConfiguration.ServiceSubnets = serviceSubnets
+	kubemanagerConfiguration.IPFabricForwarding = &ipFabricForwarding
+	kubemanagerConfiguration.HostNetworkService = &hostNetworkService
+	kubemanagerConfiguration.UseKubeadmConfig = &useKubeadmConfig
+	kubemanagerConfiguration.IPFabricSnat = &ipFabricSnat
+
+	return kubemanagerConfiguration
 }
