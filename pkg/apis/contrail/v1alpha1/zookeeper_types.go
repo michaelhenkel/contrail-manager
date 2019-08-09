@@ -115,7 +115,7 @@ func (c *Zookeeper) CreateInstanceConfiguration(request reconcile.Request,
 		for idx2 := range podList.Items {
 			zkServerString = zkServerString + fmt.Sprintf("server.%d=%s:%s:participant\n",
 				idx2+1, podList.Items[idx2].Status.PodIP,
-				strconv.Itoa(*zookeeperConfig.ServerPort)+":"+strconv.Itoa(*zookeeperConfig.ElectionPort))
+				strconv.Itoa(*zookeeperConfig.ElectionPort)+":"+strconv.Itoa(*zookeeperConfig.ServerPort))
 		}
 		configMapInstanceDynamicConfig.Data["zoo.cfg.dynamic.100000000"] = zkServerString
 		err = client.Update(context.TODO(), configMapInstanceDynamicConfig)
@@ -210,7 +210,7 @@ func (c *Zookeeper) ManageNodeStatus(podNameIPMap map[string]string,
 }
 
 func (c *Zookeeper) SetInstanceActive(client client.Client, statusInterface interface{}, deployment *appsv1.Deployment, request reconcile.Request) error {
-	status := statusInterface.(ZookeeperStatus)
+	status := statusInterface.(*ZookeeperStatus)
 	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
 		deployment)
 	if err != nil {

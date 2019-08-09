@@ -124,6 +124,22 @@ func ManagerCluster(t *testing.T) {
 						},
 					},
 				},
+				Zookeepers: []*v1alpha1.Zookeeper{{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "zookeeper1",
+						Namespace: namespace,
+						Labels:    map[string]string{"contrail_cluster": "cluster1"},
+					},
+					Spec: v1alpha1.ZookeeperSpec{
+						CommonConfiguration: v1alpha1.CommonConfiguration{
+							Create: &create,
+						},
+						ServiceConfiguration: v1alpha1.ZookeeperConfiguration{
+							Images: map[string]string{"zookeeper": "docker.io/zookeeper:3.5.5",
+								"init": "busybox"},
+						},
+					},
+				}},
 			},
 		},
 	}
@@ -136,11 +152,14 @@ func ManagerCluster(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "zookeeper1-zookeeper-deployment", 1, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if err = managerScaleTest(t, f, ctx); err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 func RabbitmqCluster(t *testing.T) {
@@ -207,7 +226,11 @@ func managerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.TestC
 	timeout = time.Second * 120
 	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "rabbitmq1-rabbitmq-deployment", 3, retryInterval, timeout)
 	if err != nil {
-		return fmt.Errorf("deployment is wrong: %v", err)
+		return fmt.Errorf("rabbitmq deployment is wrong: %v", err)
+	}
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "zookeeper1-zookeeper-deployment", 3, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("zookeeper deployment is wrong: %v", err)
 	}
 	return nil
 }

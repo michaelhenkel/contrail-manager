@@ -220,7 +220,7 @@ func (c *Cassandra) ManageNodeStatus(podNameIPMap map[string]string,
 }
 
 func (c *Cassandra) SetInstanceActive(client client.Client, statusInterface interface{}, deployment *appsv1.Deployment, request reconcile.Request) error {
-	status := statusInterface.(CassandraStatus)
+	status := statusInterface.(*CassandraStatus)
 	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
 		deployment)
 	if err != nil {
@@ -303,6 +303,9 @@ func (c *Cassandra) GetConfigurationParameters() interface{} {
 	cassandraConfiguration.SslStoragePort = &sslStoragePort
 	if cassandraConfiguration.ClusterName == "" {
 		cassandraConfiguration.ClusterName = "ContrailConfigDB"
+	}
+	if cassandraConfiguration.ListenAddress == "" {
+		cassandraConfiguration.ListenAddress = "auto"
 	}
 	return cassandraConfiguration
 }

@@ -212,7 +212,7 @@ func (c *Webui) ManageNodeStatus(podNameIPMap map[string]string,
 }
 
 func (c *Webui) SetInstanceActive(client client.Client, statusInterface interface{}, deployment *appsv1.Deployment, request reconcile.Request) error {
-	status := statusInterface.(WebuiStatus)
+	status := statusInterface.(*WebuiStatus)
 	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
 		deployment)
 	if err != nil {

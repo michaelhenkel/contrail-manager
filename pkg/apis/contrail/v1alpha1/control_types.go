@@ -314,7 +314,7 @@ func (c *Control) ManageNodeStatus(podNameIPMap map[string]string,
 }
 
 func (c *Control) SetInstanceActive(client client.Client, statusInterface interface{}, deployment *appsv1.Deployment, request reconcile.Request) error {
-	status := statusInterface.(ControlStatus)
+	status := statusInterface.(*ControlStatus)
 	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
 		deployment)
 	if err != nil {

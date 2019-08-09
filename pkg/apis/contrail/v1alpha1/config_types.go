@@ -362,7 +362,7 @@ func (c *Config) ManageNodeStatus(podNameIPMap map[string]string,
 }
 
 func (c *Config) SetInstanceActive(client client.Client, statusInterface interface{}, deployment *appsv1.Deployment, request reconcile.Request) error {
-	status := statusInterface.(ConfigStatus)
+	status := statusInterface.(*ConfigStatus)
 	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
 		deployment)
 	if err != nil {

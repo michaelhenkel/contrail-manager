@@ -299,7 +299,7 @@ func (c *Kubemanager) ManageNodeStatus(podNameIPMap map[string]string,
 }
 
 func (c *Kubemanager) SetInstanceActive(client client.Client, statusInterface interface{}, deployment *appsv1.Deployment, request reconcile.Request) error {
-	status := statusInterface.(KubemanagerStatus)
+	status := statusInterface.(*KubemanagerStatus)
 	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
 		deployment)
 	if err != nil {
