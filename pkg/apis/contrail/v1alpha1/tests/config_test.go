@@ -366,16 +366,81 @@ func TestConfigConfig(t *testing.T) {
 		t.Fatalf("get configmap: (%v)", err)
 	}
 	if environment.configConfigMap.Data["api.1.1.1.1"] != configConfigHa {
-		configDiff := diff.Diff(environment.configConfigMap.Data["api.1.1.1.1"], configConfigHa)
-		t.Fatalf("get api config: \n%v\n", configDiff)
+		diff := diff.Diff(environment.configConfigMap.Data["api.1.1.1.1"], configConfigHa)
+		t.Fatalf("get api config: \n%v\n", diff)
 	}
 
-	/*
-		if configMap.Data["devicemanager.1.1.1.1"] != configDevicemanagerHa {
-			devicemanagerDiff := diff.Diff(configMap.Data["devicemanager.1.1.1.1"], configDevicemanagerHa)
-			t.Fatalf("get devicemanager config: \n%v\n", devicemanagerDiff)
-		}
-	*/
+	if environment.configConfigMap.Data["devicemanager.1.1.1.1"] != devicemanagerConfig {
+		diff := diff.Diff(environment.configConfigMap.Data["devicemanager.1.1.1.1"], devicemanagerConfig)
+		t.Fatalf("get devicemanager config: \n%v\n", diff)
+	}
+
+	if environment.configConfigMap.Data["schematransformer.1.1.1.1"] != schematransformerConfig {
+		diff := diff.Diff(environment.configConfigMap.Data["schematransformer.1.1.1.1"], schematransformerConfig)
+		t.Fatalf("get schematransformer config: \n%v\n", diff)
+	}
+
+	if environment.configConfigMap.Data["servicemonitor.1.1.1.1"] != servicemonitorConfig {
+		diff := diff.Diff(environment.configConfigMap.Data["servicemonitor.1.1.1.1"], servicemonitorConfig)
+		t.Fatalf("get servicemonitor config: \n%v\n", diff)
+	}
+
+	if environment.configConfigMap.Data["analyticsapi.1.1.1.1"] != analyticsapiConfig {
+		diff := diff.Diff(environment.configConfigMap.Data["analyticsapi.1.1.1.1"], analyticsapiConfig)
+		t.Fatalf("get analyticsapi config: \n%v\n", diff)
+	}
+
+	if environment.configConfigMap.Data["collector.1.1.1.1"] != collectorConfig {
+		diff := diff.Diff(environment.configConfigMap.Data["collector.1.1.1.1"], collectorConfig)
+		t.Fatalf("get collector config: \n%v\n", diff)
+	}
+
+	if environment.configConfigMap.Data["nodemanagerconfig.1.1.1.1"] != confignodemanagerConfig {
+		diff := diff.Diff(environment.configConfigMap.Data["nodemanagerconfig.1.1.1.1"], confignodemanagerConfig)
+		t.Fatalf("get nodemanagerconfig config: \n%v\n", diff)
+	}
+
+	if environment.configConfigMap.Data["nodemanageranalytics.1.1.1.1"] != confignodemanagerAnalytics {
+		diff := diff.Diff(environment.configConfigMap.Data["nodemanageranalytics.1.1.1.1"], confignodemanagerAnalytics)
+		t.Fatalf("get nodemanageranalytics config: \n%v\n", diff)
+	}
+
+}
+
+func TestControlConfig(t *testing.T) {
+	logf.SetLogger(logf.ZapLogger(true))
+
+	environment := SetupEnv()
+	cl := *environment.client
+	err := environment.controlInstance.CreateInstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "control1", Namespace: "default"}}, &environment.controlPodList, cl)
+	if err != nil {
+		t.Fatalf("get configmap: (%v)", err)
+	}
+	err = cl.Get(context.TODO(),
+		types.NamespacedName{Name: "control1-control-configmap", Namespace: "default"},
+		&environment.controlConfigMap)
+	if err != nil {
+		t.Fatalf("get configmap: (%v)", err)
+	}
+	if environment.controlConfigMap.Data["control.1.1.5.1"] != controlConfig {
+		diff := diff.Diff(environment.controlConfigMap.Data["control.1.1.5.1"], controlConfig)
+		t.Fatalf("get control config: \n%v\n", diff)
+	}
+
+	if environment.controlConfigMap.Data["named.1.1.5.1"] != namedConfig {
+		diff := diff.Diff(environment.controlConfigMap.Data["named.1.1.5.1"], namedConfig)
+		t.Fatalf("get named config: \n%v\n", diff)
+	}
+
+	if environment.controlConfigMap.Data["nodemanager.1.1.5.1"] != nodemanagerConfig {
+		diff := diff.Diff(environment.controlConfigMap.Data["nodemanager.1.1.5.1"], nodemanagerConfig)
+		t.Fatalf("get nodemanager config: \n%v\n", diff)
+	}
+
+	if environment.controlConfigMap.Data["nodemanager.1.1.5.1"] != nodemanagerConfig {
+		diff := diff.Diff(environment.controlConfigMap.Data["nodemanager.1.1.5.1"], nodemanagerConfig)
+		t.Fatalf("get nodemanager config: \n%v\n", diff)
+	}
 }
 
 func TestZookeeperConfig(t *testing.T) {
@@ -409,7 +474,6 @@ func TestZookeeperConfig(t *testing.T) {
 		configDiff := diff.Diff(environment.zookeeperConfigMap2.Data["zoo.cfg.dynamic.100000000"], zookeeperDynamicConfig)
 		t.Fatalf("get zoo.cfg.dynamic.100000000 config: \n%v\n", configDiff)
 	}
-
 }
 
 func TestWebuiConfig(t *testing.T) {
@@ -557,10 +621,10 @@ config.analytics.authProtocol = "http";
 config.analytics.strictSSL = false;
 config.analytics.ca = '';
 config.analytics.statusURL = '/analytics/uves/bgp-peers';
-config.dns = {};
-config.dns.server_ip = ['1.1.5.1','1.1.5.2','1.1.5.3'];
-config.dns.server_port = '8092';
-config.dns.statusURL = '/Snh_PageReq?x=AllEntries%20VdnsServersReq';
+config.nodemanager = {};
+config.nodemanager.server_ip = ['1.1.5.1','1.1.5.2','1.1.5.3'];
+config.nodemanager.server_port = '8092';
+config.nodemanager.statusURL = '/Snh_PageReq?x=AllEntries%20VnodemanagerServersReq';
 config.vcenter = {};
 config.vcenter.server_ip = "127.0.0.1";         //vCenter IP
 config.vcenter.server_port = "443";                                //Port
@@ -830,3 +894,328 @@ var rabbitmqConfig = map[string]string{"rabbitmq.conf": fmt.Sprintf("listeners.t
 	"RABBITMQ_PID_FILE":      "/var/run/rabbitmq.pid",
 	"RABBITMQ_CONF_ENV_FILE": "/var/lib/rabbitmq/rabbitmq.env",
 }
+
+var devicemanagerConfig = `[DEFAULTS]
+host_ip=1.1.1.1
+http_server_ip=0.0.0.0
+api_server_ip=1.1.1.1,1.1.1.2,1.1.1.3
+api_server_port=8082
+api_server_use_ssl=False
+analytics_server_ip=1.1.1.1,1.1.1.2,1.1.1.3
+analytics_server_port=8081
+push_mode=1
+log_file=/var/log/contrail/contrail-device-manager.log
+log_level=SYS_NOTICE
+log_local=1
+cassandra_server_list=1.1.2.1:9160 1.1.2.2:9160 1.1.2.3:9160
+cassandra_use_ssl=false
+cassandra_ca_certs=/etc/contrail/ssl/certs/ca-cert.pem
+zk_server_ip=1.1.3.1:2181,1.1.3.2:2181,1.1.3.3:2181
+# configure directories for job manager
+# the same directories must be mounted to nodemanagermasq and DM container
+nodemanagermasq_conf_dir=/etc/nodemanagermasq
+tftp_dir=/etc/tftp
+dhcp_leases_file=/var/lib/nodemanagermasq/nodemanagermasq.leases
+rabbit_server=1.1.4.1:5673,1.1.4.2:5673,1.1.4.3:5673
+rabbit_vhost=/
+rabbit_user=guest
+rabbit_password=guest
+rabbit_use_ssl=False
+rabbit_health_check_interval=10
+collectors=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False`
+
+var schematransformerConfig = `[DEFAULTS]
+host_ip=1.1.1.1
+http_server_ip=0.0.0.0
+api_server_ip=1.1.1.1,1.1.1.2,1.1.1.3
+api_server_port=8082
+api_server_use_ssl=False
+log_file=/var/log/contrail/contrail-schema.log
+log_level=SYS_NOTICE
+log_local=1
+cassandra_server_list=1.1.2.1:9160 1.1.2.2:9160 1.1.2.3:9160
+cassandra_use_ssl=false
+cassandra_ca_certs=/etc/contrail/ssl/certs/ca-cert.pem
+zk_server_ip=1.1.3.1:2181,1.1.3.2:2181,1.1.3.3:2181
+rabbit_server=1.1.4.1:5673,1.1.4.2:5673,1.1.4.3:5673
+rabbit_vhost=/
+rabbit_user=guest
+rabbit_password=guest
+rabbit_use_ssl=False
+rabbit_health_check_interval=10
+collectors=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False`
+
+var servicemonitorConfig = `[DEFAULTS]
+host_ip=1.1.1.1
+http_server_ip=0.0.0.0
+api_server_ip=1.1.1.1,1.1.1.2,1.1.1.3
+api_server_port=8082
+api_server_use_ssl=False
+log_file=/var/log/contrail/contrail-svc-monitor.log
+log_level=SYS_NOTICE
+log_local=1
+cassandra_server_list=1.1.2.1:9160 1.1.2.2:9160 1.1.2.3:9160
+cassandra_use_ssl=false
+cassandra_ca_certs=/etc/contrail/ssl/certs/ca-cert.pem
+zk_server_ip=1.1.3.1:2181,1.1.3.2:2181,1.1.3.3:2181
+rabbit_server=1.1.4.1:5673,1.1.4.2:5673,1.1.4.3:5673
+rabbit_vhost=/
+rabbit_user=guest
+rabbit_password=guest
+rabbit_use_ssl=False
+rabbit_health_check_interval=10
+collectors=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
+[SECURITY]
+use_certs=False
+keyfile=/etc/contrail/ssl/private/server-privkey.pem
+certfile=/etc/contrail/ssl/certs/server.pem
+ca_certs=/etc/contrail/ssl/certs/ca-cert.pem
+[SCHEDULER]
+# Analytics server list used to get vrouter status and schedule service instance
+analytics_server_list=1.1.1.1:8081 1.1.1.2:8081 1.1.1.3:8081
+aaa_mode = no-auth
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False`
+
+var analyticsapiConfig = `[DEFAULTS]
+host_ip=1.1.1.1
+http_server_port=8090
+http_server_ip=0.0.0.0
+rest_api_port=8081
+rest_api_ip=1.1.1.1
+aaa_mode=no-auth
+log_file=/var/log/contrail/contrail-analytics-api.log
+log_level=SYS_NOTICE
+log_local=1
+# Sandesh send rate limit can be used to throttle system logs transmitted per
+# second. System logs are dropped if the sending rate is exceeded
+#sandesh_send_rate_limit =
+collectors=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
+api_server=1.1.1.1:8082 1.1.1.2:8082 1.1.1.3:8082
+api_server_use_ssl=False
+zk_list=1.1.3.1:2181 1.1.3.2:2181 1.1.3.3:2181
+[REDIS]
+redis_uve_list=1.1.1.1:6379 1.1.1.2:6379 1.1.1.3:6379
+redis_password=
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False`
+
+var collectorConfig = `[DEFAULT]
+analytics_data_ttl=48
+analytics_config_audit_ttl=2160
+analytics_statistics_ttl=168
+analytics_flow_ttl=2
+partitions=30
+hostip=1.1.1.1
+hostname=$(hostname -s)
+http_server_port=8089
+http_server_ip=0.0.0.0
+syslog_port=514
+sflow_port=6343
+ipfix_port=4739
+# log_category=
+log_file=/var/log/contrail/contrail-collector.log
+log_files_count=10
+log_file_size=1048576
+log_level=SYS_NOTICE
+log_local=1
+# sandesh_send_rate_limit=
+zookeeper_server_list=1.1.3.1:2181,1.1.3.2:2181,1.1.3.3:2181
+[CASSANDRA]
+cassandra_use_ssl=false
+cassandra_ca_certs=/etc/contrail/ssl/certs/ca-cert.pem
+[COLLECTOR]
+port=8086
+server=1.1.1.1
+protobuf_port=3333
+[STRUCTURED_SYSLOG_COLLECTOR]
+# TCP & UDP port to listen on for receiving structured syslog messages
+port=3514
+# List of external syslog receivers to forward structured syslog messages in ip:port format separated by space
+# tcp_forward_destination=10.213.17.53:514
+[API_SERVER]
+# List of api-servers in ip:port format separated by space
+api_server_list=1.1.1.1:8082 1.1.1.2:8082 1.1.1.3:8082
+api_server_use_ssl=False
+[REDIS]
+port=6379
+server=127.0.0.1
+password=
+[CONFIGDB]
+config_db_server_list=1.1.2.1:9042 1.1.2.2:9042 1.1.2.3:9042
+config_db_use_ssl=false
+config_db_ca_certs=/etc/contrail/ssl/certs/ca-cert.pem
+rabbitmq_server_list=1.1.4.1:5673 1.1.4.2:5673 1.1.4.3:5673
+rabbitmq_vhost=/
+rabbitmq_user=guest
+rabbitmq_password=guest
+rabbitmq_use_ssl=False
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False`
+
+var confignodemanagerConfig = `[DEFAULTS]
+http_server_ip=0.0.0.0
+log_file=/var/log/contrail/contrail-config-nodemgr.log
+log_level=SYS_NOTICE
+log_local=1
+hostip=1.1.1.1
+db_port=9042
+db_jmx_port=7200
+db_use_ssl=False
+[COLLECTOR]
+server_list=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False`
+
+var confignodemanagerAnalytics = `[DEFAULTS]
+http_server_ip=0.0.0.0
+log_file=/var/log/contrail/contrail-config-nodemgr.log
+log_level=SYS_NOTICE
+log_local=1
+hostip=1.1.1.1
+db_port=9042
+db_jmx_port=7200
+db_use_ssl=False
+[COLLECTOR]
+server_list=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False`
+
+var controlConfig = `[DEFAULT]
+# bgp_config_file=bgp_config.xml
+bgp_port=179
+collectors=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
+# gr_helper_bgp_disable=0
+# gr_helper_xmpp_disable=0
+hostip=1.1.5.1
+hostname=pod1
+http_server_ip=0.0.0.0
+http_server_port=8083
+log_file=/var/log/contrail/contrail-control.log
+log_level=SYS_NOTICE
+log_local=1
+# log_files_count=10
+# log_file_size=10485760 # 10MB
+# log_category=
+# log_disable=0
+xmpp_server_port=5269
+xmpp_auth_enable=False
+# Sandesh send rate limit can be used to throttle system logs transmitted per
+# second. System logs are dropped if the sending rate is exceeded
+# sandesh_send_rate_limit=
+[CONFIGDB]
+config_db_server_list=1.1.2.1:9042 1.1.2.2:9042 1.1.2.3:9042
+# config_db_username=
+# config_db_password=
+config_db_use_ssl=false
+config_db_ca_certs=/etc/contrail/ssl/certs/ca-cert.pem
+rabbitmq_server_list=1.1.4.1:5673 1.1.4.2:5673 1.1.4.3:5673
+rabbitmq_vhost=/
+rabbitmq_user=guest
+rabbitmq_password=guest
+rabbitmq_use_ssl=False
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False`
+
+var nodemanagerConfig = `[DEFAULT]
+collectors=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
+named_config_file = /etc/mycontrail/named.1.1.5.1
+named_config_directory = /etc/contrail/nodemanager
+named_log_file = /var/log/contrail/contrail-named.log
+rndc_config_file = contrail-rndc.conf
+named_max_cache_size=32M # max-cache-size (bytes) per view, can be in K or M
+named_max_retransmissions=12
+named_retransmission_interval=1000 # msec
+hostip=1.1.5.1
+hostname=pod1
+http_server_port=8092
+http_server_ip=0.0.0.0
+nodemanager_server_port=53
+log_file=/var/log/contrail/contrail-nodemanager.log
+log_level=SYS_NOTICE
+log_local=1
+# log_files_count=10
+# log_file_size=10485760 # 10MB
+# log_category=
+# log_disable=0
+xmpp_nodemanager_auth_enable=False
+# Sandesh send rate limit can be used to throttle system logs transmitted per
+# second. System logs are dropped if the sending rate is exceeded
+# sandesh_send_rate_limit=
+[CONFIGDB]
+config_db_server_list=1.1.2.1:9042 1.1.2.2:9042 1.1.2.3:9042
+# config_db_username=
+# config_db_password=
+config_db_use_ssl=false
+config_db_ca_certs=/etc/contrail/ssl/certs/ca-cert.pem
+rabbitmq_server_list=1.1.4.1:5673 1.1.4.2:5673 1.1.4.3:5673
+rabbitmq_vhost=/
+rabbitmq_user=guest
+rabbitmq_password=guest
+rabbitmq_use_ssl=False
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False`
+
+var controlNodemanagerConfig = `[DEFAULTS]
+http_server_ip=0.0.0.0
+log_file=/var/log/contrail/contrail-control-nodemgr.log
+log_level=SYS_NOTICE
+log_local=1
+hostip=1.1.5.1
+db_port=9042
+db_jmx_port=7200
+db_use_ssl=False
+[COLLECTOR]
+server_list=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
+[SANDESH]
+introspect_ssl_enable=False
+sandesh_ssl_enable=False`
+
+var namedConfig = `options {
+    directory "/etc/contrail/nodemanager";
+    managed-keys-directory "/etc/contrail/nodemanager";
+    empty-zones-enable no;
+    pid-file "/etc/contrail/nodemanager/contrail-named.pid";
+    session-keyfile "/etc/contrail/nodemanager/session.key";
+    listen-on port 53 { any; };
+    allow-query { any; };
+    allow-recursion { any; };
+    allow-query-cache { any; };
+    max-cache-size 32M;
+};
+key "rndc-key" {
+    algorithm hmac-md5;
+    secret "xvysmOR8lnUQRBcunkC6vg==";
+};
+controls {
+    inet 127.0.0.1 port 8094
+    allow { 127.0.0.1; }  keys { "rndc-key"; };
+};
+logging {
+    channel debug_log {
+        file "/var/log/contrail/contrail-named.log" versions 3 size 5m;
+        severity debug;
+        print-time yes;
+        print-severity yes;
+        print-category yes;
+    };
+    category default {
+        debug_log;
+    };
+    category queries {
+        debug_log;
+    };
+};`

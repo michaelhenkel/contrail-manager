@@ -156,7 +156,7 @@ analytics_statistics_ttl=168
 analytics_flow_ttl=2
 partitions=30
 hostip={{ .ListenAddress }}
-hostname=kvm1-eth2.local
+hostname=$(hostname -s)
 http_server_port=8089
 http_server_ip=0.0.0.0
 syslog_port=514
@@ -228,7 +228,6 @@ log_local=1
 hostip={{ .ListenAddress }}
 db_port={{ .CassandraPort }}
 db_jmx_port={{ .CassandraJmxPort }}
-db_use_ssl=False
 db_use_ssl=False
 [COLLECTOR]
 server_list={{ .CollectorServerList }}
