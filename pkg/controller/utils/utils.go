@@ -395,7 +395,6 @@ func AppSizeChange(appGroupKind schema.GroupKind) predicate.Funcs {
 }
 
 // ManagerSizeChange monitors per application size change
-
 func ManagerSizeChange(appGroupKind schema.GroupKind) predicate.Funcs {
 	pred := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {

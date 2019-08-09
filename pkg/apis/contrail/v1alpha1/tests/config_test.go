@@ -2,6 +2,8 @@ package contrailtest
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -100,28 +102,39 @@ var webuiList = &v1alpha1.WebuiList{}
 var configMap = &corev1.ConfigMap{}
 
 type Environment struct {
-	client              *client.Client
-	configPodList       corev1.PodList
-	rabbitmqPodList     corev1.PodList
-	zookeeperPodList    corev1.PodList
-	cassandraPodList    corev1.PodList
-	controlPodList      corev1.PodList
-	kubemanbagerPodList corev1.PodList
-	webuiPodList        corev1.PodList
-	configInstance      v1alpha1.Instance
-	controlInstance     v1alpha1.Instance
-	cassandraInstance   v1alpha1.Instance
-	zookeeperInstance   v1alpha1.Instance
-	rabbitmqInstance    v1alpha1.Instance
-	kubemanagerInstance v1alpha1.Instance
-	webuiInstance       v1alpha1.Instance
+	client               *client.Client
+	configPodList        corev1.PodList
+	rabbitmqPodList      corev1.PodList
+	zookeeperPodList     corev1.PodList
+	cassandraPodList     corev1.PodList
+	controlPodList       corev1.PodList
+	kubemanbagerPodList  corev1.PodList
+	webuiPodList         corev1.PodList
+	configInstance       v1alpha1.Instance
+	controlInstance      v1alpha1.Instance
+	cassandraInstance    v1alpha1.Instance
+	zookeeperInstance    v1alpha1.Instance
+	rabbitmqInstance     v1alpha1.Instance
+	kubemanagerInstance  v1alpha1.Instance
+	webuiInstance        v1alpha1.Instance
+	configConfigMap      corev1.ConfigMap
+	controlConfigMap     corev1.ConfigMap
+	cassandraConfigMap   corev1.ConfigMap
+	zookeeperConfigMap   corev1.ConfigMap
+	zookeeperConfigMap2  corev1.ConfigMap
+	rabbitmqConfigMap    corev1.ConfigMap
+	rabbitmqConfigMap2   corev1.ConfigMap
+	kubemanagerConfigMap corev1.ConfigMap
+	webuiConfigMap       corev1.ConfigMap
 }
 
 func SetupEnv() Environment {
 	logf.SetLogger(logf.ZapLogger(true))
 	configConfigMap := *configMap
 	rabbitmqConfigMap := *configMap
+	rabbitmqConfigMap2 := *configMap
 	zookeeperConfigMap := *configMap
+	zookeeperConfigMap2 := *configMap
 	cassandraConfigMap := *configMap
 	controlConfigMap := *configMap
 	kubemanagerConfigMap := *configMap
@@ -133,8 +146,14 @@ func SetupEnv() Environment {
 	rabbitmqConfigMap.Name = "rabbitmq1-rabbitmq-configmap"
 	rabbitmqConfigMap.Namespace = "default"
 
-	zookeeperConfigMap.Name = "zookeeper1-zookeeper-configmap"
+	rabbitmqConfigMap2.Name = "rabbitmq1-rabbitmq-configmap-runner"
+	rabbitmqConfigMap2.Namespace = "default"
+
+	zookeeperConfigMap.Name = "zookeeper1-zookeeper-configmap-1"
 	zookeeperConfigMap.Namespace = "default"
+
+	zookeeperConfigMap2.Name = "zookeeper1-zookeeper-configmap"
+	zookeeperConfigMap2.Namespace = "default"
 
 	cassandraConfigMap.Name = "cassandra1-cassandra-configmap"
 	cassandraConfigMap.Namespace = "default"
@@ -176,7 +195,9 @@ func SetupEnv() Environment {
 		&controlConfigMap,
 		&cassandraConfigMap,
 		&zookeeperConfigMap,
+		&zookeeperConfigMap2,
 		&rabbitmqConfigMap,
+		&rabbitmqConfigMap2,
 		&kubemanagerConfigMap,
 		&webuiConfigMap}
 
@@ -302,21 +323,30 @@ func SetupEnv() Environment {
 	webuiInstance.ManageNodeStatus(podMap.webuiPods, cl)
 
 	environment := Environment{
-		client:              &cl,
-		configPodList:       configPodList,
-		cassandraPodList:    cassandraPodList,
-		zookeeperPodList:    zookeeperPodList,
-		rabbitmqPodList:     rabbitmqPodList,
-		controlPodList:      controlPodList,
-		kubemanbagerPodList: kubemanagerPodList,
-		webuiPodList:        webuiPodList,
-		configInstance:      configInstance,
-		controlInstance:     controlInstance,
-		cassandraInstance:   cassandraInstance,
-		zookeeperInstance:   zookeeperInstance,
-		rabbitmqInstance:    rabbitmqInstance,
-		kubemanagerInstance: kubemanagerInstance,
-		webuiInstance:       webuiInstance,
+		client:               &cl,
+		configPodList:        configPodList,
+		cassandraPodList:     cassandraPodList,
+		zookeeperPodList:     zookeeperPodList,
+		rabbitmqPodList:      rabbitmqPodList,
+		controlPodList:       controlPodList,
+		kubemanbagerPodList:  kubemanagerPodList,
+		webuiPodList:         webuiPodList,
+		configInstance:       configInstance,
+		controlInstance:      controlInstance,
+		cassandraInstance:    cassandraInstance,
+		zookeeperInstance:    zookeeperInstance,
+		rabbitmqInstance:     rabbitmqInstance,
+		kubemanagerInstance:  kubemanagerInstance,
+		webuiInstance:        webuiInstance,
+		configConfigMap:      configConfigMap,
+		controlConfigMap:     controlConfigMap,
+		cassandraConfigMap:   cassandraConfigMap,
+		zookeeperConfigMap:   zookeeperConfigMap,
+		zookeeperConfigMap2:  zookeeperConfigMap2,
+		rabbitmqConfigMap:    rabbitmqConfigMap,
+		rabbitmqConfigMap2:   rabbitmqConfigMap2,
+		kubemanagerConfigMap: kubemanagerConfigMap,
+		webuiConfigMap:       webuiConfigMap,
 	}
 	return environment
 }
@@ -331,20 +361,55 @@ func TestConfigConfig(t *testing.T) {
 	}
 	err = cl.Get(context.TODO(),
 		types.NamespacedName{Name: "config1-config-configmap", Namespace: "default"},
-		configMap)
+		&environment.configConfigMap)
 	if err != nil {
 		t.Fatalf("get configmap: (%v)", err)
 	}
-	if configMap.Data["api.1.1.1.1"] != configConfigHa {
-		configDiff := diff.Diff(configMap.Data["api.1.1.1.1"], configConfigHa)
+	if environment.configConfigMap.Data["api.1.1.1.1"] != configConfigHa {
+		configDiff := diff.Diff(environment.configConfigMap.Data["api.1.1.1.1"], configConfigHa)
 		t.Fatalf("get api config: \n%v\n", configDiff)
 	}
+
 	/*
 		if configMap.Data["devicemanager.1.1.1.1"] != configDevicemanagerHa {
 			devicemanagerDiff := diff.Diff(configMap.Data["devicemanager.1.1.1.1"], configDevicemanagerHa)
 			t.Fatalf("get devicemanager config: \n%v\n", devicemanagerDiff)
 		}
 	*/
+}
+
+func TestZookeeperConfig(t *testing.T) {
+	logf.SetLogger(logf.ZapLogger(true))
+
+	environment := SetupEnv()
+	cl := *environment.client
+	err := environment.zookeeperInstance.CreateInstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "zookeeper1", Namespace: "default"}}, &environment.zookeeperPodList, cl)
+	if err != nil {
+		t.Fatalf("create config for zookeeper failed: (%v)", err)
+	}
+
+	err = cl.Get(context.TODO(),
+		types.NamespacedName{Name: "zookeeper1-zookeeper-configmap-1", Namespace: "default"},
+		&environment.zookeeperConfigMap)
+	if err != nil {
+		t.Fatalf("get configmap: (%v)", err)
+	}
+	if environment.zookeeperConfigMap.Data["zoo.cfg"] != zookeeperConfig {
+		configDiff := diff.Diff(environment.zookeeperConfigMap.Data["zoo.cfg"], zookeeperConfig)
+		t.Fatalf("get zoo.cfg config: \n%v\n", configDiff)
+	}
+
+	err = cl.Get(context.TODO(),
+		types.NamespacedName{Name: "zookeeper1-zookeeper-configmap", Namespace: "default"},
+		&environment.zookeeperConfigMap2)
+	if err != nil {
+		t.Fatalf("get configmap: (%v)", err)
+	}
+	if environment.zookeeperConfigMap2.Data["zoo.cfg.dynamic.100000000"] != zookeeperDynamicConfig {
+		configDiff := diff.Diff(environment.zookeeperConfigMap2.Data["zoo.cfg.dynamic.100000000"], zookeeperDynamicConfig)
+		t.Fatalf("get zoo.cfg.dynamic.100000000 config: \n%v\n", configDiff)
+	}
+
 }
 
 func TestWebuiConfig(t *testing.T) {
@@ -358,12 +423,12 @@ func TestWebuiConfig(t *testing.T) {
 	}
 	err = cl.Get(context.TODO(),
 		types.NamespacedName{Name: "webui1-webui-configmap", Namespace: "default"},
-		configMap)
+		&environment.webuiConfigMap)
 	if err != nil {
 		t.Fatalf("get configmap: (%v)", err)
 	}
-	if configMap.Data["config.global.js.1.1.7.1"] != webuiConfigHa {
-		configDiff := diff.Diff(configMap.Data["config.global.js.1.1.7.1"], webuiConfigHa)
+	if environment.webuiConfigMap.Data["config.global.js.1.1.7.1"] != webuiConfigHa {
+		configDiff := diff.Diff(environment.webuiConfigMap.Data["config.global.js.1.1.7.1"], webuiConfigHa)
 		t.Fatalf("get webui config: \n%v\n", configDiff)
 	}
 }
@@ -379,13 +444,52 @@ func TestCassandraConfig(t *testing.T) {
 	}
 	err = cl.Get(context.TODO(),
 		types.NamespacedName{Name: "cassandra1-cassandra-configmap", Namespace: "default"},
-		configMap)
+		&environment.cassandraConfigMap)
 	if err != nil {
 		t.Fatalf("get configmap: (%v)", err)
 	}
-	if configMap.Data["1.1.2.1.yaml"] != cassandraConfig {
-		configDiff := diff.Diff(configMap.Data["1.1.2.1.yaml"], cassandraConfig)
+	if environment.cassandraConfigMap.Data["1.1.2.1.yaml"] != cassandraConfig {
+		configDiff := diff.Diff(environment.cassandraConfigMap.Data["1.1.2.1.yaml"], cassandraConfig)
 		t.Fatalf("get cassandra config: \n%v\n", configDiff)
+	}
+}
+
+func TestRabbitmqConfig(t *testing.T) {
+	logf.SetLogger(logf.ZapLogger(true))
+
+	environment := SetupEnv()
+	cl := *environment.client
+	err := environment.rabbitmqInstance.CreateInstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "rabbitmq1", Namespace: "default"}}, &environment.rabbitmqPodList, cl)
+	if err != nil {
+		t.Fatalf("get configmap: (%v)", err)
+	}
+
+	err = cl.Get(context.TODO(),
+		types.NamespacedName{Name: "rabbitmq1-rabbitmq-configmap", Namespace: "default"},
+		&environment.rabbitmqConfigMap)
+	if err != nil {
+		t.Fatalf("get configmap: (%v)", err)
+	}
+	if !reflect.DeepEqual(environment.rabbitmqConfigMap.Data, rabbitmqConfig) {
+		configDiff := diff.Diff(environment.rabbitmqConfigMap.Data["rabbitmq.conf"], rabbitmqConfig["rabbitmq.conf"])
+		configDiff = diff.Diff(environment.rabbitmqConfigMap.Data["rabbitmq.nodes"], rabbitmqConfig["rabbitmq.nodes"])
+		configDiff = configDiff + diff.Diff(environment.rabbitmqConfigMap.Data["RABBITMQ_ERLANG_COOKIE"], rabbitmqConfig["RABBITMQ_ERLANG_COOKIE"])
+		configDiff = configDiff + diff.Diff(environment.rabbitmqConfigMap.Data["RABBITMQ_USE_LONGNAME"], rabbitmqConfig["RABBITMQ_USE_LONGNAME"])
+		configDiff = configDiff + diff.Diff(environment.rabbitmqConfigMap.Data["RABBITMQ_CONFIG_FILE"], rabbitmqConfig["RABBITMQ_CONFIG_FILE"])
+		configDiff = configDiff + diff.Diff(environment.rabbitmqConfigMap.Data["RABBITMQ_PID_FILE"], rabbitmqConfig["RABBITMQ_PID_FILE"])
+		configDiff = configDiff + diff.Diff(environment.rabbitmqConfigMap.Data["RABBITMQ_CONF_ENV_FILE"], rabbitmqConfig["RABBITMQ_CONF_ENV_FILE"])
+		t.Fatalf("get rabbitmq config: \n%v\n", configDiff)
+	}
+
+	err = cl.Get(context.TODO(),
+		types.NamespacedName{Name: "rabbitmq1-rabbitmq-configmap-runner", Namespace: "default"},
+		&environment.rabbitmqConfigMap2)
+	if err != nil {
+		t.Fatalf("get configmap: (%v)", err)
+	}
+	if environment.rabbitmqConfigMap2.Data["run.sh"] != rabbitmqConfigRunner {
+		configDiff := diff.Diff(environment.rabbitmqConfigMap2.Data["run.sh"], rabbitmqConfigRunner)
+		t.Fatalf("get rabbitmq config: \n%v\n", configDiff)
 	}
 }
 
@@ -670,3 +774,59 @@ transparent_data_encryption_options:
       key_password: cassandra
 auto_bootstrap: true
 `
+
+var zookeeperConfig = `clientPort=2181
+clientPortAddress=
+dataDir=/data
+dataLogDir=/datalog
+tickTime=2000
+initLimit=5
+syncLimit=2
+maxClientCnxns=60
+admin.enableServer=true
+standaloneEnabled=false
+4lw.commands.whitelist=stat,ruok,conf,isro
+reconfigEnabled=true
+dynamicConfigFile=/mydata/zoo.cfg.dynamic.100000000
+`
+
+var zookeeperDynamicConfig = `server.1=1.1.3.1:2888:3888:participant
+server.2=1.1.3.2:2888:3888:participant
+server.3=1.1.3.3:2888:3888:participant
+`
+
+var rabbitmqConfigRunner = `#!/bin/bash
+echo $RABBITMQ_ERLANG_COOKIE > /var/lib/rabbitmq/.erlang.cookie
+chmod 0600 /var/lib/rabbitmq/.erlang.cookie
+export RABBITMQ_NODENAME=rabbit@${POD_IP}
+if [[ $(grep $POD_IP /etc/rabbitmq/0) ]] ; then
+  rabbitmq-server
+else
+  rabbitmqctl --node rabbit@$(cat /etc/rabbitmq/0) ping
+  while [[ $? -ne 0 ]]; do
+	rabbitmqctl --node rabbit@$(cat /etc/rabbitmq/0) ping
+  done
+  rabbitmq-server -detached
+  rabbitmqctl --node rabbit@$(cat /etc/rabbitmq/0) node_health_check
+  while [[ $? -ne 0 ]]; do
+	rabbitmqctl --node rabbit@$(cat /etc/rabbitmq/0) node_health_check
+  done
+  rabbitmqctl stop_app
+  sleep 2
+  rabbitmqctl join_cluster rabbit@$(cat /etc/rabbitmq/0)
+  rabbitmqctl shutdown
+  rabbitmq-server
+fi
+`
+
+var rabbitmqConfig = map[string]string{"rabbitmq.conf": fmt.Sprintf("listeners.tcp.default = 5673\nloopback_users = none\n"),
+	"rabbitmq.nodes":         fmt.Sprintf("1.1.4.1\n1.1.4.2\n1.1.4.3\n"),
+	"0":                      "1.1.4.1",
+	"1":                      "1.1.4.2",
+	"2":                      "1.1.4.3",
+	"RABBITMQ_ERLANG_COOKIE": "",
+	"RABBITMQ_USE_LONGNAME":  "true",
+	"RABBITMQ_CONFIG_FILE":   "/etc/rabbitmq/rabbitmq.conf",
+	"RABBITMQ_PID_FILE":      "/var/run/rabbitmq.pid",
+	"RABBITMQ_CONF_ENV_FILE": "/var/lib/rabbitmq/rabbitmq.env",
+}
