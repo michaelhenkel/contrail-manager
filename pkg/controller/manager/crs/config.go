@@ -1,11 +1,11 @@
 package cr
-	
-import(
-	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+
+import (
 	"github.com/ghodss/yaml"
+	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 )
 
-var yamlDataConfig= `
+var yamlDataConfig = `
 apiVersion: contrail.juniper.net/v1alpha1
 kind: Config
 metadata:
@@ -17,7 +17,7 @@ spec:
     activate: true
 `
 
-func GetConfigCr() *contrailv1alpha1.Config{
+func GetConfigCr() *contrailv1alpha1.Config {
 	cr := contrailv1alpha1.Config{}
 	err := yaml.Unmarshal([]byte(yamlDataConfig), &cr)
 	if err != nil {
@@ -33,4 +33,3 @@ func GetConfigCr() *contrailv1alpha1.Config{
 	}
 	return &cr
 }
-	

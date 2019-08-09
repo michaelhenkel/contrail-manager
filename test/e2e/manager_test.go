@@ -36,6 +36,7 @@ var (
 	cleanupTimeout       = time.Second * 5
 )
 
+/*
 func TestRabbitmq(t *testing.T) {
 	rabbitmqList := &v1alpha1.RabbitmqList{
 		TypeMeta: metav1.TypeMeta{
@@ -52,6 +53,7 @@ func TestRabbitmq(t *testing.T) {
 		t.Run("Cluster", RabbitmqCluster)
 	})
 }
+*/
 
 func TestManager(t *testing.T) {
 	managerList := &v1alpha1.ManagerList{
@@ -125,7 +127,6 @@ func ManagerCluster(t *testing.T) {
 			},
 		},
 	}
-	// wait for manager-operator to be ready
 
 	err = f.Client.Create(goctx.TODO(), manager, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {

@@ -127,6 +127,7 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 		podIPList = append(podIPList, pod.Status.PodIP)
 	}
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
+	sort.SliceStable(podIPList, func(i, j int) bool { return podIPList[i] < podIPList[j] })
 
 	collectorServerList = strings.Join(podIPList, ":"+strconv.Itoa(*configConfig.CollectorPort)+" ")
 	collectorServerList = collectorServerList + ":" + strconv.Itoa(*configConfig.CollectorPort)

@@ -5,7 +5,6 @@ import (
 	"context"
 	"sort"
 	"strconv"
-	"strings"
 
 	configtemplates "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1/templates"
 	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
@@ -49,12 +48,12 @@ type CassandraConfiguration struct {
 	ListenAddress  string            `json:"listenAddress,omitempty"`
 	Port           *int              `json:"port,omitempty"`
 	CqlPort        *int              `json:"cqlPort,omitempty"`
-	SslStoragePort int               `json:"sslStoragePort,omitempty"`
-	StoragePort    int               `json:"storagePort,omitempty"`
+	SslStoragePort *int              `json:"sslStoragePort,omitempty"`
+	StoragePort    *int              `json:"storagePort,omitempty"`
 	JmxLocalPort   *int              `json:"jmxLocalPort,omitempty"`
 	MaxHeapSize    string            `json:"maxHeapSize,omitempty"`
 	MinHeapSize    string            `json:"minHeapSize,omitempty"`
-	StartRpc       bool              `json:"startRpc,omitempty"`
+	StartRpc       *bool             `json:"startRpc,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -125,14 +124,14 @@ func (c *Cassandra) CreateInstanceConfiguration(request reconcile.Request,
 			RPCAddress          string
 			RPCBroadcastAddress string
 		}{
-			ClusterName:         c.Spec.ServiceConfiguration.ClusterName,
-			Seeds:               strings.Join(seeds, ","),
-			StoragePort:         strconv.Itoa(c.Spec.ServiceConfiguration.StoragePort),
-			SslStoragePort:      strconv.Itoa(c.Spec.ServiceConfiguration.SslStoragePort),
+			ClusterName:         cassandraConfig.ClusterName,
+			Seeds:               seeds[0],
+			StoragePort:         strconv.Itoa(*cassandraConfig.StoragePort),
+			SslStoragePort:      strconv.Itoa(*cassandraConfig.SslStoragePort),
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			BroadcastAddress:    podList.Items[idx].Status.PodIP,
 			CQLPort:             strconv.Itoa(*cassandraConfig.CqlPort),
-			StartRPC:            strconv.FormatBool(c.Spec.ServiceConfiguration.StartRpc),
+			StartRPC:            "true",
 			RPCPort:             strconv.Itoa(*cassandraConfig.Port),
 			RPCAddress:          podList.Items[idx].Status.PodIP,
 			RPCBroadcastAddress: podList.Items[idx].Status.PodIP,
@@ -270,6 +269,8 @@ func (c *Cassandra) GetConfigurationParameters() interface{} {
 	var port int
 	var cqlPort int
 	var jmxPort int
+	var storagePort int
+	var sslStoragePort int
 	if c.Spec.ServiceConfiguration.Port != nil {
 		port = *c.Spec.ServiceConfiguration.Port
 	} else {
@@ -288,6 +289,20 @@ func (c *Cassandra) GetConfigurationParameters() interface{} {
 		jmxPort = CassandraJmxLocalPort
 	}
 	cassandraConfiguration.JmxLocalPort = &jmxPort
-
+	if c.Spec.ServiceConfiguration.StoragePort != nil {
+		storagePort = *c.Spec.ServiceConfiguration.StoragePort
+	} else {
+		storagePort = CassandraStoragePort
+	}
+	cassandraConfiguration.StoragePort = &storagePort
+	if c.Spec.ServiceConfiguration.SslStoragePort != nil {
+		sslStoragePort = *c.Spec.ServiceConfiguration.SslStoragePort
+	} else {
+		sslStoragePort = CassandraSslStoragePort
+	}
+	cassandraConfiguration.SslStoragePort = &sslStoragePort
+	if cassandraConfiguration.ClusterName == "" {
+		cassandraConfiguration.ClusterName = "ContrailConfigDB"
+	}
 	return cassandraConfiguration
 }

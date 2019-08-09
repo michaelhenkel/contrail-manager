@@ -59,8 +59,8 @@ const (
 	CollectorServers                            string = ""
 	CassandraPort                               int    = 9160
 	CassandraCqlPort                            int    = 9042
-	CassandraSslStoragePort                     int    = 7011
-	CassandraStoragePort                        int    = 7010
+	CassandraSslStoragePort                     int    = 7001
+	CassandraStoragePort                        int    = 7000
 	CassandraJmxLocalPort                       int    = 7200
 	ConfigNodes                                 string = ""
 	ConfigdbNodes                               string = ""
