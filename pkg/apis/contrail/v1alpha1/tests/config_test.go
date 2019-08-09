@@ -432,14 +432,23 @@ func TestControlConfig(t *testing.T) {
 		t.Fatalf("get named config: \n%v\n", diff)
 	}
 
-	if environment.controlConfigMap.Data["nodemanager.1.1.5.1"] != nodemanagerConfig {
-		diff := diff.Diff(environment.controlConfigMap.Data["nodemanager.1.1.5.1"], nodemanagerConfig)
+	if environment.controlConfigMap.Data["dns.1.1.5.1"] != dnsConfig {
+		diff := diff.Diff(environment.controlConfigMap.Data["dns.1.1.5.1"], dnsConfig)
+		t.Fatalf("get dns config: \n%v\n", diff)
+	}
+
+	if environment.controlConfigMap.Data["nodemanager.1.1.5.1"] != controlNodemanagerConfig {
+		diff := diff.Diff(environment.controlConfigMap.Data["nodemanager.1.1.5.1"], controlNodemanagerConfig)
 		t.Fatalf("get nodemanager config: \n%v\n", diff)
 	}
 
-	if environment.controlConfigMap.Data["nodemanager.1.1.5.1"] != nodemanagerConfig {
-		diff := diff.Diff(environment.controlConfigMap.Data["nodemanager.1.1.5.1"], nodemanagerConfig)
-		t.Fatalf("get nodemanager config: \n%v\n", diff)
+	if environment.controlConfigMap.Data["provision.sh.1.1.5.1"] != controlProvisioningConfig {
+		diff := diff.Diff(environment.controlConfigMap.Data["provision.sh.1.1.5.1"], controlProvisioningConfig)
+		t.Fatalf("get provision config: \n%v\n", diff)
+	}
+	if environment.controlConfigMap.Data["deprovision.py.1.1.5.1"] != controlDeProvisioningConfig {
+		diff := diff.Diff(environment.controlConfigMap.Data["deprovision.py.1.1.5.1"], controlDeProvisioningConfig)
+		t.Fatalf("get deprovision config: \n%v\n", diff)
 	}
 }
 
@@ -621,10 +630,10 @@ config.analytics.authProtocol = "http";
 config.analytics.strictSSL = false;
 config.analytics.ca = '';
 config.analytics.statusURL = '/analytics/uves/bgp-peers';
-config.nodemanager = {};
-config.nodemanager.server_ip = ['1.1.5.1','1.1.5.2','1.1.5.3'];
-config.nodemanager.server_port = '8092';
-config.nodemanager.statusURL = '/Snh_PageReq?x=AllEntries%20VnodemanagerServersReq';
+config.dns = {};
+config.dns.server_ip = ['1.1.5.1','1.1.5.2','1.1.5.3'];
+config.dns.server_port = '8092';
+config.dns.statusURL = '/Snh_PageReq?x=AllEntries%20VdnsServersReq';
 config.vcenter = {};
 config.vcenter.server_ip = "127.0.0.1";         //vCenter IP
 config.vcenter.server_port = "443";                                //Port
@@ -912,10 +921,10 @@ cassandra_use_ssl=false
 cassandra_ca_certs=/etc/contrail/ssl/certs/ca-cert.pem
 zk_server_ip=1.1.3.1:2181,1.1.3.2:2181,1.1.3.3:2181
 # configure directories for job manager
-# the same directories must be mounted to nodemanagermasq and DM container
-nodemanagermasq_conf_dir=/etc/nodemanagermasq
+# the same directories must be mounted to dnsmasq and DM container
+dnsmasq_conf_dir=/etc/dnsmasq
 tftp_dir=/etc/tftp
-dhcp_leases_file=/var/lib/nodemanagermasq/nodemanagermasq.leases
+dhcp_leases_file=/var/lib/dnsmasq/dnsmasq.leases
 rabbit_server=1.1.4.1:5673,1.1.4.2:5673,1.1.4.3:5673
 rabbit_vhost=/
 rabbit_user=guest
@@ -1129,10 +1138,10 @@ rabbitmq_use_ssl=False
 introspect_ssl_enable=False
 sandesh_ssl_enable=False`
 
-var nodemanagerConfig = `[DEFAULT]
+var dnsConfig = `[DEFAULT]
 collectors=1.1.1.1:8086 1.1.1.2:8086 1.1.1.3:8086
 named_config_file = /etc/mycontrail/named.1.1.5.1
-named_config_directory = /etc/contrail/nodemanager
+named_config_directory = /etc/contrail/dns
 named_log_file = /var/log/contrail/contrail-named.log
 rndc_config_file = contrail-rndc.conf
 named_max_cache_size=32M # max-cache-size (bytes) per view, can be in K or M
@@ -1142,15 +1151,15 @@ hostip=1.1.5.1
 hostname=pod1
 http_server_port=8092
 http_server_ip=0.0.0.0
-nodemanager_server_port=53
-log_file=/var/log/contrail/contrail-nodemanager.log
+dns_server_port=53
+log_file=/var/log/contrail/contrail-dns.log
 log_level=SYS_NOTICE
 log_local=1
 # log_files_count=10
 # log_file_size=10485760 # 10MB
 # log_category=
 # log_disable=0
-xmpp_nodemanager_auth_enable=False
+xmpp_dns_auth_enable=False
 # Sandesh send rate limit can be used to throttle system logs transmitted per
 # second. System logs are dropped if the sending rate is exceeded
 # sandesh_send_rate_limit=
@@ -1185,11 +1194,11 @@ introspect_ssl_enable=False
 sandesh_ssl_enable=False`
 
 var namedConfig = `options {
-    directory "/etc/contrail/nodemanager";
-    managed-keys-directory "/etc/contrail/nodemanager";
+    directory "/etc/contrail/dns";
+    managed-keys-directory "/etc/contrail/dns";
     empty-zones-enable no;
-    pid-file "/etc/contrail/nodemanager/contrail-named.pid";
-    session-keyfile "/etc/contrail/nodemanager/session.key";
+    pid-file "/etc/contrail/dns/contrail-named.pid";
+    session-keyfile "/etc/contrail/dns/session.key";
     listen-on port 53 { any; };
     allow-query { any; };
     allow-recursion { any; };
@@ -1219,3 +1228,34 @@ logging {
         debug_log;
     };
 };`
+
+var controlProvisioningConfig = `#!/bin/bash
+sed "s/hostip=.*/hostip=${POD_IP}/g" /etc/mycontrail/nodemanager.${POD_IP} > /etc/contrail/contrail-control-nodemgr.conf
+servers=$(echo 1.1.1.1,1.1.1.2,1.1.1.3 | tr ',' ' ')
+for server in $servers ; do
+  python /opt/contrail/utils/provision_control.py --oper $1 \
+  --host_name $(hostname) \
+  --host_ip 1.1.5.1 \
+  --router_asn 64512 \
+  --bgp_server_port 179 \
+  --api_server_ip $server \
+  --api_server_port 8082
+  if [[ $? -eq 0 ]]; then
+	break
+  fi
+done
+`
+
+var controlDeProvisioningConfig = `#!/usr/bin/python
+from vnc_api import vnc_api
+import socket
+vncServerList = ['1.1.1.1','1.1.1.2','1.1.1.3']
+hostname = socket.gethostname()
+vnc_client = vnc_api.VncApi(
+            username = 'admin',
+            password = 'contrail123',
+            tenant_name = 'admin',
+            api_server_host= vncServerList[0],
+            api_server_port=8082)
+vnc_client.bgp_router_delete(fq_name=['default-domain','default-project','ip-fabric','__default__', hostname ])
+`

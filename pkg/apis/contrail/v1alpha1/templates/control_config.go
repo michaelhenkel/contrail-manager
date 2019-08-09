@@ -118,13 +118,12 @@ sandesh_ssl_enable=False`))
 ///etc/contrail/contrail-analytics-nodemgr.conf
 var ControlNodemanagerConfig = template.Must(template.New("").Parse(`[DEFAULTS]
 http_server_ip=0.0.0.0
-log_file=/var/log/contrail/contrail-config-nodemgr.log
+log_file=/var/log/contrail/contrail-control-nodemgr.log
 log_level=SYS_NOTICE
 log_local=1
 hostip={{ .ListenAddress }}
 db_port={{ .CassandraPort }}
 db_jmx_port={{ .CassandraJmxPort }}
-db_use_ssl=False
 db_use_ssl=False
 [COLLECTOR]
 server_list={{ .CollectorServerList }}

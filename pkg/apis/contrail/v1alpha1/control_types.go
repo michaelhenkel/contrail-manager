@@ -201,7 +201,7 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 		}{
 			ListenAddress:       podList.Items[idx].Status.PodIP,
 			CollectorServerList: configNodesInformation.CollectorServerListSpaceSeparated,
-			CassandraPort:       cassandraNodesInformation.Port,
+			CassandraPort:       cassandraNodesInformation.CQLPort,
 			CassandraJmxPort:    cassandraNodesInformation.JMXPort,
 		})
 		data["nodemanager."+podList.Items[idx].Status.PodIP] = controlNodemanagerBuffer.String()
