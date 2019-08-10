@@ -7,10 +7,8 @@ import (
 	"strconv"
 
 	configtemplates "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1/templates"
-	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -84,11 +82,7 @@ func init() {
 	SchemeBuilder.Register(&Control{}, &ControlList{})
 }
 
-func (c Control) GetCrd() *apiextensionsv1beta1.CustomResourceDefinition {
-	return crds.GetControlCrd()
-}
-
-func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
+func (c *Control) InstanceConfiguration(request reconcile.Request,
 	podList *corev1.PodList,
 	client client.Client) error {
 	instanceConfigMapName := request.Name + "-" + "control" + "-configmap"
@@ -100,25 +94,25 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 		return err
 	}
 
-	cassandraNodesInformation, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
+	cassandraNodesInformation, err := NewCassandraClusterConfiguration(c.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
 
-	zookeeperNodesInformation, err := GetZookeeperNodes(c.Spec.ServiceConfiguration.ZookeeperInstance,
+	zookeeperNodesInformation, err := NewZookeeperClusterConfiguration(c.Spec.ServiceConfiguration.ZookeeperInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
 
-	rabbitmqNodesInformation, err := GetRabbitmqNodes(c.Labels["contrail_cluster"],
+	rabbitmqNodesInformation, err := NewRabbitmqClusterConfiguration(c.Labels["contrail_cluster"],
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
 
-	configNodesInformation, err := GetConfigNodesStatus(c.Labels["contrail_cluster"],
+	configNodesInformation, err := NewConfigClusterConfiguration(c.Labels["contrail_cluster"],
 		request.Namespace, client)
 	if err != nil {
 		return err
@@ -129,7 +123,7 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 		podIPList = append(podIPList, pod.Status.PodIP)
 	}
 
-	controlConfigInterface := c.GetConfigurationParameters()
+	controlConfigInterface := c.ConfigurationParameters()
 	controlConfig := controlConfigInterface.(ControlConfiguration)
 
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
@@ -168,8 +162,8 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 		}{})
 		data["named."+podList.Items[idx].Status.PodIP] = controlNamedConfigBuffer.String()
 
-		var controlDnsConfigBuffer bytes.Buffer
-		configtemplates.ControlDnsConfig.Execute(&controlDnsConfigBuffer, struct {
+		var controlDNSConfigBuffer bytes.Buffer
+		configtemplates.ControlDNSConfig.Execute(&controlDNSConfigBuffer, struct {
 			ListenAddress       string
 			Hostname            string
 			APIServerList       string
@@ -190,7 +184,7 @@ func (c *Control) CreateInstanceConfiguration(request reconcile.Request,
 			RabbitmqServerPort:  rabbitmqNodesInformation.Port,
 			CollectorServerList: configNodesInformation.CollectorServerListSpaceSeparated,
 		})
-		data["dns."+podList.Items[idx].Status.PodIP] = controlDnsConfigBuffer.String()
+		data["dns."+podList.Items[idx].Status.PodIP] = controlDNSConfigBuffer.String()
 
 		var controlNodemanagerBuffer bytes.Buffer
 		configtemplates.ControlNodemanagerConfig.Execute(&controlNodemanagerBuffer, struct {
@@ -276,6 +270,21 @@ func (c *Control) OwnedByManager(client client.Client, request reconcile.Request
 	return nil, nil
 }
 
+// IsActive returns true if instance is active
+func (c *Control) IsActive(name string, namespace string, client client.Client) bool {
+	instance := &Control{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, instance)
+	if err != nil {
+		return false
+	}
+	if instance.Status.Active != nil {
+		if *instance.Status.Active {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Control) PrepareIntendedDeployment(instanceDeployment *appsv1.Deployment, commonConfiguration *CommonConfiguration, request reconcile.Request, scheme *runtime.Scheme) (*appsv1.Deployment, error) {
 	return PrepareIntendedDeployment(instanceDeployment, commonConfiguration, "control", request, scheme, c)
 }
@@ -288,8 +297,8 @@ func (c *Control) CompareIntendedWithCurrentDeployment(intendedDeployment *appsv
 	return CompareIntendedWithCurrentDeployment(intendedDeployment, commonConfiguration, "control", request, scheme, client, c, increaseVersion)
 }
 
-func (c *Control) GetPodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
-	return GetPodIPListAndIPMap("control", request, client)
+func (c *Control) PodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
+	return PodIPListAndIPMap("control", request, client)
 }
 
 func (c *Control) SetPodsToReady(podIPList *corev1.PodList, client client.Client) error {
@@ -299,7 +308,7 @@ func (c *Control) SetPodsToReady(podIPList *corev1.PodList, client client.Client
 func (c *Control) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
 	c.Status.Nodes = podNameIPMap
-	controlConfigInterface := c.GetConfigurationParameters()
+	controlConfigInterface := c.ConfigurationParameters()
 	controlConfig := controlConfigInterface.(ControlConfiguration)
 	c.Status.Ports.BGPPort = strconv.Itoa(*controlConfig.BGPPort)
 	c.Status.Ports.ASNNumber = strconv.Itoa(*controlConfig.ASNNumber)
@@ -434,7 +443,7 @@ func (c *Control) IsConfig(request *reconcile.Request, myclient client.Client) b
 	return false
 }
 
-func (c *Control) GetConfigurationParameters() interface{} {
+func (c *Control) ConfigurationParameters() interface{} {
 	controlConfiguration := ControlConfiguration{}
 	var bgpPort int
 	var asnNumber int

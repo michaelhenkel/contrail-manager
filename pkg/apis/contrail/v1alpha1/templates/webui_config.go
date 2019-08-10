@@ -2,6 +2,7 @@ package configtemplates
 
 import "text/template"
 
+//WebuiWebConfig is the template of the Webui Web service configuration
 var WebuiWebConfig = template.Must(template.New("").Parse(`/*
 * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 */
@@ -139,6 +140,7 @@ config.staticAuth[0].password = 'contrail123';
 config.staticAuth[0].roles = ['cloudAdmin'];
 `))
 
+//WebuiAuthConfig is the template of the Webui Auth service configuration
 var WebuiAuthConfig = template.Must(template.New("").Parse(`/*
 * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 */

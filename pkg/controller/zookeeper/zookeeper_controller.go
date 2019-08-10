@@ -114,7 +114,10 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 	// 4. Zookeepers changes on the Manager instance
 	// --> reconcile.Request is Manager instance name/namespace
 	instance := &v1alpha1.Zookeeper{}
-	var i v1alpha1.Instance = instance
+	var resourceIdentification v1alpha1.ResourceIdentification = instance
+	var resourceObject v1alpha1.ResourceObject = instance
+	var resourceConfiguration v1alpha1.ResourceConfiguration = instance
+	var resourceStatus v1alpha1.ResourceStatus = instance
 	err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	// if not found we expect it a change in replicaset
 	// and get the zookeeper instance via label
@@ -131,7 +134,7 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 	}
 
-	managerInstance, err := i.OwnedByManager(r.Client, request)
+	managerInstance, err := resourceIdentification.OwnedByManager(r.Client, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -152,14 +155,14 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 	}
 
-	configMap, err := i.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
+	configMap, err := resourceObject.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
 		r.Client,
 		r.Scheme,
 		request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	configMap2, err := i.CreateConfigMap(request.Name+"-"+instanceType+"-configmap-1",
+	configMap2, err := resourceObject.CreateConfigMap(request.Name+"-"+instanceType+"-configmap-1",
 		r.Client,
 		r.Scheme,
 		request)
@@ -167,7 +170,7 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	intendedDeployment, err := i.PrepareIntendedDeployment(GetDeployment(),
+	intendedDeployment, err := resourceObject.PrepareIntendedDeployment(GetDeployment(),
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme)
@@ -175,7 +178,7 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	i.AddVolumesToIntendedDeployments(intendedDeployment,
+	resourceObject.AddVolumesToIntendedDeployments(intendedDeployment,
 		map[string]string{configMap.Name: request.Name + "-" + instanceType + "-volume",
 			configMap2.Name: request.Name + "-" + instanceType + "-volume-1"})
 
@@ -230,7 +233,7 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 	}
 
-	err = i.CompareIntendedWithCurrentDeployment(intendedDeployment,
+	err = resourceConfiguration.CompareIntendedWithCurrentDeployment(intendedDeployment,
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme,
@@ -240,30 +243,30 @@ func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	podIPList, podIPMap, err := i.GetPodIPListAndIPMap(request, r.Client)
+	podIPList, podIPMap, err := resourceConfiguration.PodIPListAndIPMap(request, r.Client)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	if len(podIPList.Items) > 0 {
-		err = i.CreateInstanceConfiguration(request,
+		err = resourceConfiguration.InstanceConfiguration(request,
 			podIPList,
 			r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = i.SetPodsToReady(podIPList, r.Client)
+		err = resourceStatus.SetPodsToReady(podIPList, r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = i.ManageNodeStatus(podIPMap, r.Client)
+		err = resourceStatus.ManageNodeStatus(podIPMap, r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	err = i.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
+	err = resourceStatus.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

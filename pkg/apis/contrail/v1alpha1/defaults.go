@@ -106,6 +106,7 @@ const (
 	ZookeeperServers                            string = ""
 	ZookeeperServersSpaceDelim                  string = ""
 	RabbitmqNodes                               string = ""
+	RabbitmqErlangCookie                        string = "47EFF3BB-4786-46E0-A5BB-58455B3C2CB4"
 	RabbitmqNodePort                            int    = 5673
 	RabbitmqServers                             string = ""
 	RabbitmqSslCertfile                         string = "/etc/contrail/ssl/certs/server.pem"

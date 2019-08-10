@@ -8,10 +8,8 @@ import (
 	"strconv"
 
 	configtemplates "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1/templates"
-	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -65,10 +63,6 @@ type Zookeeper struct {
 	Status ZookeeperStatus `json:"status,omitempty"`
 }
 
-func (z Zookeeper) GetCrd() *apiextensionsv1beta1.CustomResourceDefinition {
-	return crds.GetZookeeperCrd()
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ZookeeperList contains a list of Zookeeper
@@ -82,7 +76,7 @@ func init() {
 	SchemeBuilder.Register(&Zookeeper{}, &ZookeeperList{})
 }
 
-func (c *Zookeeper) CreateInstanceConfiguration(request reconcile.Request,
+func (c *Zookeeper) InstanceConfiguration(request reconcile.Request,
 	podList *corev1.PodList,
 	client client.Client) error {
 	instanceConfigMapName := request.Name + "-" + "zookeeper" + "-configmap"
@@ -101,7 +95,7 @@ func (c *Zookeeper) CreateInstanceConfiguration(request reconcile.Request,
 		return err
 	}
 
-	zookeeperConfigInterface := c.GetConfigurationParameters()
+	zookeeperConfigInterface := c.ConfigurationParameters()
 	zookeeperConfig := zookeeperConfigInterface.(ZookeeperConfiguration)
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 	for idx := range podList.Items {
@@ -176,6 +170,20 @@ func (c *Zookeeper) OwnedByManager(client client.Client, request reconcile.Reque
 	return nil, nil
 }
 
+// IsActive returns true if instance is active
+func (c *Zookeeper) IsActive(name string, namespace string, client client.Client) bool {
+	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, c)
+	if err != nil {
+		return false
+	}
+	if c.Status.Active != nil {
+		if *c.Status.Active {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Zookeeper) PrepareIntendedDeployment(instanceDeployment *appsv1.Deployment, commonConfiguration *CommonConfiguration, request reconcile.Request, scheme *runtime.Scheme) (*appsv1.Deployment, error) {
 	return PrepareIntendedDeployment(instanceDeployment, commonConfiguration, "zookeeper", request, scheme, c)
 }
@@ -188,8 +196,8 @@ func (c *Zookeeper) CompareIntendedWithCurrentDeployment(intendedDeployment *app
 	return CompareIntendedWithCurrentDeployment(intendedDeployment, commonConfiguration, "zookeeper", request, scheme, client, c, increaseVersion)
 }
 
-func (c *Zookeeper) GetPodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
-	return GetPodIPListAndIPMap("zookeeper", request, client)
+func (c *Zookeeper) PodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
+	return PodIPListAndIPMap("zookeeper", request, client)
 }
 
 func (c *Zookeeper) SetPodsToReady(podIPList *corev1.PodList, client client.Client) error {
@@ -199,7 +207,7 @@ func (c *Zookeeper) SetPodsToReady(podIPList *corev1.PodList, client client.Clie
 func (c *Zookeeper) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
 	c.Status.Nodes = podNameIPMap
-	zookeeperConfigInterface := c.GetConfigurationParameters()
+	zookeeperConfigInterface := c.ConfigurationParameters()
 	zookeeperConfig := zookeeperConfigInterface.(ZookeeperConfiguration)
 	c.Status.Ports.ClientPort = strconv.Itoa(*zookeeperConfig.ClientPort)
 	err := client.Status().Update(context.TODO(), c)
@@ -254,7 +262,7 @@ func (c *Zookeeper) IsConfig(request *reconcile.Request, client client.Client) b
 	return true
 }
 
-func (c *Zookeeper) GetConfigurationParameters() interface{} {
+func (c *Zookeeper) ConfigurationParameters() interface{} {
 	zookeeperConfiguration := ZookeeperConfiguration{}
 	var clientPort int
 	var electionPort int

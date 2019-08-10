@@ -7,18 +7,14 @@ import (
 	"strconv"
 
 	configtemplates "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1/templates"
-	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
-
-// CassandraStatus defines the observed state of Cassandra
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -53,19 +49,18 @@ type CassandraConfiguration struct {
 	JmxLocalPort   *int              `json:"jmxLocalPort,omitempty"`
 	MaxHeapSize    string            `json:"maxHeapSize,omitempty"`
 	MinHeapSize    string            `json:"minHeapSize,omitempty"`
-	StartRpc       *bool             `json:"startRpc,omitempty"`
+	StartRPC       *bool             `json:"startRpc,omitempty"`
 }
 
+// CassandraStatus defines the status of the cassandra object
 // +k8s:openapi-gen=true
 type CassandraStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 	Active *bool                `json:"active,omitempty"`
 	Nodes  map[string]string    `json:"nodes,omitempty"`
 	Ports  CassandraStatusPorts `json:"ports,omitempty"`
 }
 
+// CassandraStatusPorts defines the status of the ports of the cassandra object
 type CassandraStatusPorts struct {
 	Port    string `json:"port,omitempty"`
 	CqlPort string `json:"cqlPort,omitempty"`
@@ -84,11 +79,8 @@ func init() {
 	SchemeBuilder.Register(&Cassandra{}, &CassandraList{})
 }
 
-func (c Cassandra) GetCrd() *apiextensionsv1beta1.CustomResourceDefinition {
-	return crds.GetCassandraCrd()
-}
-
-func (c *Cassandra) CreateInstanceConfiguration(request reconcile.Request,
+// InstanceConfiguration creates the cassandra instance configuration
+func (c *Cassandra) InstanceConfiguration(request reconcile.Request,
 	podList *corev1.PodList,
 	client client.Client) error {
 	instanceType := "cassandra"
@@ -100,10 +92,8 @@ func (c *Cassandra) CreateInstanceConfiguration(request reconcile.Request,
 	if err != nil {
 		return err
 	}
-	//currentConfigMap := *configMapInstanceDynamicConfig
-
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
-	cassandraConfigInterface := c.GetConfigurationParameters()
+	cassandraConfigInterface := c.ConfigurationParameters()
 	cassandraConfig := cassandraConfigInterface.(CassandraConfiguration)
 	for idx := range podList.Items {
 		var seeds []string
@@ -148,12 +138,11 @@ func (c *Cassandra) CreateInstanceConfiguration(request reconcile.Request,
 		if err != nil {
 			return err
 		}
-		//}
-
 	}
 	return nil
 }
 
+// CreateConfigMap creates a configmap for cassandra service
 func (c *Cassandra) CreateConfigMap(configMapName string,
 	client client.Client,
 	scheme *runtime.Scheme,
@@ -166,6 +155,7 @@ func (c *Cassandra) CreateConfigMap(configMapName string,
 		c)
 }
 
+// OwnedByManager checks of the cassandra object is owned by the Manager
 func (c *Cassandra) OwnedByManager(client client.Client, request reconcile.Request) (*Manager, error) {
 	managerName := c.Labels["contrail_cluster"]
 	ownerRefList := c.GetOwnerReferences()
@@ -184,30 +174,36 @@ func (c *Cassandra) OwnedByManager(client client.Client, request reconcile.Reque
 	return nil, nil
 }
 
+// PrepareIntendedDeployment prepares the intented deployment for the Cassandra object
 func (c *Cassandra) PrepareIntendedDeployment(instanceDeployment *appsv1.Deployment, commonConfiguration *CommonConfiguration, request reconcile.Request, scheme *runtime.Scheme) (*appsv1.Deployment, error) {
 	return PrepareIntendedDeployment(instanceDeployment, commonConfiguration, "cassandra", request, scheme, c)
 }
 
+// AddVolumesToIntendedDeployments adds volumes to the Cassandra deployment
 func (c *Cassandra) AddVolumesToIntendedDeployments(intendedDeployment *appsv1.Deployment, volumeConfigMapMap map[string]string) {
 	AddVolumesToIntendedDeployments(intendedDeployment, volumeConfigMapMap)
 }
 
+// CompareIntendedWithCurrentDeployment compares inteded vs actual Cassandra deployment
 func (c *Cassandra) CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.Deployment, commonConfiguration *CommonConfiguration, request reconcile.Request, scheme *runtime.Scheme, client client.Client, increaseVersion bool) error {
 	return CompareIntendedWithCurrentDeployment(intendedDeployment, commonConfiguration, "cassandra", request, scheme, client, c, increaseVersion)
 }
 
-func (c *Cassandra) GetPodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
-	return GetPodIPListAndIPMap("cassandra", request, client)
+// PodIPListAndIPMap get pod ips and names for the Cassandra pods
+func (c *Cassandra) PodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
+	return PodIPListAndIPMap("cassandra", request, client)
 }
 
+// SetPodsToReady sets Cassandra PODs to ready
 func (c *Cassandra) SetPodsToReady(podIPList *corev1.PodList, client client.Client) error {
 	return SetPodsToReady(podIPList, client)
 }
 
+// ManageNodeStatus manages the status of the Cassandra nodes
 func (c *Cassandra) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
 	c.Status.Nodes = podNameIPMap
-	cassandraConfigInterface := c.GetConfigurationParameters()
+	cassandraConfigInterface := c.ConfigurationParameters()
 	cassandraConfig := cassandraConfigInterface.(CassandraConfiguration)
 	c.Status.Ports.Port = strconv.Itoa(*cassandraConfig.Port)
 	c.Status.Ports.CqlPort = strconv.Itoa(*cassandraConfig.CqlPort)
@@ -219,6 +215,7 @@ func (c *Cassandra) ManageNodeStatus(podNameIPMap map[string]string,
 	return nil
 }
 
+// SetInstanceActive sets the Cassandra instance to active
 func (c *Cassandra) SetInstanceActive(client client.Client, statusInterface interface{}, deployment *appsv1.Deployment, request reconcile.Request) error {
 	status := statusInterface.(*CassandraStatus)
 	err := client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: request.Namespace},
@@ -240,31 +237,53 @@ func (c *Cassandra) SetInstanceActive(client client.Client, statusInterface inte
 	return nil
 }
 
+// IsCassandra returns true if instance is cassandra
 func (c *Cassandra) IsCassandra(request *reconcile.Request, client client.Client) bool {
 	return true
 }
 
+// IsManager returns true if instance is manager
 func (c *Cassandra) IsManager(request *reconcile.Request, client client.Client) bool {
 	return true
 }
 
+// IsZookeeper returns true if instance is zookeeper
 func (c *Cassandra) IsZookeeper(request *reconcile.Request, client client.Client) bool {
 	return true
 }
 
+// IsRabbitmq returns true if instance is rabbitmq
 func (c *Cassandra) IsRabbitmq(request *reconcile.Request, client client.Client) bool {
 	return true
 }
 
+// IsReplicaset returns true if instance is replicaset
 func (c *Cassandra) IsReplicaset(request *reconcile.Request, instanceType string, client client.Client) bool {
 	return true
 }
 
+// IsConfig returns true if instance is config
 func (c *Cassandra) IsConfig(request *reconcile.Request, client client.Client) bool {
 	return true
 }
 
-func (c *Cassandra) GetConfigurationParameters() interface{} {
+// IsActive returns true if instance is active
+func (c *Cassandra) IsActive(name string, namespace string, client client.Client) bool {
+	instance := &Cassandra{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, instance)
+	if err != nil {
+		return false
+	}
+	if instance.Status.Active != nil {
+		if *instance.Status.Active {
+			return true
+		}
+	}
+	return false
+}
+
+// ConfigurationParameters sets the default for the configuration parameters
+func (c *Cassandra) ConfigurationParameters() interface{} {
 	cassandraConfiguration := CassandraConfiguration{}
 	var port int
 	var cqlPort int

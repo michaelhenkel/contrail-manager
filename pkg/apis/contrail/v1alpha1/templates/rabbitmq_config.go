@@ -2,6 +2,7 @@ package configtemplates
 
 import "text/template"
 
+//RabbitmqConfig is the template of the Rabbitmq service configuration
 var RabbitmqConfig = template.Must(template.New("").Parse(`#!/bin/bash
 echo $RABBITMQ_ERLANG_COOKIE > /var/lib/rabbitmq/.erlang.cookie
 chmod 0600 /var/lib/rabbitmq/.erlang.cookie

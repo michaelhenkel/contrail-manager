@@ -8,10 +8,8 @@ import (
 	"strings"
 
 	configtemplates "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1/templates"
-	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -80,15 +78,11 @@ type ConfigList struct {
 	Items           []Config `json:"items"`
 }
 
-func (c Config) GetCrd() *apiextensionsv1beta1.CustomResourceDefinition {
-	return crds.GetConfigCrd()
-}
-
 func init() {
 	SchemeBuilder.Register(&Config{}, &ConfigList{})
 }
 
-func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
+func (c *Config) InstanceConfiguration(request reconcile.Request,
 	podList *corev1.PodList,
 	client client.Client) error {
 	instanceConfigMapName := request.Name + "-" + "config" + "-configmap"
@@ -100,25 +94,25 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 		return err
 	}
 
-	cassandraNodesInformation, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
+	cassandraNodesInformation, err := NewCassandraClusterConfiguration(c.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
 
-	zookeeperNodesInformation, err := GetZookeeperNodes(c.Spec.ServiceConfiguration.ZookeeperInstance,
+	zookeeperNodesInformation, err := NewZookeeperClusterConfiguration(c.Spec.ServiceConfiguration.ZookeeperInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
 
-	rabbitmqNodesInformation, err := GetRabbitmqNodes(c.Labels["contrail_cluster"],
+	rabbitmqNodesInformation, err := NewRabbitmqClusterConfiguration(c.Labels["contrail_cluster"],
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
 
-	configConfigInterface := c.GetConfigurationParameters()
+	configConfigInterface := c.ConfigurationParameters()
 	configConfig := configConfigInterface.(ConfigConfiguration)
 
 	var collectorServerList, analyticsServerList, apiServerList, analyticsServerSpaceSeparatedList, apiServerSpaceSeparatedList, redisServerSpaceSeparatedList string
@@ -143,7 +137,7 @@ func (c *Config) CreateInstanceConfiguration(request reconcile.Request,
 	var data = make(map[string]string)
 	for idx := range podList.Items {
 		var configApiConfigBuffer bytes.Buffer
-		configtemplates.ConfigApiConfig.Execute(&configApiConfigBuffer, struct {
+		configtemplates.ConfigAPIConfig.Execute(&configApiConfigBuffer, struct {
 			ListenAddress       string
 			ListenPort          string
 			CassandraServerList string
@@ -337,8 +331,8 @@ func (c *Config) CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1
 	return CompareIntendedWithCurrentDeployment(intendedDeployment, commonConfiguration, "config", request, scheme, client, c, increaseVersion)
 }
 
-func (c *Config) GetPodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
-	return GetPodIPListAndIPMap("config", request, client)
+func (c *Config) PodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
+	return PodIPListAndIPMap("config", request, client)
 }
 
 func (c *Config) SetPodsToReady(podIPList *corev1.PodList, client client.Client) error {
@@ -348,7 +342,7 @@ func (c *Config) SetPodsToReady(podIPList *corev1.PodList, client client.Client)
 func (c *Config) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
 	c.Status.Nodes = podNameIPMap
-	configConfigInterface := c.GetConfigurationParameters()
+	configConfigInterface := c.ConfigurationParameters()
 	configConfig := configConfigInterface.(ConfigConfiguration)
 	c.Status.Ports.APIPort = strconv.Itoa(*configConfig.APIPort)
 	c.Status.Ports.AnalyticsPort = strconv.Itoa(*configConfig.AnalyticsPort)
@@ -468,7 +462,22 @@ func (c *Config) IsConfig(request *reconcile.Request, client client.Client) bool
 	return true
 }
 
-func (c *Config) GetConfigurationParameters() interface{} {
+// IsActive returns true if instance is active
+func (c *Config) IsActive(name string, namespace string, client client.Client) bool {
+	instance := &Config{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, instance)
+	if err != nil {
+		return false
+	}
+	if instance.Status.Active != nil {
+		if *instance.Status.Active {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Config) ConfigurationParameters() interface{} {
 	configConfiguration := ConfigConfiguration{}
 	var apiPort int
 	var analyticsPort int

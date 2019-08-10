@@ -155,15 +155,18 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 	reqLogger.Info("Reconciling Control")
 	instanceType := "control"
 	instance := &v1alpha1.Control{}
-	var i v1alpha1.Instance = instance
+	var resourceIdentification v1alpha1.ResourceIdentification = instance
+	var resourceObject v1alpha1.ResourceObject = instance
+	var resourceConfiguration v1alpha1.ResourceConfiguration = instance
+	var resourceStatus v1alpha1.ResourceStatus = instance
 	err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil && errors.IsNotFound(err) {
-		isReplicaset := i.IsReplicaset(&request, instanceType, r.Client)
-		isManager := i.IsManager(&request, r.Client)
-		isZookeeper := i.IsZookeeper(&request, r.Client)
-		isRabbitmq := i.IsRabbitmq(&request, r.Client)
-		isCassandra := i.IsCassandra(&request, r.Client)
-		isConfig := i.IsConfig(&request, r.Client)
+		isReplicaset := resourceIdentification.IsReplicaset(&request, instanceType, r.Client)
+		isManager := resourceIdentification.IsManager(&request, r.Client)
+		isZookeeper := resourceIdentification.IsZookeeper(&request, r.Client)
+		isRabbitmq := resourceIdentification.IsRabbitmq(&request, r.Client)
+		isCassandra := resourceIdentification.IsCassandra(&request, r.Client)
+		isConfig := resourceIdentification.IsConfig(&request, r.Client)
 		if !isConfig && !isCassandra && !isRabbitmq && !isZookeeper && !isReplicaset && !isManager {
 			return reconcile.Result{}, nil
 		}
@@ -188,7 +191,7 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, nil
 	}
 
-	managerInstance, err := i.OwnedByManager(r.Client, request)
+	managerInstance, err := resourceIdentification.OwnedByManager(r.Client, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -207,7 +210,7 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 			}
 		}
 	}
-	configMap, err := i.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
+	configMap, err := resourceObject.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
 		r.Client,
 		r.Scheme,
 		request)
@@ -215,7 +218,7 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	intendedDeployment, err := i.PrepareIntendedDeployment(GetDeployment(),
+	intendedDeployment, err := resourceObject.PrepareIntendedDeployment(GetDeployment(),
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme)
@@ -223,7 +226,7 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	i.AddVolumesToIntendedDeployments(intendedDeployment,
+	resourceObject.AddVolumesToIntendedDeployments(intendedDeployment,
 		map[string]string{configMap.Name: request.Name + "-" + instanceType + "-volume"})
 
 	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
@@ -309,7 +312,7 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 	}
 
-	err = i.CompareIntendedWithCurrentDeployment(intendedDeployment,
+	err = resourceConfiguration.CompareIntendedWithCurrentDeployment(intendedDeployment,
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme,
@@ -319,30 +322,30 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	podIPList, podIPMap, err := i.GetPodIPListAndIPMap(request, r.Client)
+	podIPList, podIPMap, err := resourceConfiguration.PodIPListAndIPMap(request, r.Client)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	if len(podIPList.Items) > 0 {
-		err = i.CreateInstanceConfiguration(request,
+		err = resourceConfiguration.InstanceConfiguration(request,
 			podIPList,
 			r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = i.SetPodsToReady(podIPList, r.Client)
+		err = resourceStatus.SetPodsToReady(podIPList, r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = i.ManageNodeStatus(podIPMap, r.Client)
+		err = resourceStatus.ManageNodeStatus(podIPMap, r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	err = i.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
+	err = resourceStatus.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

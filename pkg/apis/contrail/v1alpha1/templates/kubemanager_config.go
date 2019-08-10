@@ -2,6 +2,7 @@ package configtemplates
 
 import "text/template"
 
+//KubemanagerConfig is the template of the Kubemanager service configuration
 var KubemanagerConfig = template.Must(template.New("").Parse(`[DEFAULTS]
 host_ip={{ .ListenAddress }}
 orchestrator={{ .CloudOrchestrator }}

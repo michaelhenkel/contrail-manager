@@ -3,7 +3,7 @@ package cassandra
 import (
 	"context"
 
-	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -102,7 +102,6 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 	reqLogger.Info("Reconciling Cassandra")
 	instanceType := "cassandra"
 	instance := &v1alpha1.Cassandra{}
-	var i v1alpha1.Instance = instance
 	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	// if not found we expect it a change in replicaset
 	// and get the cassandra instance via label
@@ -118,8 +117,14 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 			return reconcile.Result{}, nil
 		}
 	}
+	var resourceIdentification v1alpha1.ResourceIdentification = instance
+	var resourceObject v1alpha1.ResourceObject = instance
+	var resourceConfiguration v1alpha1.ResourceConfiguration = instance
+	var resourceStatus v1alpha1.ResourceStatus = instance
 
-	managerInstance, err := i.OwnedByManager(r.Client, request)
+	utils.IsReplicaset(instance, &request, "bla", r.Client)
+
+	managerInstance, err := resourceIdentification.OwnedByManager(r.Client, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -139,7 +144,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 	}
 
-	configMap, err := i.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
+	configMap, err := resourceObject.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
 		r.Client,
 		r.Scheme,
 		request)
@@ -147,7 +152,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	intendedDeployment, err := i.PrepareIntendedDeployment(GetDeployment(),
+	intendedDeployment, err := resourceObject.PrepareIntendedDeployment(GetDeployment(),
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme)
@@ -155,7 +160,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	i.AddVolumesToIntendedDeployments(intendedDeployment,
+	resourceObject.AddVolumesToIntendedDeployments(intendedDeployment,
 		map[string]string{configMap.Name: request.Name + "-" + instanceType + "-volume"})
 
 	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
@@ -208,8 +213,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 			}
 		}
 	}
-
-	err = i.CompareIntendedWithCurrentDeployment(intendedDeployment,
+	err = resourceConfiguration.CompareIntendedWithCurrentDeployment(intendedDeployment,
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme,
@@ -219,30 +223,30 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	podIPList, podIPMap, err := i.GetPodIPListAndIPMap(request, r.Client)
+	podIPList, podIPMap, err := resourceConfiguration.PodIPListAndIPMap(request, r.Client)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	if len(podIPList.Items) > 0 {
-		err = i.CreateInstanceConfiguration(request,
+		err = resourceConfiguration.InstanceConfiguration(request,
 			podIPList,
 			r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = i.SetPodsToReady(podIPList, r.Client)
+		err = resourceStatus.SetPodsToReady(podIPList, r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = i.ManageNodeStatus(podIPMap, r.Client)
+		err = resourceStatus.ManageNodeStatus(podIPMap, r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	err = i.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
+	err = resourceStatus.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

@@ -2,8 +2,8 @@ package configtemplates
 
 import "text/template"
 
-///etc/contrail/contrail-api.conf
-var ConfigApiConfig = template.Must(template.New("").Parse(`[DEFAULTS]
+//ConfigAPIConfig is the template of the Config API service configuration
+var ConfigAPIConfig = template.Must(template.New("").Parse(`[DEFAULTS]
 listen_ip_addr={{ .ListenAddress }}
 listen_port={{ .ListenPort }}
 http_server_port=8084
@@ -31,7 +31,7 @@ collectors={{ .CollectorServerList }}
 introspect_ssl_enable=False
 sandesh_ssl_enable=False`))
 
-///etc/contrail/contrail-device-manager.conf
+//ConfigDeviceManagerConfig is the template of the DeviceManager service configuration
 var ConfigDeviceManagerConfig = template.Must(template.New("").Parse(`[DEFAULTS]
 host_ip={{ .ListenAddress }}
 http_server_ip=0.0.0.0
@@ -64,7 +64,7 @@ collectors={{ .CollectorServerList }}
 introspect_ssl_enable=False
 sandesh_ssl_enable=False`))
 
-///etc/contrail/contrail-schema.conf
+//ConfigSchematransformerConfig is the template of the SchemaTransformer service configuration
 var ConfigSchematransformerConfig = template.Must(template.New("").Parse(`[DEFAULTS]
 host_ip={{ .ListenAddress }}
 http_server_ip=0.0.0.0
@@ -89,7 +89,7 @@ collectors={{ .CollectorServerList }}
 introspect_ssl_enable=False
 sandesh_ssl_enable=False`))
 
-///etc/contrail/contrail-svc-monitor.conf
+//ConfigServicemonitorConfig is the template of the ServiceMonitor service configuration
 var ConfigServicemonitorConfig = template.Must(template.New("").Parse(`[DEFAULTS]
 host_ip={{ .ListenAddress }}
 http_server_ip=0.0.0.0
@@ -123,7 +123,7 @@ aaa_mode = no-auth
 introspect_ssl_enable=False
 sandesh_ssl_enable=False`))
 
-///etc/contrail/contrail-analytics-api.conf
+//ConfigAnalyticsapiConfig is the template of the AnalyticsAPI service configuration
 var ConfigAnalyticsapiConfig = template.Must(template.New("").Parse(`[DEFAULTS]
 host_ip={{ .ListenAddress }}
 http_server_port=8090
@@ -148,7 +148,7 @@ redis_password=
 introspect_ssl_enable=False
 sandesh_ssl_enable=False`))
 
-///etc/contrail/contrail-collector.conf
+//ConfigCollectorConfig is the template of the Collector service configuration
 var ConfigCollectorConfig = template.Must(template.New("").Parse(`[DEFAULT]
 analytics_data_ttl=48
 analytics_config_audit_ttl=2160
@@ -203,7 +203,7 @@ rabbitmq_use_ssl=False
 introspect_ssl_enable=False
 sandesh_ssl_enable=False`))
 
-///etc/contrail/contrail-config-nodemgr.conf
+//ConfigNodemanagerConfigConfig is the template of the Config Nodemanager service configuration
 var ConfigNodemanagerConfigConfig = template.Must(template.New("").Parse(`[DEFAULTS]
 http_server_ip=0.0.0.0
 log_file=/var/log/contrail/contrail-config-nodemgr.log
@@ -219,7 +219,7 @@ server_list={{ .CollectorServerList }}
 introspect_ssl_enable=False
 sandesh_ssl_enable=False`))
 
-///etc/contrail/contrail-analytics-nodemgr.conf
+//ConfigNodemanagerAnalyticsConfig is the template of the Analytics Nodemanager service configuration
 var ConfigNodemanagerAnalyticsConfig = template.Must(template.New("").Parse(`[DEFAULTS]
 http_server_ip=0.0.0.0
 log_file=/var/log/contrail/contrail-config-nodemgr.log

@@ -18,8 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 // ServiceStatus provides information on the current status of the service
 // +k8s:openapi-gen=true
 type ServiceStatus struct {
@@ -77,26 +75,40 @@ type CommonConfiguration struct {
 	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
 }
 
-type Instance interface {
-	CreateConfigMap(string, client.Client, *runtime.Scheme, reconcile.Request) (*corev1.ConfigMap, error)
-	OwnedByManager(client.Client, reconcile.Request) (*Manager, error)
-	PrepareIntendedDeployment(*appsv1.Deployment, *CommonConfiguration, reconcile.Request, *runtime.Scheme) (*appsv1.Deployment, error)
-	AddVolumesToIntendedDeployments(*appsv1.Deployment, map[string]string)
+// ResourceConfiguration is the interface with methods for service configurations
+type ResourceConfiguration interface {
+	ConfigurationParameters() interface{}
+	InstanceConfiguration(reconcile.Request, *corev1.PodList, client.Client) error
 	CompareIntendedWithCurrentDeployment(*appsv1.Deployment, *CommonConfiguration, reconcile.Request, *runtime.Scheme, client.Client, bool) error
-	GetPodIPListAndIPMap(reconcile.Request, client.Client) (*corev1.PodList, map[string]string, error)
-	CreateInstanceConfiguration(reconcile.Request, *corev1.PodList, client.Client) error
-	SetPodsToReady(*corev1.PodList, client.Client) error
-	ManageNodeStatus(map[string]string, client.Client) error
-	SetInstanceActive(client.Client, interface{}, *appsv1.Deployment, reconcile.Request) error
+	PodIPListAndIPMap(reconcile.Request, client.Client) (*corev1.PodList, map[string]string, error)
+}
+
+// ResourceIdentification is the interface with the service identification methods
+type ResourceIdentification interface {
 	IsReplicaset(*reconcile.Request, string, client.Client) bool
 	IsManager(*reconcile.Request, client.Client) bool
 	IsRabbitmq(*reconcile.Request, client.Client) bool
 	IsZookeeper(*reconcile.Request, client.Client) bool
 	IsCassandra(*reconcile.Request, client.Client) bool
 	IsConfig(*reconcile.Request, client.Client) bool
-	GetConfigurationParameters() interface{}
+	OwnedByManager(client.Client, reconcile.Request) (*Manager, error)
 }
 
+// ResourceObject is the interface with the object methods
+type ResourceObject interface {
+	CreateConfigMap(string, client.Client, *runtime.Scheme, reconcile.Request) (*corev1.ConfigMap, error)
+	PrepareIntendedDeployment(*appsv1.Deployment, *CommonConfiguration, reconcile.Request, *runtime.Scheme) (*appsv1.Deployment, error)
+	AddVolumesToIntendedDeployments(*appsv1.Deployment, map[string]string)
+}
+
+// ResourceStatus is the interface with service status methods
+type ResourceStatus interface {
+	SetPodsToReady(*corev1.PodList, client.Client) error
+	ManageNodeStatus(map[string]string, client.Client) error
+	SetInstanceActive(client.Client, interface{}, *appsv1.Deployment, reconcile.Request) error
+}
+
+//SetPodsToReady sets the status label of a POD to ready
 func SetPodsToReady(podList *corev1.PodList, client client.Client) error {
 	for _, pod := range podList.Items {
 		pod.ObjectMeta.Labels["status"] = "ready"
@@ -108,6 +120,7 @@ func SetPodsToReady(podList *corev1.PodList, client client.Client) error {
 	return nil
 }
 
+//CreateConfigMap creates a config map based on the instance type
 func CreateConfigMap(configMapName string,
 	client client.Client,
 	scheme *runtime.Scheme,
@@ -134,6 +147,7 @@ func CreateConfigMap(configMapName string,
 	return configMap, nil
 }
 
+//PrepareIntendedDeployment prepares the intented deployment
 func PrepareIntendedDeployment(instanceDeployment *appsv1.Deployment,
 	commonConfiguration *CommonConfiguration,
 	instanceType string,
@@ -158,6 +172,8 @@ func PrepareIntendedDeployment(instanceDeployment *appsv1.Deployment,
 	return intendedDeployment, nil
 }
 
+//SetDeploymentCommonConfiguration takes common configuration parameters
+// and applies it to the deployment
 func SetDeploymentCommonConfiguration(deployment *appsv1.Deployment,
 	commonConfiguration *CommonConfiguration) *appsv1.Deployment {
 	deployment.Spec.Replicas = commonConfiguration.Replicas
@@ -181,6 +197,7 @@ func SetDeploymentCommonConfiguration(deployment *appsv1.Deployment,
 	return deployment
 }
 
+//AddVolumesToIntendedDeployments adds volumes to a deployment
 func AddVolumesToIntendedDeployments(intendedDeployment *appsv1.Deployment, volumeConfigMapMap map[string]string) {
 	volumeList := intendedDeployment.Spec.Template.Spec.Volumes
 	for configMapName, volumeName := range volumeConfigMapMap {
@@ -199,6 +216,8 @@ func AddVolumesToIntendedDeployments(intendedDeployment *appsv1.Deployment, volu
 	intendedDeployment.Spec.Template.Spec.Volumes = volumeList
 }
 
+//CompareIntendedWithCurrentDeployment compares the running deployment with the
+//deployment
 func CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.Deployment,
 	commonConfiguration *CommonConfiguration,
 	instanceType string,
@@ -255,7 +274,8 @@ func CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.Deployment,
 	return nil
 }
 
-func GetPodIPListAndIPMap(instanceType string,
+//PodIPListAndIPMap gets a list with POD IPs and a map of POD names and IPs
+func PodIPListAndIPMap(instanceType string,
 	request reconcile.Request,
 	reconcileClient client.Client) (*corev1.PodList, map[string]string, error) {
 	var podNameIPMap = make(map[string]string)
@@ -295,32 +315,31 @@ func GetPodIPListAndIPMap(instanceType string,
 					}
 				}
 			}
-
 			if int32(len(podNameIPMap)) == *replicaSet.Spec.Replicas {
 				return podList, podNameIPMap, nil
 			}
-
 		}
 	}
 
 	return &corev1.PodList{}, map[string]string{}, nil
 }
 
-func GetCassandraNodes(name string, namespace string, client client.Client) (CassandraCluster, error) {
+//NewCassandraClusterConfiguration gets a struct containing various representations of Cassandra nodes string
+func NewCassandraClusterConfiguration(name string, namespace string, client client.Client) (*CassandraClusterConfiguration, error) {
 	var cassandraNodes []string
-	var cassandraCluster CassandraCluster
+	var cassandraCluster CassandraClusterConfiguration
 	var port string
 	var cqlPort string
 	var jmxPort string
 	cassandraInstance := &Cassandra{}
 	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, cassandraInstance)
 	if err != nil {
-		return cassandraCluster, err
+		return &cassandraCluster, err
 	}
 	for _, ip := range cassandraInstance.Status.Nodes {
 		cassandraNodes = append(cassandraNodes, ip)
 	}
-	cassandraConfigInterface := cassandraInstance.GetConfigurationParameters()
+	cassandraConfigInterface := cassandraInstance.ConfigurationParameters()
 	cassandraConfig := cassandraConfigInterface.(CassandraConfiguration)
 	port = strconv.Itoa(*cassandraConfig.Port)
 	cqlPort = strconv.Itoa(*cassandraConfig.CqlPort)
@@ -340,7 +359,7 @@ func GetCassandraNodes(name string, namespace string, client client.Client) (Cas
 	serverListJMXSpaceSeparated = serverListJMXSpaceSeparated + ":" + jmxPort
 	serverListCommanSeparatedQuoted := strings.Join(cassandraNodes, "','")
 	serverListCommanSeparatedQuoted = "'" + serverListCommanSeparatedQuoted + "'"
-	cassandraCluster = CassandraCluster{
+	cassandraCluster = CassandraClusterConfiguration{
 		Port:                            port,
 		CQLPort:                         cqlPort,
 		JMXPort:                         jmxPort,
@@ -352,12 +371,13 @@ func GetCassandraNodes(name string, namespace string, client client.Client) (Cas
 		ServerListJMXSpaceSeparated:     serverListJMXSpaceSeparated,
 		ServerListCommanSeparatedQuoted: serverListCommanSeparatedQuoted,
 	}
-	return cassandraCluster, nil
+	return &cassandraCluster, nil
 }
 
-func GetControlNodes(name string, role string, namespace string, myclient client.Client) (ControlCluster, error) {
+//NewControlClusterConfiguration gets a struct containing various representations of Control nodes string
+func NewControlClusterConfiguration(name string, role string, namespace string, myclient client.Client) (*ControlClusterConfiguration, error) {
 	var controlNodes []string
-	var controlCluster ControlCluster
+	var controlCluster ControlClusterConfiguration
 	var bgpPort string
 	var dnsPort string
 	var xmppPort string
@@ -367,12 +387,12 @@ func GetControlNodes(name string, role string, namespace string, myclient client
 		controlInstance := &Control{}
 		err := myclient.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, controlInstance)
 		if err != nil {
-			return controlCluster, err
+			return &controlCluster, err
 		}
 		for _, ip := range controlInstance.Status.Nodes {
 			controlNodes = append(controlNodes, ip)
 		}
-		controlConfigInterface = controlInstance.GetConfigurationParameters()
+		controlConfigInterface = controlInstance.ConfigurationParameters()
 
 	}
 	if role != "" {
@@ -381,14 +401,14 @@ func GetControlNodes(name string, role string, namespace string, myclient client
 		controlList := &ControlList{}
 		err := myclient.List(context.TODO(), listOps, controlList)
 		if err != nil {
-			return controlCluster, err
+			return &controlCluster, err
 		}
 		if len(controlList.Items) > 0 {
 			for _, ip := range controlList.Items[0].Status.Nodes {
 				controlNodes = append(controlNodes, ip)
 			}
 		}
-		controlConfigInterface = controlList.Items[0].GetConfigurationParameters()
+		controlConfigInterface = controlList.Items[0].ConfigurationParameters()
 	}
 	controlConfig := controlConfigInterface.(ControlConfiguration)
 	bgpPort = strconv.Itoa(*controlConfig.BGPPort)
@@ -396,44 +416,45 @@ func GetControlNodes(name string, role string, namespace string, myclient client
 	xmppPort = strconv.Itoa(*controlConfig.XMPPPort)
 	dnsIntrospectPort = strconv.Itoa(*controlConfig.DNSIntrospectPort)
 	sort.SliceStable(controlNodes, func(i, j int) bool { return controlNodes[i] < controlNodes[j] })
-	serverListXmppCommaSeparated := strings.Join(controlNodes, ":"+xmppPort+",")
-	serverListXmppCommaSeparated = serverListXmppCommaSeparated + ":" + xmppPort
-	serverListXmppSpaceSeparated := strings.Join(controlNodes, ":"+xmppPort+" ")
-	serverListXmppSpaceSeparated = serverListXmppSpaceSeparated + ":" + xmppPort
-	serverListDnsCommaSeparated := strings.Join(controlNodes, ":"+dnsPort+",")
-	serverListDnsCommaSeparated = serverListDnsCommaSeparated + ":" + dnsPort
-	serverListDnsSpaceSeparated := strings.Join(controlNodes, ":"+dnsPort+" ")
-	serverListDnsSpaceSeparated = serverListDnsSpaceSeparated + ":" + dnsPort
+	serverListXMPPCommaSeparated := strings.Join(controlNodes, ":"+xmppPort+",")
+	serverListXMPPCommaSeparated = serverListXMPPCommaSeparated + ":" + xmppPort
+	serverListXMPPSpaceSeparated := strings.Join(controlNodes, ":"+xmppPort+" ")
+	serverListXMPPSpaceSeparated = serverListXMPPSpaceSeparated + ":" + xmppPort
+	serverListDNSCommaSeparated := strings.Join(controlNodes, ":"+dnsPort+",")
+	serverListDNSCommaSeparated = serverListDNSCommaSeparated + ":" + dnsPort
+	serverListDNSSpaceSeparated := strings.Join(controlNodes, ":"+dnsPort+" ")
+	serverListDNSSpaceSeparated = serverListDNSSpaceSeparated + ":" + dnsPort
 	serverListCommanSeparatedQuoted := strings.Join(controlNodes, "','")
 	serverListCommanSeparatedQuoted = "'" + serverListCommanSeparatedQuoted + "'"
-	controlCluster = ControlCluster{
+	controlCluster = ControlClusterConfiguration{
 		BGPPort:                         bgpPort,
 		DNSPort:                         dnsPort,
 		DNSIntrospectPort:               dnsIntrospectPort,
-		ServerListXmppCommaSeparated:    serverListXmppCommaSeparated,
-		ServerListXmppSpaceSeparated:    serverListXmppSpaceSeparated,
-		ServerListDnsCommaSeparated:     serverListDnsCommaSeparated,
-		ServerListDnsSpaceSeparated:     serverListDnsSpaceSeparated,
+		ServerListXMPPCommaSeparated:    serverListXMPPCommaSeparated,
+		ServerListXMPPSpaceSeparated:    serverListXMPPSpaceSeparated,
+		ServerListDNSCommaSeparated:     serverListDNSCommaSeparated,
+		ServerListDNSSpaceSeparated:     serverListDNSSpaceSeparated,
 		ServerListCommanSeparatedQuoted: serverListCommanSeparatedQuoted,
 	}
 
-	return controlCluster, nil
+	return &controlCluster, nil
 }
 
-func GetZookeeperNodes(name string, namespace string, client client.Client) (ZookeeperCluster, error) {
+//NewZookeeperClusterConfiguration gets a struct containing various representations of Zookeeper nodes string
+func NewZookeeperClusterConfiguration(name string, namespace string, client client.Client) (*ZookeeperClusterConfiguration, error) {
 	var zookeeperNodes []string
-	var zookeeperCluster ZookeeperCluster
+	var zookeeperCluster ZookeeperClusterConfiguration
 	var port string
 	zookeeperInstance := &Zookeeper{}
 	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, zookeeperInstance)
 	if err != nil {
-		return zookeeperCluster, err
+		return &zookeeperCluster, err
 	}
 	for _, ip := range zookeeperInstance.Status.Nodes {
 		zookeeperNodes = append(zookeeperNodes, ip)
 
 	}
-	zookeeperConfigInterface := zookeeperInstance.GetConfigurationParameters()
+	zookeeperConfigInterface := zookeeperInstance.ConfigurationParameters()
 	zookeeperConfig := zookeeperConfigInterface.(ZookeeperConfiguration)
 	port = strconv.Itoa(*zookeeperConfig.ClientPort)
 	sort.SliceStable(zookeeperNodes, func(i, j int) bool { return zookeeperNodes[i] < zookeeperNodes[j] })
@@ -441,31 +462,32 @@ func GetZookeeperNodes(name string, namespace string, client client.Client) (Zoo
 	serverListCommaSeparated = serverListCommaSeparated + ":" + port
 	serverListSpaceSeparated := strings.Join(zookeeperNodes, ":"+port+" ")
 	serverListSpaceSeparated = serverListSpaceSeparated + ":" + port
-	zookeeperCluster = ZookeeperCluster{
+	zookeeperCluster = ZookeeperClusterConfiguration{
 		ClientPort:               port,
 		ServerListCommaSeparated: serverListCommaSeparated,
 		ServerListSpaceSeparated: serverListSpaceSeparated,
 	}
 
-	return zookeeperCluster, nil
+	return &zookeeperCluster, nil
 }
 
-func GetRabbitmqNodes(name string, namespace string, myclient client.Client) (RabbitmqCluster, error) {
+// NewRabbitmqClusterConfiguration gets a struct containing various representations of Rabbitmq nodes string
+func NewRabbitmqClusterConfiguration(name string, namespace string, myclient client.Client) (*RabbitmqClusterConfiguration, error) {
 	var rabbitmqNodes []string
-	var rabbitmqCluster RabbitmqCluster
+	var rabbitmqCluster RabbitmqClusterConfiguration
 	var port string
 	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": name})
 	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
 	rabbitmqList := &RabbitmqList{}
 	err := myclient.List(context.TODO(), listOps, rabbitmqList)
 	if err != nil {
-		return rabbitmqCluster, err
+		return &rabbitmqCluster, err
 	}
 	if len(rabbitmqList.Items) > 0 {
 		for _, ip := range rabbitmqList.Items[0].Status.Nodes {
 			rabbitmqNodes = append(rabbitmqNodes, ip)
 		}
-		rabbitmqConfigInterface := rabbitmqList.Items[0].GetConfigurationParameters()
+		rabbitmqConfigInterface := rabbitmqList.Items[0].ConfigurationParameters()
 		rabbitmqConfig := rabbitmqConfigInterface.(RabbitmqConfiguration)
 		port = strconv.Itoa(*rabbitmqConfig.Port)
 	}
@@ -475,24 +497,25 @@ func GetRabbitmqNodes(name string, namespace string, myclient client.Client) (Ra
 	serverListSpaceSeparated := strings.Join(rabbitmqNodes, ":"+port+" ")
 	serverListSpaceSeparated = serverListSpaceSeparated + ":" + port
 	serverListCommaSeparatedWithoutPort := strings.Join(rabbitmqNodes, ",")
-	rabbitmqCluster = RabbitmqCluster{
+	rabbitmqCluster = RabbitmqClusterConfiguration{
 		Port:                                port,
 		ServerListCommaSeparated:            serverListCommaSeparated,
 		ServerListSpaceSeparated:            serverListSpaceSeparated,
 		ServerListCommaSeparatedWithoutPort: serverListCommaSeparatedWithoutPort,
 	}
-	return rabbitmqCluster, nil
+	return &rabbitmqCluster, nil
 }
 
-func GetConfigNodesStatus(name string, namespace string, myclient client.Client) (ConfigCluster, error) {
+// NewConfigClusterConfiguration gets a struct containing various representations of Config nodes string
+func NewConfigClusterConfiguration(name string, namespace string, myclient client.Client) (*ConfigClusterConfiguration, error) {
 	var configNodes []string
-	var configCluster ConfigCluster
+	var configCluster ConfigClusterConfiguration
 	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": name})
 	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
 	configList := &ConfigList{}
 	err := myclient.List(context.TODO(), listOps, configList)
 	if err != nil {
-		return configCluster, err
+		return &configCluster, err
 	}
 
 	var apiServerPort string
@@ -504,7 +527,7 @@ func GetConfigNodesStatus(name string, namespace string, myclient client.Client)
 		for _, ip := range configList.Items[0].Status.Nodes {
 			configNodes = append(configNodes, ip)
 		}
-		configConfigInterface := configList.Items[0].GetConfigurationParameters()
+		configConfigInterface := configList.Items[0].ConfigurationParameters()
 		configConfig := configConfigInterface.(ConfigConfiguration)
 		apiServerPort = strconv.Itoa(*configConfig.APIPort)
 		analyticsServerPort = strconv.Itoa(*configConfig.AnalyticsPort)
@@ -523,7 +546,7 @@ func GetConfigNodesStatus(name string, namespace string, myclient client.Client)
 	analyticsServerListSpaceSeparated = analyticsServerListSpaceSeparated + ":" + analyticsServerPort
 	collectorServerListSpaceSeparated := strings.Join(configNodes, ":"+collectorServerPort+" ")
 	collectorServerListSpaceSeparated = collectorServerListSpaceSeparated + ":" + collectorServerPort
-	configCluster = ConfigCluster{
+	configCluster = ConfigClusterConfiguration{
 		APIServerPort:                           apiServerPort,
 		APIServerListQuotedCommaSeparated:       apiServerListQuotedCommaSeparated,
 		APIServerListCommaSeparated:             apiServerListCommaSeparated,
@@ -535,10 +558,11 @@ func GetConfigNodesStatus(name string, namespace string, myclient client.Client)
 		CollectorServerListSpaceSeparated:       collectorServerListSpaceSeparated,
 		RedisPort:                               redisServerPort,
 	}
-	return configCluster, nil
+	return &configCluster, nil
 }
 
-type ConfigCluster struct {
+//ConfigClusterConfiguration defines all configuration knobs used to write the config file
+type ConfigClusterConfiguration struct {
 	APIServerPort                           string
 	APIServerListSpaceSeparated             string
 	APIServerListQuotedCommaSeparated       string
@@ -551,18 +575,20 @@ type ConfigCluster struct {
 	RedisPort                               string
 }
 
-type ControlCluster struct {
+//ControlClusterConfiguration defines all configuration knobs used to write the config file
+type ControlClusterConfiguration struct {
 	BGPPort                         string
 	DNSPort                         string
 	DNSIntrospectPort               string
-	ServerListXmppCommaSeparated    string
-	ServerListXmppSpaceSeparated    string
-	ServerListDnsCommaSeparated     string
-	ServerListDnsSpaceSeparated     string
+	ServerListXMPPCommaSeparated    string
+	ServerListXMPPSpaceSeparated    string
+	ServerListDNSCommaSeparated     string
+	ServerListDNSSpaceSeparated     string
 	ServerListCommanSeparatedQuoted string
 }
 
-type ZookeeperCluster struct {
+//ZookeeperClusterConfiguration defines all configuration knobs used to write the config file
+type ZookeeperClusterConfiguration struct {
 	ClientPort               string
 	ServerPort               string
 	ElectionPort             string
@@ -570,14 +596,16 @@ type ZookeeperCluster struct {
 	ServerListSpaceSeparated string
 }
 
-type RabbitmqCluster struct {
+//RabbitmqClusterConfiguration defines all configuration knobs used to write the config file
+type RabbitmqClusterConfiguration struct {
 	Port                                string
 	ServerListCommaSeparated            string
 	ServerListSpaceSeparated            string
 	ServerListCommaSeparatedWithoutPort string
 }
 
-type CassandraCluster struct {
+//CassandraClusterConfiguration defines all configuration knobs used to write the config file
+type CassandraClusterConfiguration struct {
 	Port                            string
 	CQLPort                         string
 	JMXPort                         string

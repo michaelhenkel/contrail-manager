@@ -2,6 +2,7 @@ package configtemplates
 
 import "text/template"
 
+//CassandraConfig is the template of a full Cassandra configuration
 var CassandraConfig = template.Must(template.New("").Parse(`cluster_name: {{ .ClusterName }}
 num_tokens: 32
 hinted_handoff_enabled: true
@@ -37,7 +38,7 @@ commitlog_segment_size_in_mb: 32
 seed_provider:
 - class_name: org.apache.cassandra.locator.SimpleSeedProvider
   parameters:
-  - seeds: "{{ .Seeds }}"
+  - seeds: {{ .Seeds }}
 concurrent_reads: 32
 concurrent_writes: 32
 concurrent_counter_writes: 32

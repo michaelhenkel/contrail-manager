@@ -3,8 +3,6 @@ package v1alpha1
 import (
 	"context"
 
-	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,10 +54,6 @@ type ManagerStatus struct {
 type CrdStatus struct {
 	Name   string `json:"name,omitempty"`
 	Active *bool  `json:"active,omitempty"`
-}
-
-func (m *Manager) CassandraCrd() *apiextensionsv1beta1.CustomResourceDefinition {
-	return crds.GetCassandraCrd()
 }
 
 func (m *Manager) Cassandra() *Cassandra {

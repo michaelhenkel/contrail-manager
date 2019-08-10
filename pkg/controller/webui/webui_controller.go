@@ -125,11 +125,14 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 	reqLogger.Info("Reconciling Webui")
 	instanceType := "webui"
 	instance := &v1alpha1.Webui{}
-	var i v1alpha1.Instance = instance
+	var resourceIdentification v1alpha1.ResourceIdentification = instance
+	var resourceObject v1alpha1.ResourceObject = instance
+	var resourceConfiguration v1alpha1.ResourceConfiguration = instance
+	var resourceStatus v1alpha1.ResourceStatus = instance
 	err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil && errors.IsNotFound(err) {
-		isReplicaset := i.IsReplicaset(&request, instanceType, r.Client)
-		isConfig := i.IsConfig(&request, r.Client)
+		isReplicaset := resourceIdentification.IsReplicaset(&request, instanceType, r.Client)
+		isConfig := resourceIdentification.IsConfig(&request, r.Client)
 		if !isConfig && !isReplicaset {
 			return reconcile.Result{}, nil
 		}
@@ -145,7 +148,7 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, nil
 	}
 
-	managerInstance, err := i.OwnedByManager(r.Client, request)
+	managerInstance, err := resourceIdentification.OwnedByManager(r.Client, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -161,7 +164,7 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 			}
 		}
 	}
-	configMap, err := i.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
+	configMap, err := resourceObject.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
 		r.Client,
 		r.Scheme,
 		request)
@@ -169,7 +172,7 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
-	intendedDeployment, err := i.PrepareIntendedDeployment(GetDeployment(),
+	intendedDeployment, err := resourceObject.PrepareIntendedDeployment(GetDeployment(),
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme)
@@ -177,7 +180,7 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
-	i.AddVolumesToIntendedDeployments(intendedDeployment,
+	resourceObject.AddVolumesToIntendedDeployments(intendedDeployment,
 		map[string]string{configMap.Name: request.Name + "-" + instanceType + "-volume"})
 
 	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
@@ -303,7 +306,7 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 		}
 	}
 
-	err = i.CompareIntendedWithCurrentDeployment(intendedDeployment,
+	err = resourceConfiguration.CompareIntendedWithCurrentDeployment(intendedDeployment,
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme,
@@ -313,30 +316,30 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
-	podIPList, podIPMap, err := i.GetPodIPListAndIPMap(request, r.Client)
+	podIPList, podIPMap, err := resourceConfiguration.PodIPListAndIPMap(request, r.Client)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	if len(podIPList.Items) > 0 {
-		err = i.CreateInstanceConfiguration(request,
+		err = resourceConfiguration.InstanceConfiguration(request,
 			podIPList,
 			r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = i.SetPodsToReady(podIPList, r.Client)
+		err = resourceStatus.SetPodsToReady(podIPList, r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = i.ManageNodeStatus(podIPMap, r.Client)
+		err = resourceStatus.ManageNodeStatus(podIPMap, r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	err = i.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
+	err = resourceStatus.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

@@ -6,10 +6,8 @@ import (
 	"sort"
 
 	configtemplates "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1/templates"
-	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,15 +64,11 @@ type WebuiList struct {
 	Items           []Webui `json:"items"`
 }
 
-func (c Webui) GetCrd() *apiextensionsv1beta1.CustomResourceDefinition {
-	return crds.GetWebuiCrd()
-}
-
 func init() {
 	SchemeBuilder.Register(&Webui{}, &WebuiList{})
 }
 
-func (c *Webui) CreateInstanceConfiguration(request reconcile.Request,
+func (c *Webui) InstanceConfiguration(request reconcile.Request,
 	podList *corev1.PodList,
 	client client.Client) error {
 	instanceConfigMapName := request.Name + "-" + "webui" + "-configmap"
@@ -86,19 +80,19 @@ func (c *Webui) CreateInstanceConfiguration(request reconcile.Request,
 		return err
 	}
 
-	controlNodesInformation, err := GetControlNodes("", "master",
+	controlNodesInformation, err := NewControlClusterConfiguration("", "master",
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
 
-	cassandraNodesInformation, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
+	cassandraNodesInformation, err := NewCassandraClusterConfiguration(c.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
 
-	configNodesInformation, err := GetConfigNodesStatus(c.Labels["contrail_cluster"],
+	configNodesInformation, err := NewConfigClusterConfiguration(c.Labels["contrail_cluster"],
 		request.Namespace, client)
 	if err != nil {
 		return err
@@ -181,6 +175,20 @@ func (c *Webui) OwnedByManager(client client.Client, request reconcile.Request) 
 	return nil, nil
 }
 
+// IsActive returns true if instance is active
+func (c *Webui) IsActive(name string, namespace string, client client.Client) bool {
+	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, c)
+	if err != nil {
+		return false
+	}
+	if c.Status.Active != nil {
+		if *c.Status.Active {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Webui) PrepareIntendedDeployment(instanceDeployment *appsv1.Deployment, commonConfiguration *CommonConfiguration, request reconcile.Request, scheme *runtime.Scheme) (*appsv1.Deployment, error) {
 	return PrepareIntendedDeployment(instanceDeployment, commonConfiguration, "webui", request, scheme, c)
 }
@@ -193,8 +201,8 @@ func (c *Webui) CompareIntendedWithCurrentDeployment(intendedDeployment *appsv1.
 	return CompareIntendedWithCurrentDeployment(intendedDeployment, commonConfiguration, "webui", request, scheme, client, c, increaseVersion)
 }
 
-func (c *Webui) GetPodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
-	return GetPodIPListAndIPMap("webui", request, client)
+func (c *Webui) PodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
+	return PodIPListAndIPMap("webui", request, client)
 }
 
 func (c *Webui) SetPodsToReady(podIPList *corev1.PodList, client client.Client) error {
@@ -290,7 +298,7 @@ func (c *Webui) IsRabbitmq(request *reconcile.Request, client client.Client) boo
 	return true
 }
 
-func (c *Webui) GetConfigurationParameters() interface{} {
+func (c *Webui) ConfigurationParameters() interface{} {
 	var configurationMap = make(map[string]string)
 	return configurationMap
 }

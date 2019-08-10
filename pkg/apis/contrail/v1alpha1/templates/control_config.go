@@ -2,6 +2,7 @@ package configtemplates
 
 import "text/template"
 
+//ControlControlConfig is the template of the Control service configuration
 var ControlControlConfig = template.Must(template.New("").Parse(`[DEFAULT]
 # bgp_config_file=bgp_config.xml
 bgp_port=179
@@ -39,6 +40,7 @@ rabbitmq_use_ssl=False
 introspect_ssl_enable=False
 sandesh_ssl_enable=False`))
 
+//ControlNamedConfig is the template of the Named service configuration
 var ControlNamedConfig = template.Must(template.New("").Parse(`options {
     directory "/etc/contrail/dns";
     managed-keys-directory "/etc/contrail/dns";
@@ -75,7 +77,8 @@ logging {
     };
 };`))
 
-var ControlDnsConfig = template.Must(template.New("").Parse(`[DEFAULT]
+//ControlDNSConfig is the template of the Dns service configuration
+var ControlDNSConfig = template.Must(template.New("").Parse(`[DEFAULT]
 collectors={{ .CollectorServerList }}
 named_config_file = /etc/mycontrail/named.{{ .ListenAddress }}
 named_config_directory = /etc/contrail/dns
@@ -115,7 +118,7 @@ rabbitmq_use_ssl=False
 introspect_ssl_enable=False
 sandesh_ssl_enable=False`))
 
-///etc/contrail/contrail-analytics-nodemgr.conf
+//ControlNodemanagerConfig is the template of the Control Nodemanager service configuration
 var ControlNodemanagerConfig = template.Must(template.New("").Parse(`[DEFAULTS]
 http_server_ip=0.0.0.0
 log_file=/var/log/contrail/contrail-control-nodemgr.log
@@ -131,6 +134,7 @@ server_list={{ .CollectorServerList }}
 introspect_ssl_enable=False
 sandesh_ssl_enable=False`))
 
+//ControlProvisionConfig is the template of the Control provision script
 var ControlProvisionConfig = template.Must(template.New("").Parse(`#!/bin/bash
 sed "s/hostip=.*/hostip=${POD_IP}/g" /etc/mycontrail/nodemanager.${POD_IP} > /etc/contrail/contrail-control-nodemgr.conf
 servers=$(echo {{ .APIServerList }} | tr ',' ' ')
@@ -148,6 +152,7 @@ for server in $servers ; do
 done
 `))
 
+//ControlDeProvisionConfig is the template of the Control de-provision script
 var ControlDeProvisionConfig = template.Must(template.New("").Parse(`#!/usr/bin/python
 from vnc_api import vnc_api
 import socket

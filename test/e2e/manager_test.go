@@ -103,8 +103,9 @@ func ManagerCluster(t *testing.T) {
 		},
 		Spec: v1alpha1.ManagerSpec{
 			CommonConfiguration: v1alpha1.CommonConfiguration{
-				Replicas:    &replicas,
-				HostNetwork: &hostNetwork,
+				Replicas:         &replicas,
+				HostNetwork:      &hostNetwork,
+				ImagePullSecrets: []string{"contrail-nightly"},
 			},
 			Services: v1alpha1.Services{
 				Rabbitmq: &v1alpha1.Rabbitmq{
@@ -120,7 +121,6 @@ func ManagerCluster(t *testing.T) {
 						ServiceConfiguration: v1alpha1.RabbitmqConfiguration{
 							Images: map[string]string{"rabbitmq": "rabbitmq:3.7",
 								"init": "busybox"},
-							ErlangCookie: "47EFF3BB-4786-46E0-A5BB-58455B3C2CB4",
 						},
 					},
 				},
@@ -140,6 +140,49 @@ func ManagerCluster(t *testing.T) {
 						},
 					},
 				}},
+				Cassandras: []*v1alpha1.Cassandra{{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cassandra1",
+						Namespace: namespace,
+						Labels:    map[string]string{"contrail_cluster": "cluster1"},
+					},
+					Spec: v1alpha1.CassandraSpec{
+						CommonConfiguration: v1alpha1.CommonConfiguration{
+							Create: &create,
+						},
+						ServiceConfiguration: v1alpha1.CassandraConfiguration{
+							Images: map[string]string{"cassandra": "cassandra:3.11.4",
+								"init": "busybox"},
+						},
+					},
+				}},
+				Config: &v1alpha1.Config{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "config1",
+						Namespace: namespace,
+						Labels:    map[string]string{"contrail_cluster": "cluster1"},
+					},
+					Spec: v1alpha1.ConfigSpec{
+						CommonConfiguration: v1alpha1.CommonConfiguration{
+							Create: &create,
+						},
+						ServiceConfiguration: v1alpha1.ConfigConfiguration{
+							CassandraInstance: "cassandra1",
+							ZookeeperInstance: "zookeeper1",
+							Images: map[string]string{"api": "hub.juniper.net/contrail-nightly/contrail-controller-config-api:5.2.0-0.740",
+								"devicemanager":        "hub.juniper.net/contrail-nightly/contrail-controller-config-devicemgr:5.2.0-0.740",
+								"schematransformer":    "hub.juniper.net/contrail-nightly/contrail-controller-config-schema:5.2.0-0.740",
+								"servicemonitor":       "hub.juniper.net/contrail-nightly/contrail-controller-config-svcmonitor:5.2.0-0.740",
+								"analyticsapi":         "hub.juniper.net/contrail-nightly/contrail-analytics-api:5.2.0-0.740",
+								"collector":            "hub.juniper.net/contrail-nightly/contrail-analytics-collector:5.2.0-0.740",
+								"redis":                "redis:4.0.2",
+								"nodemanagerconfig":    "hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740",
+								"nodemanageranalytics": "hub.juniper.net/contrail-nightly/contrail-nodemgr:5.2.0-0.740",
+								"nodeinit":             "hub.juniper.net/contrail-nightly/contrail-node-init:5.2.0-0.740",
+								"init":                 "busybox"},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -156,10 +199,20 @@ func ManagerCluster(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	if err = managerScaleTest(t, f, ctx); err != nil {
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "cassandra1-cassandra-deployment", 1, retryInterval, timeout)
+	if err != nil {
 		t.Fatal(err)
 	}
+	timeout = time.Second * 400
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "config1-config-deployment", 1, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	/*
+		if err = managerScaleTest(t, f, ctx); err != nil {
+			t.Fatal(err)
+		}
+	*/
 }
 
 func RabbitmqCluster(t *testing.T) {
@@ -192,7 +245,6 @@ func RabbitmqCluster(t *testing.T) {
 			ServiceConfiguration: v1alpha1.RabbitmqConfiguration{
 				Images: map[string]string{"rabbitmq": "rabbitmq:3.7",
 					"init": "busybox"},
-				ErlangCookie: "47EFF3BB-4786-46E0-A5BB-58455B3C2CB4",
 			},
 		},
 	}

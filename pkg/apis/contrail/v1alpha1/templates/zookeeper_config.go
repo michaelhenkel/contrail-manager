@@ -2,6 +2,7 @@ package configtemplates
 
 import "text/template"
 
+//ZookeeperConfig is the template of the Zookeeper service configuration
 var ZookeeperConfig = template.Must(template.New("").Parse(`clientPort={{ .ClientPort }}
 clientPortAddress=
 dataDir=/data
@@ -17,6 +18,7 @@ reconfigEnabled=true
 dynamicConfigFile=/mydata/zoo.cfg.dynamic.100000000
 `))
 
+//ZookeeperAuthConfig is the template of the Zookeeper Auth configuration
 var ZookeeperAuthConfig = template.Must(template.New("").Parse(`Server {
 org.apache.zookeeper.server.auth.DigestLoginModule required
 user_super="adminsecret"
@@ -30,6 +32,7 @@ password="blahblah";
 };
 `))
 
+//ZookeeperLogConfig is the template of the Zookeeper Log configuration
 var ZookeeperLogConfig = template.Must(template.New("").Parse(`zookeeper.root.logger=INFO, CONSOLE
 zookeeper.console.threshold=INFO
 zookeeper.log.dir=.
@@ -58,6 +61,7 @@ log4j.appender.TRACEFILE.layout=org.apache.log4j.PatternLayout
 log4j.appender.TRACEFILE.layout.ConversionPattern=%d{ISO8601} [myid:%X{myid}] - %-5p [%t:%C{1}@%L][%x] - %m%n
 `))
 
+//ZookeeperXslConfig is the template of the Zookeeper XSL configuration
 var ZookeeperXslConfig = template.Must(template.New("").Parse(`<?xml version="1.0"?>
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
 <xsl:output method="html"/>

@@ -8,11 +8,10 @@ import (
 	"strconv"
 
 	configtemplates "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1/templates"
-	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -73,15 +72,11 @@ type RabbitmqList struct {
 	Items           []Rabbitmq `json:"items"`
 }
 
-func (c Rabbitmq) GetCrd() *apiextensionsv1beta1.CustomResourceDefinition {
-	return crds.GetRabbitmqCrd()
-}
-
 func init() {
 	SchemeBuilder.Register(&Rabbitmq{}, &RabbitmqList{})
 }
 
-func (c *Rabbitmq) CreateInstanceConfiguration(request reconcile.Request,
+func (c *Rabbitmq) InstanceConfiguration(request reconcile.Request,
 	podList *corev1.PodList,
 	client client.Client) error {
 	instanceConfigMapName := request.Name + "-" + "rabbitmq" + "-configmap"
@@ -101,14 +96,14 @@ func (c *Rabbitmq) CreateInstanceConfiguration(request reconcile.Request,
 	}
 	sort.SliceStable(podList.Items, func(i, j int) bool { return podList.Items[i].Status.PodIP < podList.Items[j].Status.PodIP })
 
-	rabbitmqConfigInterface := c.GetConfigurationParameters()
+	rabbitmqConfigInterface := c.ConfigurationParameters()
 	rabbitmqConfig := rabbitmqConfigInterface.(RabbitmqConfiguration)
 
 	rabbitmqConfigString := fmt.Sprintf("listeners.tcp.default = %d\n", *rabbitmqConfig.Port)
 	rabbitmqConfigString = rabbitmqConfigString + fmt.Sprintf("loopback_users = none\n")
 
 	data := map[string]string{"rabbitmq.conf": rabbitmqConfigString,
-		"RABBITMQ_ERLANG_COOKIE": c.Spec.ServiceConfiguration.ErlangCookie,
+		"RABBITMQ_ERLANG_COOKIE": rabbitmqConfig.ErlangCookie,
 		"RABBITMQ_USE_LONGNAME":  "true",
 		"RABBITMQ_CONFIG_FILE":   "/etc/rabbitmq/rabbitmq.conf",
 		"RABBITMQ_PID_FILE":      "/var/run/rabbitmq.pid",
@@ -169,6 +164,25 @@ func (c *Rabbitmq) OwnedByManager(client client.Client, request reconcile.Reques
 	return nil, nil
 }
 
+// IsActive returns true if instance is active
+func (c *Rabbitmq) IsActive(name string, namespace string, myclient client.Client) bool {
+	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": name})
+	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+	rabbitmqList := &RabbitmqList{}
+	err := myclient.List(context.TODO(), listOps, rabbitmqList)
+	if err != nil {
+		return false
+	}
+	if len(rabbitmqList.Items) > 0 {
+		if rabbitmqList.Items[0].Status.Active != nil {
+			if *rabbitmqList.Items[0].Status.Active {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (c *Rabbitmq) PrepareIntendedDeployment(instanceDeployment *appsv1.Deployment, commonConfiguration *CommonConfiguration, request reconcile.Request, scheme *runtime.Scheme) (*appsv1.Deployment, error) {
 	return PrepareIntendedDeployment(instanceDeployment, commonConfiguration, "rabbitmq", request, scheme, c)
 }
@@ -181,8 +195,8 @@ func (c *Rabbitmq) CompareIntendedWithCurrentDeployment(intendedDeployment *apps
 	return CompareIntendedWithCurrentDeployment(intendedDeployment, commonConfiguration, "rabbitmq", request, scheme, client, c, increaseVersion)
 }
 
-func (c *Rabbitmq) GetPodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
-	return GetPodIPListAndIPMap("rabbitmq", request, client)
+func (c *Rabbitmq) PodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
+	return PodIPListAndIPMap("rabbitmq", request, client)
 }
 
 func (c *Rabbitmq) SetPodsToReady(podIPList *corev1.PodList, client client.Client) error {
@@ -192,7 +206,7 @@ func (c *Rabbitmq) SetPodsToReady(podIPList *corev1.PodList, client client.Clien
 func (c *Rabbitmq) ManageNodeStatus(podNameIPMap map[string]string,
 	client client.Client) error {
 	c.Status.Nodes = podNameIPMap
-	rabbitmqConfigInterface := c.GetConfigurationParameters()
+	rabbitmqConfigInterface := c.ConfigurationParameters()
 	rabbitmqConfig := rabbitmqConfigInterface.(RabbitmqConfiguration)
 	c.Status.Ports.Port = strconv.Itoa(*rabbitmqConfig.Port)
 	err := client.Status().Update(context.TODO(), c)
@@ -247,15 +261,22 @@ func (c *Rabbitmq) IsConfig(request *reconcile.Request, client client.Client) bo
 	return true
 }
 
-func (c *Rabbitmq) GetConfigurationParameters() interface{} {
+func (c *Rabbitmq) ConfigurationParameters() interface{} {
 	rabbitmqConfiguration := RabbitmqConfiguration{}
 	var port int
+	var erlangCookie string
 	if c.Spec.ServiceConfiguration.Port != nil {
 		port = *c.Spec.ServiceConfiguration.Port
 	} else {
 		port = RabbitmqNodePort
 	}
+	if c.Spec.ServiceConfiguration.ErlangCookie != "" {
+		erlangCookie = c.Spec.ServiceConfiguration.ErlangCookie
+	} else {
+		erlangCookie = RabbitmqErlangCookie
+	}
 	rabbitmqConfiguration.Port = &port
+	rabbitmqConfiguration.ErlangCookie = erlangCookie
 
 	return rabbitmqConfiguration
 }

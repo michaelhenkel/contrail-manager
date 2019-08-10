@@ -8,11 +8,9 @@ import (
 	"strconv"
 
 	configtemplates "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1/templates"
-	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -90,11 +88,7 @@ func init() {
 	SchemeBuilder.Register(&Kubemanager{}, &KubemanagerList{})
 }
 
-func (c Kubemanager) GetCrd() *apiextensionsv1beta1.CustomResourceDefinition {
-	return crds.GetKubemanagerCrd()
-}
-
-func (c *Kubemanager) CreateInstanceConfiguration(request reconcile.Request,
+func (c *Kubemanager) InstanceConfiguration(request reconcile.Request,
 	podList *corev1.PodList,
 	client client.Client) error {
 	instanceConfigMapName := request.Name + "-" + "kubemanager" + "-configmap"
@@ -106,25 +100,25 @@ func (c *Kubemanager) CreateInstanceConfiguration(request reconcile.Request,
 		return err
 	}
 
-	cassandraNodesInformation, err := GetCassandraNodes(c.Spec.ServiceConfiguration.CassandraInstance,
+	cassandraNodesInformation, err := NewCassandraClusterConfiguration(c.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
 
-	configNodesInformation, err := GetConfigNodesStatus(c.Labels["contrail_cluster"],
+	configNodesInformation, err := NewConfigClusterConfiguration(c.Labels["contrail_cluster"],
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
 
-	zookeeperNodesInformation, err := GetZookeeperNodes(c.Spec.ServiceConfiguration.ZookeeperInstance,
+	zookeeperNodesInformation, err := NewZookeeperClusterConfiguration(c.Spec.ServiceConfiguration.ZookeeperInstance,
 		request.Namespace, client)
 	if err != nil {
 		return err
 	}
 
-	rabbitmqNodesInformation, err := GetRabbitmqNodes(c.Labels["contrail_cluster"],
+	rabbitmqNodesInformation, err := NewRabbitmqClusterConfiguration(c.Labels["contrail_cluster"],
 		request.Namespace, client)
 	if err != nil {
 		return err
@@ -135,7 +129,7 @@ func (c *Kubemanager) CreateInstanceConfiguration(request reconcile.Request,
 		podIPList = append(podIPList, pod.Status.PodIP)
 	}
 
-	kubemanagerConfigInstance := c.GetConfigurationParameters()
+	kubemanagerConfigInstance := c.ConfigurationParameters()
 	kubemanagerConfig := kubemanagerConfigInstance.(KubemanagerConfiguration)
 
 	if *kubemanagerConfig.UseKubeadmConfig {
@@ -255,6 +249,20 @@ func (c *Kubemanager) OwnedByManager(client client.Client, request reconcile.Req
 	return nil, nil
 }
 
+// IsActive returns true if instance is active
+func (c *Kubemanager) IsActive(name string, namespace string, client client.Client) bool {
+	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, c)
+	if err != nil {
+		return false
+	}
+	if c.Status.Active != nil {
+		if *c.Status.Active {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Kubemanager) PrepareIntendedDeployment(instanceDeployment *appsv1.Deployment, commonConfiguration *CommonConfiguration, request reconcile.Request, scheme *runtime.Scheme) (*appsv1.Deployment, error) {
 	return PrepareIntendedDeployment(instanceDeployment, commonConfiguration, "kubemanager", request, scheme, c)
 }
@@ -267,8 +275,8 @@ func (c *Kubemanager) CompareIntendedWithCurrentDeployment(intendedDeployment *a
 	return CompareIntendedWithCurrentDeployment(intendedDeployment, commonConfiguration, "kubemanager", request, scheme, client, c, increaseVersion)
 }
 
-func (c *Kubemanager) GetPodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
-	return GetPodIPListAndIPMap("kubemanager", request, client)
+func (c *Kubemanager) PodIPListAndIPMap(request reconcile.Request, client client.Client) (*corev1.PodList, map[string]string, error) {
+	return PodIPListAndIPMap("kubemanager", request, client)
 }
 
 func (c *Kubemanager) SetPodsToReady(podIPList *corev1.PodList, client client.Client) error {
@@ -407,7 +415,7 @@ func (c *Kubemanager) IsConfig(request *reconcile.Request, myclient client.Clien
 	return false
 }
 
-func (c *Kubemanager) GetConfigurationParameters() interface{} {
+func (c *Kubemanager) ConfigurationParameters() interface{} {
 	kubemanagerConfiguration := KubemanagerConfiguration{}
 	var cloudOrchestrator string
 	var kubernetesApiServer string

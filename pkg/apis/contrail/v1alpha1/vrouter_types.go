@@ -1,8 +1,6 @@
 package v1alpha1
 
 import (
-	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -42,10 +40,6 @@ type VrouterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Vrouter `json:"items"`
-}
-
-func (v Vrouter) GetCrd() *apiextensionsv1beta1.CustomResourceDefinition {
-	return crds.GetVrouterCrd()
 }
 
 func init() {
