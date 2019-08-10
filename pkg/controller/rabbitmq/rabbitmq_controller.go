@@ -9,9 +9,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -19,6 +23,64 @@ import (
 )
 
 var log = logf.Log.WithName("controller_rabbitmq")
+
+func resourceHandler(myclient client.Client) handler.Funcs {
+	appHandler := handler.Funcs{
+		CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.Meta.GetNamespace()}
+			list := &v1alpha1.RabbitmqList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.Meta.GetNamespace(),
+					}})
+				}
+			}
+		},
+		UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.MetaNew.GetNamespace()}
+			list := &v1alpha1.RabbitmqList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.MetaNew.GetNamespace(),
+					}})
+				}
+			}
+		},
+		DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.Meta.GetNamespace()}
+			list := &v1alpha1.RabbitmqList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.Meta.GetNamespace(),
+					}})
+				}
+			}
+		},
+		GenericFunc: func(e event.GenericEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.Meta.GetNamespace()}
+			list := &v1alpha1.RabbitmqList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.Meta.GetNamespace(),
+					}})
+				}
+			}
+		},
+	}
+	return appHandler
+}
 
 // Add adds the Rabbitmq controller to the manager
 func Add(mgr manager.Manager) error {
@@ -44,12 +106,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to PODs
 	srcPod := &source.Kind{Type: &corev1.Pod{}}
-	podHandler := &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &appsv1.ReplicaSet{},
-	}
+	podHandler := resourceHandler(mgr.GetClient())
 	predInitStatus := utils.PodInitStatusChange(map[string]string{"contrail_manager": "rabbitmq"})
 	predPodIPChange := utils.PodIPChange(map[string]string{"contrail_manager": "rabbitmq"})
 	err = c.Watch(srcPod, podHandler, predPodIPChange)
@@ -61,11 +119,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to Manager
 	srcManager := &source.Kind{Type: &v1alpha1.Manager{}}
-	managerHandler := &handler.EnqueueRequestForObject{}
+	managerHandler := resourceHandler(mgr.GetClient())
 	predManagerSizeChange := utils.ManagerSizeChange(utils.RabbitmqGroupKind())
-	// Watch for Manager events.
 	err = c.Watch(srcManager, managerHandler, predManagerSizeChange)
 	if err != nil {
 		return err
@@ -113,7 +169,6 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 	// --> reconcile.Request is Manager instance name/namespace
 
 	instance := &v1alpha1.Rabbitmq{}
-	var resourceIdentification v1alpha1.ResourceIdentification = instance
 	var resourceObject v1alpha1.ResourceObject = instance
 	var resourceConfiguration v1alpha1.ResourceConfiguration = instance
 	var resourceStatus v1alpha1.ResourceStatus = instance
@@ -121,19 +176,10 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 	// if not found we expect it a change in replicaset
 	// and get the rabbitmq instance via label
 	if err != nil && errors.IsNotFound(err) {
-		replicaSet := &appsv1.ReplicaSet{}
-		err = r.Client.Get(context.TODO(), request.NamespacedName, replicaSet)
-		if err != nil {
-			return reconcile.Result{}, nil
-		}
-		request.Name = replicaSet.Labels[instanceType]
-		err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
-		if err != nil {
-			return reconcile.Result{}, nil
-		}
+		return reconcile.Result{}, nil
 	}
 
-	managerInstance, err := resourceIdentification.OwnedByManager(r.Client, request)
+	managerInstance, err := instance.OwnedByManager(r.Client, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

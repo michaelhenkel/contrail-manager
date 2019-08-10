@@ -92,6 +92,7 @@ func ManagerCluster(t *testing.T) {
 	var create = true
 	var replicas int32 = 1
 	var hostNetwork = false
+	var zkReplicas int32 = 3
 	manager := &v1alpha1.Manager{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Manager",
@@ -132,7 +133,8 @@ func ManagerCluster(t *testing.T) {
 					},
 					Spec: v1alpha1.ZookeeperSpec{
 						CommonConfiguration: v1alpha1.CommonConfiguration{
-							Create: &create,
+							Create:   &create,
+							Replicas: &zkReplicas,
 						},
 						ServiceConfiguration: v1alpha1.ZookeeperConfiguration{
 							Images: map[string]string{"zookeeper": "docker.io/zookeeper:3.5.5",

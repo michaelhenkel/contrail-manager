@@ -9,8 +9,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -20,10 +23,63 @@ import (
 
 var log = logf.Log.WithName("controller_control")
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
+func resourceHandler(myclient client.Client) handler.Funcs {
+	appHandler := handler.Funcs{
+		CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.Meta.GetNamespace()}
+			list := &v1alpha1.ControlList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.Meta.GetNamespace(),
+					}})
+				}
+			}
+		},
+		UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.MetaNew.GetNamespace()}
+			list := &v1alpha1.ControlList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.MetaNew.GetNamespace(),
+					}})
+				}
+			}
+		},
+		DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.Meta.GetNamespace()}
+			list := &v1alpha1.ControlList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.Meta.GetNamespace(),
+					}})
+				}
+			}
+		},
+		GenericFunc: func(e event.GenericEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.Meta.GetNamespace()}
+			list := &v1alpha1.ControlList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.Meta.GetNamespace(),
+					}})
+				}
+			}
+		},
+	}
+	return appHandler
+}
 
 // Add creates a new Control Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -52,10 +108,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch for changes to PODs
 	srcPod := &source.Kind{Type: &corev1.Pod{}}
-	podHandler := &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &appsv1.ReplicaSet{},
-	}
+	podHandler := resourceHandler(mgr.GetClient())
 	predInitStatus := utils.PodInitStatusChange(map[string]string{"contrail_manager": "control"})
 	predPodIPChange := utils.PodIPChange(map[string]string{"contrail_manager": "control"})
 	err = c.Watch(srcPod, podHandler, predPodIPChange)
@@ -67,51 +120,41 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to Manager
 	srcManager := &source.Kind{Type: &v1alpha1.Manager{}}
-	managerHandler := &handler.EnqueueRequestForObject{}
+	managerHandler := resourceHandler(mgr.GetClient())
 	predManagerSizeChange := utils.ManagerSizeChange(utils.ControlGroupKind())
-	// Watch for Manager events.
 	err = c.Watch(srcManager, managerHandler, predManagerSizeChange)
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to Manager
 	srcCassandra := &source.Kind{Type: &v1alpha1.Cassandra{}}
-	cassandraHandler := &handler.EnqueueRequestForObject{}
+	cassandraHandler := resourceHandler(mgr.GetClient())
 	predCassandraSizeChange := utils.CassandraActiveChange()
-	// Watch for Manager events.
 	err = c.Watch(srcCassandra, cassandraHandler, predCassandraSizeChange)
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to Manager
 	srcConfig := &source.Kind{Type: &v1alpha1.Config{}}
-	configHandler := &handler.EnqueueRequestForObject{}
+	configHandler := resourceHandler(mgr.GetClient())
 	predConfigSizeChange := utils.ConfigActiveChange()
-	// Watch for Manager events.
 	err = c.Watch(srcConfig, configHandler, predConfigSizeChange)
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to Manager
 	srcRabbitmq := &source.Kind{Type: &v1alpha1.Rabbitmq{}}
-	rabbitmqHandler := &handler.EnqueueRequestForObject{}
+	rabbitmqHandler := resourceHandler(mgr.GetClient())
 	predRabbitmqSizeChange := utils.RabbitmqActiveChange()
-	// Watch for Manager events.
 	err = c.Watch(srcRabbitmq, rabbitmqHandler, predRabbitmqSizeChange)
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to Manager
 	srcZookeeper := &source.Kind{Type: &v1alpha1.Zookeeper{}}
-	zookeeperHandler := &handler.EnqueueRequestForObject{}
+	zookeeperHandler := resourceHandler(mgr.GetClient())
 	predZookeeperSizeChange := utils.ZookeeperActiveChange()
-	// Watch for Manager events.
 	err = c.Watch(srcZookeeper, zookeeperHandler, predZookeeperSizeChange)
 	if err != nil {
 		return err
@@ -155,25 +198,12 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 	reqLogger.Info("Reconciling Control")
 	instanceType := "control"
 	instance := &v1alpha1.Control{}
-	var resourceIdentification v1alpha1.ResourceIdentification = instance
 	var resourceObject v1alpha1.ResourceObject = instance
 	var resourceConfiguration v1alpha1.ResourceConfiguration = instance
 	var resourceStatus v1alpha1.ResourceStatus = instance
 	err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil && errors.IsNotFound(err) {
-		isReplicaset := resourceIdentification.IsReplicaset(&request, instanceType, r.Client)
-		isManager := resourceIdentification.IsManager(&request, r.Client)
-		isZookeeper := resourceIdentification.IsZookeeper(&request, r.Client)
-		isRabbitmq := resourceIdentification.IsRabbitmq(&request, r.Client)
-		isCassandra := resourceIdentification.IsCassandra(&request, r.Client)
-		isConfig := resourceIdentification.IsConfig(&request, r.Client)
-		if !isConfig && !isCassandra && !isRabbitmq && !isZookeeper && !isReplicaset && !isManager {
-			return reconcile.Result{}, nil
-		}
-		err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
-		if err != nil {
-			return reconcile.Result{}, nil
-		}
+		return reconcile.Result{}, nil
 	}
 	cassandraActive := false
 	zookeeperActive := false
@@ -191,7 +221,7 @@ func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, nil
 	}
 
-	managerInstance, err := resourceIdentification.OwnedByManager(r.Client, request)
+	managerInstance, err := instance.OwnedByManager(r.Client, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
