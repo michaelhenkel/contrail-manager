@@ -12,7 +12,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -313,106 +312,6 @@ func (c *Kubemanager) SetInstanceActive(client client.Client, statusInterface in
 		return err
 	}
 	return nil
-}
-
-func (c *Kubemanager) IsCassandra(request *reconcile.Request, myclient client.Client) bool {
-	cassandraInstance := &Cassandra{}
-	err := myclient.Get(context.TODO(), request.NamespacedName, cassandraInstance)
-	if err == nil {
-		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": cassandraInstance.Labels["contrail_cluster"]})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		list := &KubemanagerList{}
-		err = myclient.List(context.TODO(), listOps, list)
-		if err == nil {
-			if len(list.Items) > 0 {
-				request.Name = list.Items[0].Name
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (c *Kubemanager) IsManager(request *reconcile.Request, myclient client.Client) bool {
-	managerInstance := &Manager{}
-	err := myclient.Get(context.TODO(), request.NamespacedName, managerInstance)
-	if err == nil {
-		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": managerInstance.GetName()})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		list := &KubemanagerList{}
-		err = myclient.List(context.TODO(), listOps, list)
-		if err == nil {
-			if len(list.Items) > 0 {
-				request.Name = list.Items[0].Name
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (c *Kubemanager) IsZookeeper(request *reconcile.Request, myclient client.Client) bool {
-	zookeeperInstance := &Zookeeper{}
-	err := myclient.Get(context.TODO(), request.NamespacedName, zookeeperInstance)
-	if err == nil {
-		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": zookeeperInstance.Labels["contrail_cluster"]})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		list := &KubemanagerList{}
-		err = myclient.List(context.TODO(), listOps, list)
-		if err == nil {
-			if len(list.Items) > 0 {
-				request.Name = list.Items[0].Name
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (c *Kubemanager) IsRabbitmq(request *reconcile.Request, myclient client.Client) bool {
-	rabbitmqInstance := &Rabbitmq{}
-	err := myclient.Get(context.TODO(), request.NamespacedName, rabbitmqInstance)
-	if err == nil {
-		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": rabbitmqInstance.Labels["contrail_cluster"]})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		list := &KubemanagerList{}
-		err = myclient.List(context.TODO(), listOps, list)
-		if err == nil {
-			if len(list.Items) > 0 {
-				request.Name = list.Items[0].Name
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (c *Kubemanager) IsReplicaset(request *reconcile.Request, instanceType string, client client.Client) bool {
-	replicaSet := &appsv1.ReplicaSet{}
-	err := client.Get(context.TODO(), request.NamespacedName, replicaSet)
-	if err == nil {
-		request.Name = replicaSet.Labels[instanceType]
-		return true
-	}
-	return false
-}
-
-func (c *Kubemanager) IsConfig(request *reconcile.Request, myclient client.Client) bool {
-	configInstance := &Config{}
-	err := myclient.Get(context.TODO(), request.NamespacedName, configInstance)
-	if err == nil {
-		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": configInstance.Labels["contrail_cluster"]})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		list := &KubemanagerList{}
-		err = myclient.List(context.TODO(), listOps, list)
-		if err == nil {
-			if len(list.Items) > 0 {
-				request.Name = list.Items[0].Name
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func (c *Kubemanager) ConfigurationParameters() interface{} {

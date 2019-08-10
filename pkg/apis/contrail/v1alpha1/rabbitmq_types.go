@@ -237,30 +237,6 @@ func (c *Rabbitmq) SetInstanceActive(client client.Client, statusInterface inter
 	return nil
 }
 
-func (c *Rabbitmq) IsCassandra(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-func (c *Rabbitmq) IsManager(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-func (c *Rabbitmq) IsZookeeper(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-func (c *Rabbitmq) IsRabbitmq(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-func (c *Rabbitmq) IsReplicaset(request *reconcile.Request, instanceType string, client client.Client) bool {
-	return true
-}
-
-func (c *Rabbitmq) IsConfig(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
 func (c *Rabbitmq) ConfigurationParameters() interface{} {
 	rabbitmqConfiguration := RabbitmqConfiguration{}
 	var port int

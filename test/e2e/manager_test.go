@@ -92,7 +92,7 @@ func ManagerCluster(t *testing.T) {
 	var create = true
 	var replicas int32 = 1
 	var hostNetwork = false
-	var zkReplicas int32 = 3
+	var zkReplicas int32 = 1
 	manager := &v1alpha1.Manager{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Manager",

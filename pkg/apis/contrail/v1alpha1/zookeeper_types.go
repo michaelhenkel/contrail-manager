@@ -238,30 +238,6 @@ func (c *Zookeeper) SetInstanceActive(client client.Client, statusInterface inte
 	return nil
 }
 
-func (c *Zookeeper) IsCassandra(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-func (c *Zookeeper) IsManager(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-func (c *Zookeeper) IsZookeeper(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-func (c *Zookeeper) IsRabbitmq(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-func (c *Zookeeper) IsReplicaset(request *reconcile.Request, instanceType string, client client.Client) bool {
-	return true
-}
-
-func (c *Zookeeper) IsConfig(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
 func (c *Zookeeper) ConfigurationParameters() interface{} {
 	zookeeperConfiguration := ZookeeperConfiguration{}
 	var clientPort int

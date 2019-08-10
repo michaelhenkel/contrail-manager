@@ -237,36 +237,6 @@ func (c *Cassandra) SetInstanceActive(client client.Client, statusInterface inte
 	return nil
 }
 
-// IsCassandra returns true if instance is cassandra
-func (c *Cassandra) IsCassandra(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-// IsManager returns true if instance is manager
-func (c *Cassandra) IsManager(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-// IsZookeeper returns true if instance is zookeeper
-func (c *Cassandra) IsZookeeper(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-// IsRabbitmq returns true if instance is rabbitmq
-func (c *Cassandra) IsRabbitmq(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-// IsReplicaset returns true if instance is replicaset
-func (c *Cassandra) IsReplicaset(request *reconcile.Request, instanceType string, client client.Client) bool {
-	return true
-}
-
-// IsConfig returns true if instance is config
-func (c *Cassandra) IsConfig(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
 // IsActive returns true if instance is active
 func (c *Cassandra) IsActive(name string, namespace string, client client.Client) bool {
 	instance := &Cassandra{}

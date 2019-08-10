@@ -8,10 +8,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -34,13 +32,6 @@ const (
 )
 
 var err error
-
-func IsReplicaset(rI v1alpha1.ResourceIdentification,
-	request *reconcile.Request,
-	resourceType string,
-	client client.Client) bool {
-	return rI.IsReplicaset(request, resourceType, client)
-}
 
 // GetGroupKindFromObject return GK
 func GetGroupKindFromObject(object runtime.Object) schema.GroupKind {
@@ -280,70 +271,6 @@ func PodInitStatusChange(appLabel map[string]string) predicate.Funcs {
 		},
 	}
 	return pred
-}
-
-func IsCassandraActive(name string, namespace string, client client.Client) bool {
-	cassandraInstance := &v1alpha1.Cassandra{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, cassandraInstance)
-	if err != nil {
-		return false
-	}
-	if cassandraInstance.Status.Active != nil {
-		if *cassandraInstance.Status.Active {
-			return true
-		}
-	}
-	return false
-}
-
-func IsConfigActive(name string, namespace string, myclient client.Client) bool {
-	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": name})
-	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
-	list := &v1alpha1.ConfigList{}
-	err = myclient.List(context.TODO(), listOps, list)
-	if err != nil {
-		return false
-	}
-	if len(list.Items) > 0 {
-		if list.Items[0].Status.Active != nil {
-			if *list.Items[0].Status.Active {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func IsRabbitmqActive(name string, namespace string, myclient client.Client) bool {
-	labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": name})
-	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
-	rabbitmqList := &v1alpha1.RabbitmqList{}
-	err = myclient.List(context.TODO(), listOps, rabbitmqList)
-	if err != nil {
-		return false
-	}
-	if len(rabbitmqList.Items) > 0 {
-		if rabbitmqList.Items[0].Status.Active != nil {
-			if *rabbitmqList.Items[0].Status.Active {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func IsZookeeperActive(name string, namespace string, client client.Client) bool {
-	zookeeperInstance := &v1alpha1.Zookeeper{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, zookeeperInstance)
-	if err != nil {
-		return false
-	}
-	if zookeeperInstance.Status.Active != nil {
-		if *zookeeperInstance.Status.Active {
-			return true
-		}
-	}
-	return false
 }
 
 // CassandraActiveChange returns predicate function based on group kind

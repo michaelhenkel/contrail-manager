@@ -9,7 +9,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -238,64 +237,6 @@ func (c *Webui) SetInstanceActive(client client.Client, statusInterface interfac
 		return err
 	}
 	return nil
-}
-
-func (c *Webui) IsCassandra(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-func (c *Webui) IsManager(request *reconcile.Request, myclient client.Client) bool {
-	managerInstance := &Manager{}
-	err := myclient.Get(context.TODO(), request.NamespacedName, managerInstance)
-	if err == nil {
-		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": managerInstance.GetName()})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		list := &WebuiList{}
-		err = myclient.List(context.TODO(), listOps, list)
-		if err == nil {
-			if len(list.Items) > 0 {
-				request.Name = list.Items[0].Name
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (c *Webui) IsZookeeper(request *reconcile.Request, client client.Client) bool {
-	return true
-}
-
-func (c *Webui) IsReplicaset(request *reconcile.Request, instanceType string, client client.Client) bool {
-	replicaSet := &appsv1.ReplicaSet{}
-	err := client.Get(context.TODO(), request.NamespacedName, replicaSet)
-	if err == nil {
-		request.Name = replicaSet.Labels[instanceType]
-		return true
-	}
-	return false
-}
-
-func (c *Webui) IsConfig(request *reconcile.Request, myclient client.Client) bool {
-	configInstance := &Config{}
-	err := myclient.Get(context.TODO(), request.NamespacedName, configInstance)
-	if err == nil {
-		labelSelector := labels.SelectorFromSet(map[string]string{"contrail_cluster": configInstance.Labels["contrail_cluster"]})
-		listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
-		list := &WebuiList{}
-		err = myclient.List(context.TODO(), listOps, list)
-		if err == nil {
-			if len(list.Items) > 0 {
-				request.Name = list.Items[0].Name
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (c *Webui) IsRabbitmq(request *reconcile.Request, client client.Client) bool {
-	return true
 }
 
 func (c *Webui) ConfigurationParameters() interface{} {

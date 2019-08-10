@@ -173,6 +173,8 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 	reqLogger.Info("Reconciling Webui")
 	instanceType := "webui"
 	instance := &v1alpha1.Webui{}
+	configInstance := v1alpha1.Config{}
+
 	var resourceObject v1alpha1.ResourceObject = instance
 	var resourceConfiguration v1alpha1.ResourceConfiguration = instance
 	var resourceStatus v1alpha1.ResourceStatus = instance
@@ -180,8 +182,7 @@ func (r *ReconcileWebui) Reconcile(request reconcile.Request) (reconcile.Result,
 	if err != nil && errors.IsNotFound(err) {
 		return reconcile.Result{}, nil
 	}
-	configActive := false
-	configActive = utils.IsConfigActive(instance.Labels["contrail_cluster"],
+	configActive := configInstance.IsActive(instance.Labels["contrail_cluster"],
 		request.Namespace, r.Client)
 	if !configActive {
 		return reconcile.Result{}, nil

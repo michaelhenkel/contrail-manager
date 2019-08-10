@@ -85,12 +85,6 @@ type ResourceConfiguration interface {
 
 // ResourceIdentification is the interface with the service identification methods
 type ResourceIdentification interface {
-	IsReplicaset(*reconcile.Request, string, client.Client) bool
-	IsManager(*reconcile.Request, client.Client) bool
-	IsRabbitmq(*reconcile.Request, client.Client) bool
-	IsZookeeper(*reconcile.Request, client.Client) bool
-	IsCassandra(*reconcile.Request, client.Client) bool
-	IsConfig(*reconcile.Request, client.Client) bool
 	OwnedByManager(client.Client, reconcile.Request) (*Manager, error)
 }
 

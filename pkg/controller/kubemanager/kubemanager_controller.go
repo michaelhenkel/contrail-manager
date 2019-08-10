@@ -201,6 +201,10 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 	reqLogger.Info("Reconciling Kubemanager")
 	instanceType := "kubemanager"
 	instance := &v1alpha1.Kubemanager{}
+	cassandraInstance := v1alpha1.Cassandra{}
+	zookeeperInstance := v1alpha1.Zookeeper{}
+	rabbitmqInstance := v1alpha1.Rabbitmq{}
+	configInstance := v1alpha1.Config{}
 	var resourceObject v1alpha1.ResourceObject = instance
 	var resourceConfiguration v1alpha1.ResourceConfiguration = instance
 	var resourceStatus v1alpha1.ResourceStatus = instance
@@ -208,17 +212,14 @@ func (r *ReconcileKubemanager) Reconcile(request reconcile.Request) (reconcile.R
 	if err != nil && errors.IsNotFound(err) {
 		return reconcile.Result{}, nil
 	}
-	cassandraActive := false
-	zookeeperActive := false
-	rabbitmqActive := false
-	configActive := false
-	cassandraActive = utils.IsCassandraActive(instance.Spec.ServiceConfiguration.CassandraInstance,
+
+	cassandraActive := cassandraInstance.IsActive(instance.Spec.ServiceConfiguration.CassandraInstance,
 		request.Namespace, r.Client)
-	zookeeperActive = utils.IsZookeeperActive(instance.Spec.ServiceConfiguration.ZookeeperInstance,
+	zookeeperActive := zookeeperInstance.IsActive(instance.Spec.ServiceConfiguration.ZookeeperInstance,
 		request.Namespace, r.Client)
-	rabbitmqActive = utils.IsRabbitmqActive(instance.Labels["contrail_cluster"],
+	rabbitmqActive := rabbitmqInstance.IsActive(instance.Labels["contrail_cluster"],
 		request.Namespace, r.Client)
-	configActive = utils.IsConfigActive(instance.Labels["contrail_cluster"],
+	configActive := configInstance.IsActive(instance.Labels["contrail_cluster"],
 		request.Namespace, r.Client)
 	if !configActive || !cassandraActive || !rabbitmqActive || !zookeeperActive {
 		return reconcile.Result{}, nil
