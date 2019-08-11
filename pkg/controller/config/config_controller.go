@@ -81,6 +81,7 @@ func resourceHandler(myclient client.Client) handler.Funcs {
 	return appHandler
 }
 
+// Add adds the Config controller to the manager
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
 }
@@ -173,6 +174,7 @@ type ReconcileConfig struct {
 	podsReady *bool
 }
 
+// Reconcile reconciles Config
 func (r *ReconcileConfig) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	var err error
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)

@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// const defines the condsts
+// const defines the Group constants
 const (
 	CASSANDRA   = "Cassandra.contrail.juniper.net"
 	ZOOKEEPER   = "Zookeeper.contrail.juniper.net"
@@ -38,25 +38,6 @@ func GetGroupKindFromObject(object runtime.Object) schema.GroupKind {
 	objectKind := object.GetObjectKind()
 	objectGroupVersionKind := objectKind.GroupVersionKind()
 	return objectGroupVersionKind.GroupKind()
-}
-
-// ReconcileNilNotFound reconciles
-func ReconcileNilNotFound(err error) (reconcile.Result, error) {
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return reconcile.Result{}, nil
-		}
-		return reconcile.Result{}, err
-	}
-	return reconcile.Result{}, nil
-}
-
-// ReconcileErr reconciles
-func ReconcileErr(err error) (reconcile.Result, error) {
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	return reconcile.Result{}, nil
 }
 
 // WebuiGroupKind returns group kind
@@ -114,32 +95,6 @@ func DeploymentGroupKind() schema.GroupKind {
 	return schema.ParseGroupKind(DEPLOYMENT)
 }
 
-// AppSizeChange returns
-func AppSizeChange(appGroupKind schema.GroupKind) predicate.Funcs {
-	pred := predicate.Funcs{}
-	switch appGroupKind {
-	case CassandraGroupKind():
-		pred = predicate.Funcs{
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldInstance := e.ObjectOld.(*v1alpha1.Cassandra)
-				newInstance := e.ObjectNew.(*v1alpha1.Cassandra)
-				return oldInstance.Spec.CommonConfiguration.Replicas != newInstance.Spec.CommonConfiguration.Replicas
-			},
-		}
-	case ZookeeperGroupKind():
-		pred = predicate.Funcs{
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldInstance := e.ObjectOld.(*v1alpha1.Zookeeper)
-				newInstance := e.ObjectNew.(*v1alpha1.Zookeeper)
-				return oldInstance.Spec.CommonConfiguration.Replicas != newInstance.Spec.CommonConfiguration.Replicas
-			},
-		}
-	case ManagerGroupKind():
-
-	}
-	return pred
-}
-
 // ManagerSizeChange monitors per application size change
 func ManagerSizeChange(appGroupKind schema.GroupKind) predicate.Funcs {
 	pred := predicate.Funcs{
@@ -183,7 +138,25 @@ func ManagerSizeChange(appGroupKind schema.GroupKind) predicate.Funcs {
 						}
 					}
 				}
+
+			case RabbitmqGroupKind():
+				oldInstance := oldManager.Spec.Services.Rabbitmq
+				if oldInstance.Spec.CommonConfiguration.Replicas != nil {
+					oldSize = *oldInstance.Spec.CommonConfiguration.Replicas
+				} else {
+					oldSize = *oldManager.Spec.CommonConfiguration.Replicas
+				}
+				newInstance := newManager.Spec.Services.Rabbitmq
+				if oldInstance.Name == newInstance.Name {
+					if newInstance.Spec.CommonConfiguration.Replicas != nil {
+						newSize = *newInstance.Spec.CommonConfiguration.Replicas
+					} else {
+						newSize = *newManager.Spec.CommonConfiguration.Replicas
+					}
+				}
+
 			}
+
 			if oldSize != newSize {
 				return true
 			}
@@ -397,14 +370,7 @@ func GetObjectAndGroupKindFromRequest(request *reconcile.Request, client client.
 	return instance, &appGroupKind, nil
 }
 
-//SetRequestName returns GroupKind
-func SetRequestName(request *reconcile.Request) *schema.GroupKind {
-	groupKind := schema.ParseGroupKind(strings.Split(request.Name, "/")[0])
-	name := strings.Split(request.Name, "/")[1]
-	request.Name = name
-	return &groupKind
-}
-
+// MergeCommonConfiguration combines common configuration of manager and service
 func MergeCommonConfiguration(manager v1alpha1.CommonConfiguration,
 	instance v1alpha1.CommonConfiguration) v1alpha1.CommonConfiguration {
 	if len(instance.NodeSelector) == 0 && len(manager.NodeSelector) > 0 {

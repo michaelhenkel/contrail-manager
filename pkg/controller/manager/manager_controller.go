@@ -115,6 +115,7 @@ type ReconcileManager struct {
 	cache      cache.Cache
 }
 
+// Reconcile reconciles the manager
 func (r *ReconcileManager) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.NamespaceX", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Manager")

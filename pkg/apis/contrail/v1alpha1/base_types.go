@@ -75,33 +75,6 @@ type CommonConfiguration struct {
 	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
 }
 
-// ResourceConfiguration is the interface with methods for service configurations
-type ResourceConfiguration interface {
-	ConfigurationParameters() interface{}
-	InstanceConfiguration(reconcile.Request, *corev1.PodList, client.Client) error
-	CompareIntendedWithCurrentDeployment(*appsv1.Deployment, *CommonConfiguration, reconcile.Request, *runtime.Scheme, client.Client, bool) error
-	PodIPListAndIPMap(reconcile.Request, client.Client) (*corev1.PodList, map[string]string, error)
-}
-
-// ResourceIdentification is the interface with the service identification methods
-type ResourceIdentification interface {
-	OwnedByManager(client.Client, reconcile.Request) (*Manager, error)
-}
-
-// ResourceObject is the interface with the object methods
-type ResourceObject interface {
-	CreateConfigMap(string, client.Client, *runtime.Scheme, reconcile.Request) (*corev1.ConfigMap, error)
-	PrepareIntendedDeployment(*appsv1.Deployment, *CommonConfiguration, reconcile.Request, *runtime.Scheme) (*appsv1.Deployment, error)
-	AddVolumesToIntendedDeployments(*appsv1.Deployment, map[string]string)
-}
-
-// ResourceStatus is the interface with service status methods
-type ResourceStatus interface {
-	SetPodsToReady(*corev1.PodList, client.Client) error
-	ManageNodeStatus(map[string]string, client.Client) error
-	SetInstanceActive(client.Client, interface{}, *appsv1.Deployment, reconcile.Request) error
-}
-
 //SetPodsToReady sets the status label of a POD to ready
 func SetPodsToReady(podList *corev1.PodList, client client.Client) error {
 	for _, pod := range podList.Items {

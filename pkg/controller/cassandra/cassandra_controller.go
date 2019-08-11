@@ -82,6 +82,7 @@ func resourceHandler(myclient client.Client) handler.Funcs {
 	return appHandler
 }
 
+// Add adds Cassandra controller to the manager
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
 }
@@ -164,9 +165,6 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 	if err != nil && errors.IsNotFound(err) {
 		return reconcile.Result{}, nil
 	}
-	var resourceObject v1alpha1.ResourceObject = instance
-	var resourceConfiguration v1alpha1.ResourceConfiguration = instance
-	var resourceStatus v1alpha1.ResourceStatus = instance
 
 	managerInstance, err := instance.OwnedByManager(r.Client, request)
 	if err != nil {
@@ -188,7 +186,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 	}
 
-	configMap, err := resourceObject.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
+	configMap, err := instance.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
 		r.Client,
 		r.Scheme,
 		request)
@@ -196,7 +194,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	intendedDeployment, err := resourceObject.PrepareIntendedDeployment(GetDeployment(),
+	intendedDeployment, err := instance.PrepareIntendedDeployment(GetDeployment(),
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme)
@@ -204,7 +202,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	resourceObject.AddVolumesToIntendedDeployments(intendedDeployment,
+	instance.AddVolumesToIntendedDeployments(intendedDeployment,
 		map[string]string{configMap.Name: request.Name + "-" + instanceType + "-volume"})
 
 	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
@@ -257,7 +255,7 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 			}
 		}
 	}
-	err = resourceConfiguration.CompareIntendedWithCurrentDeployment(intendedDeployment,
+	err = instance.CompareIntendedWithCurrentDeployment(intendedDeployment,
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme,
@@ -267,30 +265,30 @@ func (r *ReconcileCassandra) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	podIPList, podIPMap, err := resourceConfiguration.PodIPListAndIPMap(request, r.Client)
+	podIPList, podIPMap, err := instance.PodIPListAndIPMap(request, r.Client)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	if len(podIPList.Items) > 0 {
-		err = resourceConfiguration.InstanceConfiguration(request,
+		err = instance.InstanceConfiguration(request,
 			podIPList,
 			r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = resourceStatus.SetPodsToReady(podIPList, r.Client)
+		err = instance.SetPodsToReady(podIPList, r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = resourceStatus.ManageNodeStatus(podIPMap, r.Client)
+		err = instance.ManageNodeStatus(podIPMap, r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	err = resourceStatus.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
+	err = instance.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

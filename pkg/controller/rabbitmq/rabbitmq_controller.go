@@ -169,9 +169,7 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 	// --> reconcile.Request is Manager instance name/namespace
 
 	instance := &v1alpha1.Rabbitmq{}
-	var resourceObject v1alpha1.ResourceObject = instance
-	var resourceConfiguration v1alpha1.ResourceConfiguration = instance
-	var resourceStatus v1alpha1.ResourceStatus = instance
+
 	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	// if not found we expect it a change in replicaset
 	// and get the rabbitmq instance via label
@@ -196,7 +194,7 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 		}
 	}
 
-	configMap, err := resourceObject.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
+	configMap, err := instance.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
 		r.Client,
 		r.Scheme,
 		request)
@@ -204,7 +202,7 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
-	configMap2, err := resourceObject.CreateConfigMap(request.Name+"-"+instanceType+"-configmap-runner",
+	configMap2, err := instance.CreateConfigMap(request.Name+"-"+instanceType+"-configmap-runner",
 		r.Client,
 		r.Scheme,
 		request)
@@ -212,7 +210,7 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
-	intendedDeployment, err := resourceObject.PrepareIntendedDeployment(GetDeployment(),
+	intendedDeployment, err := instance.PrepareIntendedDeployment(GetDeployment(),
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme)
@@ -220,7 +218,7 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
-	resourceObject.AddVolumesToIntendedDeployments(intendedDeployment,
+	instance.AddVolumesToIntendedDeployments(intendedDeployment,
 		map[string]string{configMap.Name: request.Name + "-" + instanceType + "-volume",
 			configMap2.Name: request.Name + "-" + instanceType + "-runner"})
 
@@ -266,7 +264,7 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 		}
 	}
 
-	err = resourceConfiguration.CompareIntendedWithCurrentDeployment(intendedDeployment,
+	err = instance.CompareIntendedWithCurrentDeployment(intendedDeployment,
 		&instance.Spec.CommonConfiguration,
 		request,
 		r.Scheme,
@@ -276,28 +274,28 @@ func (r *ReconcileRabbitmq) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
-	podIPList, podIPMap, err := resourceConfiguration.PodIPListAndIPMap(request, r.Client)
+	podIPList, podIPMap, err := instance.PodIPListAndIPMap(request, r.Client)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	if len(podIPList.Items) > 0 {
-		err = resourceConfiguration.InstanceConfiguration(request,
+		err = instance.InstanceConfiguration(request,
 			podIPList,
 			r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		err = resourceStatus.SetPodsToReady(podIPList, r.Client)
+		err = instance.SetPodsToReady(podIPList, r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = resourceStatus.ManageNodeStatus(podIPMap, r.Client)
+		err = instance.ManageNodeStatus(podIPMap, r.Client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
-	err = resourceStatus.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
+	err = instance.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

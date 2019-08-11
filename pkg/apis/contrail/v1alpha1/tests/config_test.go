@@ -130,9 +130,9 @@ type Environment struct {
 
 type resource struct {
 	resourceIdentification v1alpha1.ResourceIdentification
-	resourceObject         v1alpha1.ResourceObject
-	resourceConfiguration  v1alpha1.ResourceConfiguration
-	resourceStatus         v1alpha1.ResourceStatus
+	instance               v1alpha1.ResourceObject
+	instance               v1alpha1.ResourceConfiguration
+	instance               v1alpha1.ResourceStatus
 }
 
 func SetupEnv() Environment {
@@ -212,51 +212,51 @@ func SetupEnv() Environment {
 
 	configResource := resource{
 		resourceIdentification: config,
-		resourceObject:         config,
-		resourceConfiguration:  config,
-		resourceStatus:         config,
+		instance:               config,
+		instance:               config,
+		instance:               config,
 	}
 
 	controlResource := resource{
 		resourceIdentification: control,
-		resourceObject:         control,
-		resourceConfiguration:  control,
-		resourceStatus:         control,
+		instance:               control,
+		instance:               control,
+		instance:               control,
 	}
 
 	rabbitmqResource := resource{
 		resourceIdentification: rabbitmq,
-		resourceObject:         rabbitmq,
-		resourceConfiguration:  rabbitmq,
-		resourceStatus:         rabbitmq,
+		instance:               rabbitmq,
+		instance:               rabbitmq,
+		instance:               rabbitmq,
 	}
 
 	zookeeperResource := resource{
 		resourceIdentification: zookeeper,
-		resourceObject:         zookeeper,
-		resourceConfiguration:  zookeeper,
-		resourceStatus:         zookeeper,
+		instance:               zookeeper,
+		instance:               zookeeper,
+		instance:               zookeeper,
 	}
 
 	cassandraResource := resource{
 		resourceIdentification: cassandra,
-		resourceObject:         cassandra,
-		resourceConfiguration:  cassandra,
-		resourceStatus:         cassandra,
+		instance:               cassandra,
+		instance:               cassandra,
+		instance:               cassandra,
 	}
 
 	kubemanagerResource := resource{
 		resourceIdentification: kubemanager,
-		resourceObject:         kubemanager,
-		resourceConfiguration:  kubemanager,
-		resourceStatus:         kubemanager,
+		instance:               kubemanager,
+		instance:               kubemanager,
+		instance:               kubemanager,
 	}
 
 	webuiResource := resource{
 		resourceIdentification: webui,
-		resourceObject:         webui,
-		resourceConfiguration:  webui,
-		resourceStatus:         webui,
+		instance:               webui,
+		instance:               webui,
+		instance:               webui,
 	}
 
 	var podServiceMap = make(map[string]map[string]string)
@@ -360,14 +360,14 @@ func SetupEnv() Environment {
 		Items: webuiPodItems,
 	}
 
-	configResource.resourceStatus.ManageNodeStatus(podMap.configPods, cl)
-	rabbitmqResource.resourceStatus.ManageNodeStatus(podMap.rabbitmqPods, cl)
+	configResource.instance.ManageNodeStatus(podMap.configPods, cl)
+	rabbitmqResource.instance.ManageNodeStatus(podMap.rabbitmqPods, cl)
 
-	cassandraResource.resourceStatus.ManageNodeStatus(podMap.cassandraPods, cl)
-	zookeeperResource.resourceStatus.ManageNodeStatus(podMap.zookeeperPods, cl)
-	controlResource.resourceStatus.ManageNodeStatus(podMap.controlPods, cl)
-	kubemanagerResource.resourceStatus.ManageNodeStatus(podMap.kubemanagerPods, cl)
-	webuiResource.resourceStatus.ManageNodeStatus(podMap.webuiPods, cl)
+	cassandraResource.instance.ManageNodeStatus(podMap.cassandraPods, cl)
+	zookeeperResource.instance.ManageNodeStatus(podMap.zookeeperPods, cl)
+	controlResource.instance.ManageNodeStatus(podMap.controlPods, cl)
+	kubemanagerResource.instance.ManageNodeStatus(podMap.kubemanagerPods, cl)
+	webuiResource.instance.ManageNodeStatus(podMap.webuiPods, cl)
 
 	environment := Environment{
 		client:               &cl,
@@ -402,7 +402,7 @@ func TestConfigConfig(t *testing.T) {
 
 	environment := SetupEnv()
 	cl := *environment.client
-	err := environment.configResource.resourceConfiguration.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "config1", Namespace: "default"}}, &environment.configPodList, cl)
+	err := environment.configResource.instance.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "config1", Namespace: "default"}}, &environment.configPodList, cl)
 	if err != nil {
 		t.Fatalf("get configmap: (%v)", err)
 	}
@@ -458,7 +458,7 @@ func TestControlConfig(t *testing.T) {
 
 	environment := SetupEnv()
 	cl := *environment.client
-	err := environment.controlResource.resourceConfiguration.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "control1", Namespace: "default"}}, &environment.controlPodList, cl)
+	err := environment.controlResource.instance.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "control1", Namespace: "default"}}, &environment.controlPodList, cl)
 	if err != nil {
 		t.Fatalf("get configmap: (%v)", err)
 	}
@@ -503,7 +503,7 @@ func TestKubemanagerConfig(t *testing.T) {
 
 	environment := SetupEnv()
 	cl := *environment.client
-	err := environment.kubemanagerResource.resourceConfiguration.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "kubemanager1", Namespace: "default"}}, &environment.kubemanbagerPodList, cl)
+	err := environment.kubemanagerResource.instance.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "kubemanager1", Namespace: "default"}}, &environment.kubemanbagerPodList, cl)
 	if err != nil {
 		t.Fatalf("get configmap: (%v)", err)
 	}
@@ -524,7 +524,7 @@ func TestZookeeperConfig(t *testing.T) {
 
 	environment := SetupEnv()
 	cl := *environment.client
-	err := environment.zookeeperResource.resourceConfiguration.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "zookeeper1", Namespace: "default"}}, &environment.zookeeperPodList, cl)
+	err := environment.zookeeperResource.instance.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "zookeeper1", Namespace: "default"}}, &environment.zookeeperPodList, cl)
 	if err != nil {
 		t.Fatalf("create config for zookeeper failed: (%v)", err)
 	}
@@ -557,7 +557,7 @@ func TestWebuiConfig(t *testing.T) {
 
 	environment := SetupEnv()
 	cl := *environment.client
-	err := environment.webuiResource.resourceConfiguration.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "webui1", Namespace: "default"}}, &environment.webuiPodList, cl)
+	err := environment.webuiResource.instance.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "webui1", Namespace: "default"}}, &environment.webuiPodList, cl)
 	if err != nil {
 		t.Fatalf("get configmap: (%v)", err)
 	}
@@ -578,7 +578,7 @@ func TestCassandraConfig(t *testing.T) {
 
 	environment := SetupEnv()
 	cl := *environment.client
-	err := environment.cassandraResource.resourceConfiguration.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "cassandra1", Namespace: "default"}}, &environment.cassandraPodList, cl)
+	err := environment.cassandraResource.instance.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "cassandra1", Namespace: "default"}}, &environment.cassandraPodList, cl)
 	if err != nil {
 		t.Fatalf("get configmap: (%v)", err)
 	}
@@ -599,7 +599,7 @@ func TestRabbitmqConfig(t *testing.T) {
 
 	environment := SetupEnv()
 	cl := *environment.client
-	err := environment.rabbitmqResource.resourceConfiguration.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "rabbitmq1", Namespace: "default"}}, &environment.rabbitmqPodList, cl)
+	err := environment.rabbitmqResource.instance.InstanceConfiguration(reconcile.Request{types.NamespacedName{Name: "rabbitmq1", Namespace: "default"}}, &environment.rabbitmqPodList, cl)
 	if err != nil {
 		t.Fatalf("get configmap: (%v)", err)
 	}
