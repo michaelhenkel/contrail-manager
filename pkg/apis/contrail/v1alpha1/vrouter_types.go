@@ -7,17 +7,6 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// VrouterSpec defines the desired state of Vrouter
-// +k8s:openapi-gen=true
-type VrouterSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	HostNetwork         *bool    `json:"hostNetwork,omitempty"`
-	Service             *Service `json:"service,omitempty"`
-	ContrailStatusImage string   `json:"contrailStatusImage,omitempty"`
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Vrouter is the Schema for the vrouters API
@@ -29,6 +18,19 @@ type Vrouter struct {
 
 	Spec   VrouterSpec `json:"spec,omitempty"`
 	Status Status      `json:"status,omitempty"`
+}
+
+// VrouterSpec is the Spec for the cassandras API
+// +k8s:openapi-gen=true
+type VrouterSpec struct {
+	CommonConfiguration  CommonConfiguration  `json:"commonConfiguration"`
+	ServiceConfiguration VrouterConfiguration `json:"serviceConfiguration"`
+}
+
+// VrouterConfiguration is the Spec for the cassandras API
+// +k8s:openapi-gen=true
+type VrouterConfiguration struct {
+	Images map[string]string `json:"images"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

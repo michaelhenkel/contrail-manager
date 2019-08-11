@@ -19,12 +19,15 @@ spec:
     metadata:
       labels:
         app: kubemanager
+        contrail_manager: kubemanager
     spec:
       containers:
-      - envFrom:
-        - configMapRef:
-            name: kubemanager
-        image: docker.io/michaelhenkel/contrail-kubernetes-kube-manager:5.2.0-dev1
+      - image: docker.io/michaelhenkel/contrail-kubernetes-kube-manager:5.2.0-dev1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         imagePullPolicy: Always
         name: kubemanager
         volumeMounts:
@@ -40,9 +43,6 @@ spec:
         env:
         - name: CONTRAIL_STATUS_IMAGE
           value: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
-        envFrom:
-        - configMapRef:
-            name: kubemanager
         image: busybox
         imagePullPolicy: Always
         name: init
@@ -52,9 +52,6 @@ spec:
       - env:
         - name: CONTRAIL_STATUS_IMAGE
           value: docker.io/michaelhenkel/contrail-status:5.2.0-dev1
-        envFrom:
-        - configMapRef:
-            name: kubemanager
         image: docker.io/michaelhenkel/contrail-node-init:5.2.0-dev1
         imagePullPolicy: Always
         name: nodeinit

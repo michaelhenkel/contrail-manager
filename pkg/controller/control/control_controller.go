@@ -2,17 +2,18 @@ package control
 
 import (
 	"context"
-	"strings"
 
-	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/utils"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -22,10 +23,63 @@ import (
 
 var log = logf.Log.WithName("controller_control")
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
+func resourceHandler(myclient client.Client) handler.Funcs {
+	appHandler := handler.Funcs{
+		CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.Meta.GetNamespace()}
+			list := &v1alpha1.ControlList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.Meta.GetNamespace(),
+					}})
+				}
+			}
+		},
+		UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.MetaNew.GetNamespace()}
+			list := &v1alpha1.ControlList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.MetaNew.GetNamespace(),
+					}})
+				}
+			}
+		},
+		DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.Meta.GetNamespace()}
+			list := &v1alpha1.ControlList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.Meta.GetNamespace(),
+					}})
+				}
+			}
+		},
+		GenericFunc: func(e event.GenericEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.Meta.GetNamespace()}
+			list := &v1alpha1.ControlList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.Meta.GetNamespace(),
+					}})
+				}
+			}
+		},
+	}
+	return appHandler
+}
 
 // Add creates a new Control Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -35,7 +89,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileControl{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileControl{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -47,41 +101,72 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Control
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Control{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &v1alpha1.Control{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner Control
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Cassandra{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &contrailv1alpha1.Manager{},
-	})
+	// Watch for changes to PODs
+	srcPod := &source.Kind{Type: &corev1.Pod{}}
+	podHandler := resourceHandler(mgr.GetClient())
+	predInitStatus := utils.PodInitStatusChange(map[string]string{"contrail_manager": "control"})
+	predPodIPChange := utils.PodIPChange(map[string]string{"contrail_manager": "control"})
+	err = c.Watch(srcPod, podHandler, predPodIPChange)
+	if err != nil {
+		return err
+	}
+	err = c.Watch(srcPod, podHandler, predInitStatus)
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Zookeeper{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &contrailv1alpha1.Manager{},
-	})
+	srcManager := &source.Kind{Type: &v1alpha1.Manager{}}
+	managerHandler := resourceHandler(mgr.GetClient())
+	predManagerSizeChange := utils.ManagerSizeChange(utils.ControlGroupKind())
+	err = c.Watch(srcManager, managerHandler, predManagerSizeChange)
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Rabbitmq{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &contrailv1alpha1.Manager{},
-	})
+	srcCassandra := &source.Kind{Type: &v1alpha1.Cassandra{}}
+	cassandraHandler := resourceHandler(mgr.GetClient())
+	predCassandraSizeChange := utils.CassandraActiveChange()
+	err = c.Watch(srcCassandra, cassandraHandler, predCassandraSizeChange)
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Config{}}, &handler.EnqueueRequestForOwner{
+	srcConfig := &source.Kind{Type: &v1alpha1.Config{}}
+	configHandler := resourceHandler(mgr.GetClient())
+	predConfigSizeChange := utils.ConfigActiveChange()
+	err = c.Watch(srcConfig, configHandler, predConfigSizeChange)
+	if err != nil {
+		return err
+	}
+
+	srcRabbitmq := &source.Kind{Type: &v1alpha1.Rabbitmq{}}
+	rabbitmqHandler := resourceHandler(mgr.GetClient())
+	predRabbitmqSizeChange := utils.RabbitmqActiveChange()
+	err = c.Watch(srcRabbitmq, rabbitmqHandler, predRabbitmqSizeChange)
+	if err != nil {
+		return err
+	}
+
+	srcZookeeper := &source.Kind{Type: &v1alpha1.Zookeeper{}}
+	zookeeperHandler := resourceHandler(mgr.GetClient())
+	predZookeeperSizeChange := utils.ZookeeperActiveChange()
+	err = c.Watch(srcZookeeper, zookeeperHandler, predZookeeperSizeChange)
+	if err != nil {
+		return err
+	}
+
+	srcDeployment := &source.Kind{Type: &appsv1.Deployment{}}
+	deploymentHandler := &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &contrailv1alpha1.Manager{},
-	})
+		OwnerType:    &v1alpha1.Control{},
+	}
+	deploymentPred := utils.DeploymentStatusChange(utils.ControlGroupKind())
+	err = c.Watch(srcDeployment, deploymentHandler, deploymentPred)
 	if err != nil {
 		return err
 	}
@@ -96,8 +181,8 @@ var _ reconcile.Reconciler = &ReconcileControl{}
 type ReconcileControl struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	Client client.Client
+	Scheme *runtime.Scheme
 }
 
 // Reconcile reads that state of the cluster for a Control object and makes changes based on the state read
@@ -108,262 +193,191 @@ type ReconcileControl struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileControl) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	var err error
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Control")
+	instanceType := "control"
+	instance := &v1alpha1.Control{}
+	cassandraInstance := v1alpha1.Cassandra{}
+	zookeeperInstance := v1alpha1.Zookeeper{}
+	rabbitmqInstance := v1alpha1.Rabbitmq{}
+	configInstance := v1alpha1.Config{}
 
-	// Fetch the Control instance
-	instance := &contrailv1alpha1.Control{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
-
-	// Get cassandra, zk and rmq status
-
-	cassandraInstance := &contrailv1alpha1.Cassandra{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, cassandraInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Cassandra Instance")
-			return reconcile.Result{}, err
-		}
-	}
-	cassandraStatus := false
-	if cassandraInstance.Status.Active != nil {
-		cassandraStatus = *cassandraInstance.Status.Active
-	}
-
-	zookeeperInstance := &contrailv1alpha1.Zookeeper{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, zookeeperInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Zookeeper Instance")
-			return reconcile.Result{}, err
-		}
-	}
-	zookeeperStatus := false
-	if zookeeperInstance.Status.Active != nil {
-		zookeeperStatus = *zookeeperInstance.Status.Active
-	}
-
-	rabbitmqInstance := &contrailv1alpha1.Rabbitmq{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, rabbitmqInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Rabbitmq Instance")
-			return reconcile.Result{}, err
-		}
-	}
-	rabbitmqStatus := false
-	if rabbitmqInstance.Status.Active != nil {
-		rabbitmqStatus = *rabbitmqInstance.Status.Active
-	}
-
-	configInstance := &contrailv1alpha1.Config{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, configInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Config Instance")
-			return reconcile.Result{}, err
-		}
-	}
-	configStatus := false
-	if configInstance.Status.Active != nil {
-		configStatus = *configInstance.Status.Active
-	}
-
-	if !rabbitmqStatus || !zookeeperStatus || !cassandraStatus || !configStatus {
-		reqLogger.Info("cassandra, zookeeper, rmq or config not ready")
+	err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil && errors.IsNotFound(err) {
 		return reconcile.Result{}, nil
 	}
 
-	var rabbitmqNodes []string
-	for _, ip := range rabbitmqInstance.Status.Nodes {
-		rabbitmqNodes = append(rabbitmqNodes, ip)
+	cassandraActive := cassandraInstance.IsActive(instance.Spec.ServiceConfiguration.CassandraInstance,
+		request.Namespace, r.Client)
+	zookeeperActive := zookeeperInstance.IsActive(instance.Spec.ServiceConfiguration.ZookeeperInstance,
+		request.Namespace, r.Client)
+	rabbitmqActive := rabbitmqInstance.IsActive(instance.Labels["contrail_cluster"],
+		request.Namespace, r.Client)
+	configActive := configInstance.IsActive(instance.Labels["contrail_cluster"],
+		request.Namespace, r.Client)
+	if !configActive || !cassandraActive || !rabbitmqActive || !zookeeperActive {
+		return reconcile.Result{}, nil
 	}
-	rabbitmqNodeList := strings.Join(rabbitmqNodes, ",")
 
-	var zookeeperNodes []string
-	for _, ip := range zookeeperInstance.Status.Nodes {
-		zookeeperNodes = append(zookeeperNodes, ip)
-	}
-	zookeeperNodeList := strings.Join(zookeeperNodes, ",")
-
-	var cassandraNodes []string
-	for _, ip := range cassandraInstance.Status.Nodes {
-		cassandraNodes = append(cassandraNodes, ip)
-	}
-	cassandraNodeList := strings.Join(cassandraNodes, ",")
-
-	var configNodes []string
-	for _, ip := range configInstance.Status.Nodes {
-		configNodes = append(configNodes, ip)
-	}
-	configNodeList := strings.Join(configNodes, ",")
-
-	managerInstance := &contrailv1alpha1.Manager{}
-	err = r.client.Get(context.TODO(), request.NamespacedName, managerInstance)
+	managerInstance, err := instance.OwnedByManager(r.Client, request)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Manager Instance")
-		}
-	} else {
-		instance.Spec.Service = managerInstance.Spec.Control
-		if managerInstance.Spec.Control.Size != nil {
-			instance.Spec.Service.Size = managerInstance.Spec.Control.Size
-		} else {
-			instance.Spec.Service.Size = managerInstance.Spec.Size
-		}
-		if managerInstance.Spec.HostNetwork != nil {
-			instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
-		}
+		return reconcile.Result{}, err
 	}
-
-	// Get default Deployment
-	deployment := GetDeployment()
-
-	if managerInstance.Spec.ImagePullSecrets != nil {
-		var imagePullSecretsList []corev1.LocalObjectReference
-		for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
-			imagePullSecret := corev1.LocalObjectReference{
-				Name: imagePullSecretName,
+	if managerInstance != nil {
+		if managerInstance.Spec.Services.Controls != nil {
+			for _, controlManagerInstance := range managerInstance.Spec.Services.Controls {
+				if controlManagerInstance.Name == request.Name {
+					instance.Spec.CommonConfiguration = utils.MergeCommonConfiguration(
+						managerInstance.Spec.CommonConfiguration,
+						controlManagerInstance.Spec.CommonConfiguration)
+					err = r.Client.Update(context.TODO(), instance)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
 			}
-			imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
 		}
-		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
+	}
+	configMap, err := instance.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
+		r.Client,
+		r.Scheme,
+		request)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
-	if instance.Spec.Service.Configuration == nil {
-		instance.Spec.Service.Configuration = make(map[string]string)
-		reqLogger.Info("config map empty, initializing it")
+	intendedDeployment, err := instance.PrepareIntendedDeployment(GetDeployment(),
+		&instance.Spec.CommonConfiguration,
+		request,
+		r.Scheme)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
-	instance.Spec.Service.Configuration["RABBITMQ_NODES"] = rabbitmqNodeList
-	instance.Spec.Service.Configuration["ZOOKEEPER_NODES"] = zookeeperNodeList
-	instance.Spec.Service.Configuration["CONFIGDB_NODES"] = cassandraNodeList
-	instance.Spec.Service.Configuration["CONFIG_NODES"] = configNodeList
-	instance.Spec.Service.Configuration["CONTROLLER_NODES"] = configNodeList
-	instance.Spec.Service.Configuration["ANALYTICS_NODES"] = configNodeList
-	instance.Spec.Service.Configuration["CONFIGDB_CQL_PORT"] = cassandraInstance.Status.Ports["cqlPort"]
-	instance.Spec.Service.Configuration["CONFIGDB_PORT"] = cassandraInstance.Status.Ports["port"]
-	instance.Spec.Service.Configuration["RABBITMQ_NODE_PORT"] = rabbitmqInstance.Status.Ports["port"]
-	instance.Spec.Service.Configuration["ZOOKEEPER_NODE_PORT"] = zookeeperInstance.Status.Ports["port"]
+	instance.AddVolumesToIntendedDeployments(intendedDeployment,
+		map[string]string{configMap.Name: request.Name + "-" + instanceType + "-volume"})
 
-	// Create initial ConfigMap
-	configMap := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "control-" + instance.Name,
-			Namespace: instance.Namespace,
-		},
-		Data: instance.Spec.Service.Configuration,
+	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
+		if container.Name == "control" {
+			command := []string{"bash", "-c",
+				"/usr/bin/contrail-control --conf_file /etc/mycontrail/control.${POD_IP}"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
+			}
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "named" {
+			command := []string{"bash", "-c",
+				"/usr/bin/contrail-named -f -g -u contrail -c /etc/mycontrail/named.${POD_IP}"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
+			}
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "dns" {
+			command := []string{"bash", "-c",
+				"/usr/bin/contrail-dns --conf_file /etc/mycontrail/dns.${POD_IP}"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
+			}
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
+		if container.Name == "nodemanager" {
+			command := []string{"bash", "-c",
+				"bash /etc/mycontrail/provision.sh.${POD_IP} add; /usr/bin/python /usr/bin/contrail-nodemgr --nodetype=contrail-control"}
+			//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+
+			volumeMountList := []corev1.VolumeMount{}
+			if len((&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts) > 0 {
+				volumeMountList = (&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts
+			}
+			volumeMount := corev1.VolumeMount{
+				Name:      request.Name + "-" + instanceType + "-volume",
+				MountPath: "/etc/mycontrail",
+			}
+			volumeMountList = append(volumeMountList, volumeMount)
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = instance.Spec.ServiceConfiguration.Images[container.Name]
+		}
 	}
-	controllerutil.SetControllerReference(instance, &configMap, r.scheme)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "control-" + instance.Name, Namespace: instance.Namespace}, &configMap)
-	if err != nil && errors.IsNotFound(err) {
-		err = r.client.Create(context.TODO(), &configMap)
+
+	for idx, container := range intendedDeployment.Spec.Template.Spec.InitContainers {
+		for containerName, image := range instance.Spec.ServiceConfiguration.Images {
+			if containerName == container.Name {
+				(&intendedDeployment.Spec.Template.Spec.InitContainers[idx]).Image = image
+			}
+		}
+	}
+
+	err = instance.CompareIntendedWithCurrentDeployment(intendedDeployment,
+		&instance.Spec.CommonConfiguration,
+		request,
+		r.Scheme,
+		r.Client,
+		false)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	podIPList, podIPMap, err := instance.PodIPListAndIPMap(request, r.Client)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(podIPList.Items) > 0 {
+		err = instance.InstanceConfiguration(request,
+			podIPList,
+			r.Client)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", instance.Namespace, "Name", "control-"+instance.Name)
+			return reconcile.Result{}, err
+		}
+
+		err = instance.SetPodsToReady(podIPList, r.Client)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		err = instance.ManageNodeStatus(podIPMap, r.Client)
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	// Set Deployment Name & Namespace
-
-	deployment.ObjectMeta.Name = "control-" + instance.Name
-	deployment.ObjectMeta.Namespace = instance.Namespace
-
-	// Configure Containers
-	for idx, container := range deployment.Spec.Template.Spec.Containers {
-		for containerName, image := range instance.Spec.Service.Images {
-			if containerName == container.Name {
-				(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
-				(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "control-" + instance.Name
-			}
-		}
-	}
-
-	// Configure InitContainers
-	for idx, container := range deployment.Spec.Template.Spec.InitContainers {
-		for containerName, image := range instance.Spec.Service.Images {
-			if containerName == container.Name {
-				(&deployment.Spec.Template.Spec.InitContainers[idx]).Image = image
-				(&deployment.Spec.Template.Spec.InitContainers[idx]).EnvFrom[0].ConfigMapRef.Name = "control-" + instance.Name
-			}
-		}
-	}
-
-	// Set HostNetwork
-	deployment.Spec.Template.Spec.HostNetwork = *instance.Spec.HostNetwork
-
-	// Set Selector and Label
-	deployment.Spec.Selector.MatchLabels["app"] = "control-" + instance.Name
-	deployment.Spec.Template.ObjectMeta.Labels["app"] = "control-" + instance.Name
-
-	// Set Size
-	deployment.Spec.Replicas = instance.Spec.Service.Size
-
-	// Create Deployment
-	controllerutil.SetControllerReference(instance, deployment, r.scheme)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "control-" + instance.Name, Namespace: instance.Namespace}, deployment)
-	if err != nil && errors.IsNotFound(err) {
-		err = r.client.Create(context.TODO(), deployment)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create Deployment", "Namespace", instance.Namespace, "Name", "control-"+instance.Name)
-			return reconcile.Result{}, err
-		}
-	}
-
-	// Check if Init Containers are running
-	_, err = contrailv1alpha1.InitContainerRunning(r.client,
-		instance.ObjectMeta,
-		"control",
-		instance,
-		*instance.Spec.Service,
-		&instance.Status)
-
+	err = instance.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
 	if err != nil {
-		reqLogger.Error(err, "Err Init Pods not ready, requeing")
 		return reconcile.Result{}, err
 	}
 
-	var podIpList []string
-	for _, ip := range instance.Status.Nodes {
-		podIpList = append(podIpList, ip)
-	}
-	nodeList := strings.Join(podIpList, ",")
-	configMap.Data["CONTROL_NODES"] = nodeList
-	err = r.client.Update(context.TODO(), &configMap)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update ConfigMap", "Namespace", instance.Namespace, "Name", "control-"+instance.Name)
-		return reconcile.Result{}, err
-	}
-
-	err = contrailv1alpha1.MarkInitPodsReady(r.client, instance.ObjectMeta, "control")
-
-	if err != nil {
-		reqLogger.Error(err, "Failed to mark Pods ready")
-		return reconcile.Result{}, err
-	}
-
-	err = contrailv1alpha1.SetServiceStatus(r.client,
-		instance.ObjectMeta,
-		"control",
-		instance,
-		&deployment.Status,
-		&instance.Status)
-
-	if err != nil {
-		reqLogger.Error(err, "Failed to set Service status")
-		return reconcile.Result{}, err
-	} else {
-		reqLogger.Info("set service status")
-	}
 	return reconcile.Result{}, nil
 }

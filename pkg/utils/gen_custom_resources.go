@@ -75,27 +75,29 @@ func Get{{ .Kind }}Cr() *contrailv1alpha1.{{ .Kind }}{
 	`))
 
 	var crManagerTemplate = template.Must(template.New("").Funcs(funcMap).Parse(`package manager
-	
-import(
+
+import (
 	"context"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	cr "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crs"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	cr "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crs"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
 	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
-	reqLogger.Info("Reconciling Manager")
-	
+	reqLogger.Info("Create CR")
+
 	objectKind := obj.GetObjectKind()
 	groupVersionKind := objectKind.GroupVersionKind()
 
-	gkv := schema.FromAPIVersionAndKind(groupVersionKind.Group + "/" + groupVersionKind.Version, groupVersionKind.Kind)
+	gkv := schema.FromAPIVersionAndKind(groupVersionKind.Group+"/"+groupVersionKind.Version, groupVersionKind.Kind)
 	newObj, err := scheme.Scheme.New(gkv)
 	if err != nil {
 		return err
@@ -106,127 +108,127 @@ func (r *ReconcileManager) CreateResource(instance *v1alpha1.Manager, obj runtim
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, newObj)
 	if err != nil && errors.IsNotFound(err) {
 
-		switch groupVersionKind.Kind{
+		switch groupVersionKind.Kind {
 		{{- range .KindList }}
 		case "{{ . }}":
 			typedObject := &v1alpha1.{{ . }}{}
 			typedObject = newObj.(*v1alpha1.{{ . }})
 			controllerutil.SetControllerReference(instance, typedObject, r.scheme)
+			crLabel := map[string]string{"contrail_manager": "{{ . | ToLower }}"}
+			typedObject.ObjectMeta.SetLabels(crLabel)
 			err = r.client.Create(context.TODO(), typedObject)
-			if err != nil{
+			if err != nil {
 				reqLogger.Info("Failed to create CR " + name)
 				return err
 			}
-			reqLogger.Info("CR " + name +" Created.")
-			/*
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, typedObject)
-			if err != nil {
-				reqLogger.Info("Failed to get created CR " + name)
-				return err
-			}
-			
-			err = r.client.Update(context.TODO(), typedObject)
-			if err != nil{
-				reqLogger.Info("Failed to update created CR " + name)
-				return err
-			}
-			reqLogger.Info("CR " + name +" updated.")
-			*/
+			reqLogger.Info("CR " + name + " Created.")
+			return nil
 		{{- end }}
+
 		}
 	}
 	return nil
 }
-/*
-func (r *ReconcileManager) UpdateResource(instance *v1alpha1.Manager, obj runtime.Object, name string, namespace string) error {
-	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
-	reqLogger.Info("Reconciling Manager")
-	
-	objectKind := obj.GetObjectKind()
-	groupVersionKind := objectKind.GroupVersionKind()
 
-	gkv := schema.FromAPIVersionAndKind(groupVersionKind.Group + "/" + groupVersionKind.Version, groupVersionKind.Kind)
-	newObj, err := scheme.Scheme.New(gkv)
+func (r *ReconcileManager) ManageCr(request reconcile.Request) error {
+	var err error
+	instance := &v1alpha1.Manager{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, instance)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return err
+		}
 		return err
 	}
-
-	newObj = obj
-
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, newObj)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("CR " + name +" not found. Creating it.")
-		err = r.client.Create(context.TODO(), newObj)	
-		if err != nil {
-			reqLogger.Error(err, "Failed to create new newObj.", "resource.Namespace", namespace, "resource.Name", name)
-			return err
+	{{- range .KindList }}
+	{{ . | ToLower }}CreationStatus := false
+	if instance.Status.{{ . }} != nil {
+		if instance.Status.{{ . }}.Created != nil {
+			{{ . | ToLower }}CreationStatus = *instance.Status.{{ . }}.Created
 		}
-		reqLogger.Info("CR " + namespace +" created.")
 	}
-	return nil
-}
-*/
 
-func (r *ReconcileManager) ManageCr(instance *v1alpha1.Manager) error{
-	var err error
-	{{- range .KindList }}
-	var {{ . }}Status v1alpha1.ServiceStatus
-	{{- end }}
-
-	{{- range .KindList }}
-	{{ . }}Created := true
-	if instance.Status.{{ . }} == nil {
-		{{ . }}Created = false
-		{{ . }}Status = v1alpha1.ServiceStatus{
-			Created: instance.Spec.{{ . }}.Create,
+	{{ . | ToLower }}CreationIntent := false
+	if instance.Spec.Services.{{ . }} != nil {
+		if instance.Spec.Services.{{ . }}.Create != nil {
+			{{ . | ToLower }}CreationIntent = *instance.Spec.Services.{{ . }}.Create
 		}
-	} else if instance.Status.{{ . }}.Created == nil {
-		{{ . }}Created = false
-		{{ . }}Status = *instance.Status.{{ . }}
-		{{ . }}Status.Created = instance.Spec.{{ . }}.Create
-	} else if *instance.Status.{{ . }}.Created && !*instance.Spec.{{ . }}.Create {
+	}
+	if {{ . | ToLower }}CreationIntent && !{{ . | ToLower }}CreationStatus {
+		//Create {{ . }}
 		cr := cr.Get{{ . }}Cr()
+		cr.Spec = instance.Spec.Services.{{ . }}
 		cr.Name = instance.Name
 		cr.Namespace = instance.Namespace
-		err := r.client.Delete(context.TODO(), cr)
+		if instance.Spec.Size != nil && cr.Spec.Size == nil {
+			cr.Spec.Size = instance.Spec.Size
+		}
+		if instance.Spec.HostNetwork != nil && cr.Spec.HostNetwork == nil {
+			cr.Spec.HostNetwork = instance.Spec.HostNetwork
+		}
+		err := r.CreateResource(instance, cr, cr.Name, cr.Namespace)
 		if err != nil {
 			return err
 		}
-		instance.Status.{{ . }}.Created = instance.Spec.{{ . }}.Create
+		created := true
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, instance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return err
+			}
+			return err
+		}
+		if instance.Status.{{ . }} == nil {
+			status := &v1alpha1.ServiceStatus{
+				Created: &created,
+			}
+			instance.Status.{{ . }} = status
+		} else {
+			instance.Status.{{ . }}.Created = &created
+		}
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			return err
 		}
-	} else if !*instance.Status.{{ . }}.Created && *instance.Spec.{{ . }}.Create {
-		{{ . }}Created = false
-	}
-	{{- end }}
-	{{- range .KindList }}
-	if !{{ . }}Created{
-		if instance.Spec.{{ . }} != nil{
-			{{ . }}Created := instance.Spec.{{ . }}.Create
-			if *{{ . }}Created{
-				cr := cr.Get{{ . }}Cr()
-				cr.Spec.Service = instance.Spec.{{ . }}
-				cr.Name = instance.Name
-				cr.Namespace = instance.Namespace
-				err = r.CreateResource(instance, cr, cr.Name, cr.Namespace)
-				if err != nil {
-					return err
-				}
-				/*
-				err = r.UpdateResource(instance, cr, cr.Name, cr.Namespace)
-				if err != nil {
-					return err
-				}
-				*/	
-			}
-			instance.Status.{{ . }} = &{{ . }}Status
-			err := r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				return err
-			}			
+		err = r.client.Update(context.TODO(), instance)
+		if err != nil {
+			return err
 		}
+
+	}
+
+	if !{{ . | ToLower }}CreationIntent && {{ . | ToLower }}CreationStatus {
+		//Delete {{ . }}
+		cr := cr.Get{{ . }}Cr()
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, cr)
+		if err != nil && errors.IsNotFound(err) {
+			return nil
+		}
+		err = r.client.Delete(context.TODO(), cr)
+		if err != nil {
+			return err
+		}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, instance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return err
+			}
+			return err
+		}
+		created := false
+		if instance.Status.{{ . }} == nil {
+			status := &v1alpha1.ServiceStatus{
+				Created: &created,
+			}
+			instance.Status.{{ . }} = status
+		} else {
+			instance.Status.{{ . }}.Created = &created
+		}
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
+		}
+
 	}
 	{{- end }}
 	return nil
@@ -314,141 +316,121 @@ func Get{{ .Kind }}Crd() *apiextensionsv1beta1.CustomResourceDefinition{
 }
 	`))
 	var crdManagerTemplate = template.Must(template.New("").Funcs(funcMap).Parse(`package manager
-	
-import(
+
+import (
 	"context"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/api/errors"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	crds "github.com/michaelhenkel/contrail-manager/pkg/controller/manager/crds"
-	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"k8s.io/apimachinery/pkg/runtime"
+
+	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
 	{{- range .KindList }}
 	"github.com/michaelhenkel/contrail-manager/pkg/controller/{{ . | ToLower }}"
 	{{- end }}
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-func (r *ReconcileManager) createCrd(instance *contrailv1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
+func (r *ReconcileManager) createCrd(instance *v1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
 	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
-	reqLogger.Info("Reconciling Manager")
+	reqLogger.Info("Creating CRD")
 	newCrd := apiextensionsv1beta1.CustomResourceDefinition{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: crd.Spec.Names.Plural + "." + crd.Spec.Group, Namespace: newCrd.Namespace}, &newCrd)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group +" not found. Creating it.")
-		controllerutil.SetControllerReference(&newCrd, &newCrd, r.scheme)
-		err = r.client.Create(context.TODO(), crd)	
+		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group + " not found. Creating it.")
+		//controllerutil.SetControllerReference(&newCrd, crd, r.scheme)
+		err = r.client.Create(context.TODO(), crd)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create new crd.", "crd.Namespace", crd.Namespace, "crd.Name", crd.Name)
 			return err
 		}
-		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group +" created.")
+		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group + " created.")
+	} else if err == nil {
+		reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group + " already exists.")
 	}
 	return nil
 }
 
-func (r *ReconcileManager) updateCrd(instance *contrailv1alpha1.Manager, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
-	reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
-	reqLogger.Info("Reconciling Manager")
-	newCrd := apiextensionsv1beta1.CustomResourceDefinition{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: crd.Spec.Names.Plural + "." + crd.Spec.Group, Namespace: newCrd.Namespace}, &newCrd)
-	if err != nil{
-		reqLogger.Info("Failed to get CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group)
-		return err
-	}
-	controllerutil.SetControllerReference(instance, &newCrd, r.scheme)
-	err = r.client.Update(context.TODO(), &newCrd)
-	if err != nil{
-		reqLogger.Info("Resource version: " + crd.ObjectMeta.ResourceVersion)
-		reqLogger.Info("Failed to update CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group)
-		return err
-	}
-	reqLogger.Info("CRD " + crd.Spec.Names.Plural + "." + crd.Spec.Group +" updated.")
-	return nil
-}
-
-
-func (r *ReconcileManager) ActivateResource(instance *contrailv1alpha1.Manager,
-	ro runtime.Object,
-	crd *apiextensionsv1beta1.CustomResourceDefinition) error {
-		err := r.createCrd(instance, crd)
-		if err != nil {
-			return err
-		}
-		/*
-		err = r.updateCrd(instance, crd)
-		if err != nil {
-			return err
-		}
-		*/
-		err = r.addWatch(ro)
-		if err != nil {
-			return err
-		}	
-		return nil
-}
-
-
-func (r *ReconcileManager) ManageCrd(instance *contrailv1alpha1.Manager) error{
+func (r *ReconcileManager) ManageCrd(request reconcile.Request) error {
 	var err error
+	instance := &v1alpha1.Manager{}
+	err = r.client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil {
+		return err
+	}
 	{{- range .KindList }}
-	var {{ . }}Status contrailv1alpha1.ServiceStatus
-	{{- end }}	
+	{{ . | ToLower }}ActivationStatus := false
+	if instance.Status.{{ . }} != nil {
+		if instance.Status.{{ . }}.Active != nil {
+			{{ . | ToLower }}ActivationStatus = *instance.Status.{{ . }}.Active
+		}
+	}
 
-	{{- range .KindList }}
-	{{ . }}Active := true
-	if instance.Status.{{ . }} == nil {
-		{{ . }}Active = false
-		active := true
-		{{ . }}Status = contrailv1alpha1.ServiceStatus{
-			Active: &active,
+	{{ . | ToLower }}ActivationIntent := false
+	if instance.Spec.Services.{{ . }} != nil {
+		if instance.Spec.Services.{{ . }}.Activate != nil {
+			{{ . | ToLower }}ActivationIntent = *instance.Spec.Services.{{ . }}.Activate
 		}
-	} else if instance.Status.{{ . }}.Active == nil {
-		{{ . }}Active = false
-		active := true
-		{{ . }}Status = *instance.Status.{{ . }}
-		{{ . }}Status.Active = &active
+	}
+	{{ . | ToLower }}Resource := v1alpha1.{{ . }}{}
+	{{ . | ToLower }}Crd := {{ . | ToLower }}Resource.GetCrd()
+	{{ . | ToLower }}ControllerActivate := false
+	if {{ . | ToLower }}ActivationIntent && !{{ . | ToLower }}ActivationStatus {
+		err = r.createCrd(instance, {{ . | ToLower }}Crd)
+		if err != nil {
+			return err
+		}
 
-	}
-	{{- end }}
-	{{- range .KindList }}
-	if !{{ . }}Active{
-		if instance.Spec.{{ . }} != nil {
-			{{ . }}Activated := instance.Spec.{{ . }}.Activate
-			if *{{ . }}Activated{
-				resource := contrailv1alpha1.{{ . }}{}
-				err = r.ActivateResource(instance, &resource, crds.Get{{ . }}Crd())
-				if err != nil {
-					return err
-				}
+		controllerRunning := false
+		sharedIndexInformer, err := r.cache.GetInformerForKind({{ . | ToLower }}Resource.GroupVersionKind())
+		if err == nil {
+			controller := sharedIndexInformer.GetController()
+			if controller != nil {
+				controllerRunning = true
 			}
+		}
+		if !controllerRunning {
+			{{ . | ToLower }}ControllerActivate = true
+		}
+
+		err = r.controller.Watch(&source.Kind{Type: &v1alpha1.{{ . }}{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &v1alpha1.Manager{},
+		})
+		if err != nil {
+			return err
+		}
+		active := true
+		if instance.Status.{{ . }} == nil {
+			status := &v1alpha1.ServiceStatus{
+				Active: &active,
+			}
+			instance.Status.{{ . }} = status
+		} else {
+			instance.Status.{{ . }}.Active = &active
+		}
+
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			return err
 		}
 	}
 	{{- end }}
 	{{- range .KindList }}
-	if !{{ . }}Active{
-		if instance.Spec.{{ . }} != nil {
-			{{ . }}Activated := instance.Spec.{{ . }}.Activate
-			if *{{ . }}Activated{
-				err = {{ . | ToLower }}.Add(r.manager)
-				if err != nil {
-					return err
-				}
-			}
-			instance.Status.{{ . }} = &{{ . }}Status
-			err := r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				return err
-			}
+	if {{ . | ToLower }}ControllerActivate{
+		err = {{ . | ToLower }}.Add(r.manager)
+		if err != nil {
+			return err
 		}
 	}
 	{{- end }}
+
 	return nil
 }
 	
 	`))
 
-	//crdList := []string{configCrd}
 	var kindList []string
 	for crdTemplate, _ := range serviceMap {
 		crdFile := filePrefix + crdTemplate + crdFileSuffix

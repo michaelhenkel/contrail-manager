@@ -23,6 +23,7 @@ spec:
     metadata:
       labels:
         app: zookeeper
+        contrail_manager: zookeeper
     spec:
       nodeSelector:
         node-role.kubernetes.io/master: ''
@@ -54,9 +55,6 @@ spec:
           name: status
       containers:
       - name: zookeeper
-        envFrom:
-        - configMapRef:
-            name: zookeeper
         env:
         - name: POD_IP
           valueFrom:
@@ -84,6 +82,8 @@ spec:
           initialDelaySeconds: 30
           timeoutSeconds: 5
         volumeMounts:
+        - mountPath: /tmp/conf
+          name: conf
         - mountPath: /var/lib/zookeeper
           name: zookeeper-data
         - mountPath: /var/log/zookeeper
@@ -102,11 +102,15 @@ spec:
               apiVersion: v1
               fieldPath: metadata.labels
             path: pod_labels
+        name: status
+      - downwardAPI:
+          defaultMode: 420
+          items:
           - fieldRef:
               apiVersion: v1
               fieldPath: metadata.labels
-            path: pod_labelsx
-        name: status`
+            path: zoo.cfg
+        name: conf`
 
 func GetDeployment() *appsv1.Deployment{
 	deployment := appsv1.Deployment{}

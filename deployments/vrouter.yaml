@@ -11,6 +11,7 @@ spec:
     metadata:
       labels:
         app: vrouter
+        contrail_manager: vrouter
     spec:
       containers:
       - envFrom:

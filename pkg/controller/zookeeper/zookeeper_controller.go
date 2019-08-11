@@ -2,17 +2,18 @@ package zookeeper
 
 import (
 	"context"
-	"strings"
 
-	contrailv1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	v1alpha1 "github.com/michaelhenkel/contrail-manager/pkg/apis/contrail/v1alpha1"
+	"github.com/michaelhenkel/contrail-manager/pkg/controller/utils"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -21,33 +22,116 @@ import (
 )
 
 var log = logf.Log.WithName("controller_zookeeper")
+var err error
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
+func resourceHandler(myclient client.Client) handler.Funcs {
+	appHandler := handler.Funcs{
+		CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.Meta.GetNamespace()}
+			list := &v1alpha1.ZookeeperList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.Meta.GetNamespace(),
+					}})
+				}
+			}
+		},
+		UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.MetaNew.GetNamespace()}
+			list := &v1alpha1.ZookeeperList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.MetaNew.GetNamespace(),
+					}})
+				}
+			}
+		},
+		DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.Meta.GetNamespace()}
+			list := &v1alpha1.ZookeeperList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.Meta.GetNamespace(),
+					}})
+				}
+			}
+		},
+		GenericFunc: func(e event.GenericEvent, q workqueue.RateLimitingInterface) {
+			listOps := &client.ListOptions{Namespace: e.Meta.GetNamespace()}
+			list := &v1alpha1.ZookeeperList{}
+			err := myclient.List(context.TODO(), listOps, list)
+			if err == nil {
+				for _, app := range list.Items {
+					q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      app.GetName(),
+						Namespace: e.Meta.GetNamespace(),
+					}})
+				}
+			}
+		},
+	}
+	return appHandler
+}
 
-// Add creates a new Zookeeper Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
 }
 
-// newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileZookeeper{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileZookeeper{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
+
 	c, err := controller.New("zookeeper-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
+	err = c.Watch(&source.Kind{Type: &v1alpha1.Zookeeper{}},
+		&handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
 
-	// Watch for changes to primary resource Zookeeper
-	err = c.Watch(&source.Kind{Type: &contrailv1alpha1.Zookeeper{}}, &handler.EnqueueRequestForObject{})
+	srcPod := &source.Kind{Type: &corev1.Pod{}}
+	podHandler := resourceHandler(mgr.GetClient())
+	predInitStatus := utils.PodInitStatusChange(map[string]string{"contrail_manager": "zookeeper"})
+	predPodIPChange := utils.PodIPChange(map[string]string{"contrail_manager": "zookeeper"})
+	err = c.Watch(srcPod, podHandler, predPodIPChange)
+	if err != nil {
+		return err
+	}
+	err = c.Watch(srcPod, podHandler, predInitStatus)
+	if err != nil {
+		return err
+	}
+
+	srcManager := &source.Kind{Type: &v1alpha1.Manager{}}
+	managerHandler := resourceHandler(mgr.GetClient())
+	predManagerSizeChange := utils.ManagerSizeChange(utils.ZookeeperGroupKind())
+	err = c.Watch(srcManager, managerHandler, predManagerSizeChange)
+	if err != nil {
+		return err
+	}
+
+	srcDeployment := &source.Kind{Type: &appsv1.Deployment{}}
+	deploymentHandler := &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &v1alpha1.Zookeeper{},
+	}
+	deploymentPred := utils.DeploymentStatusChange(utils.ZookeeperGroupKind())
+	err = c.Watch(srcDeployment, deploymentHandler, deploymentPred)
 	if err != nil {
 		return err
 	}
@@ -62,207 +146,169 @@ var _ reconcile.Reconciler = &ReconcileZookeeper{}
 type ReconcileZookeeper struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	Client client.Client
+	Scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a Zookeeper object and makes changes based on the state read
-// and what is in the Zookeeper.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
-// Note:
-// The Controller will requeue the Request to be processed again if the returned error is non-nil or
-// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
+// Reconcile reconciles zookeeper
 func (r *ReconcileZookeeper) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Zookeeper")
+	instanceType := "zookeeper"
 
-	// Fetch the Zookeeper instance
-	instance := &contrailv1alpha1.Zookeeper{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	// A reconcile.Request for Zookeeper can be triggered by 4 different types:
+	// 1. Any changes on the Zookeeper instance
+	// --> reconcile.Request is Zookeeper instance name/namespace
+	// 2. IP Status change on the Pods
+	// --> reconcile.Request is Replicaset name/namespace
+	// --> we need to evaluate the label to get the Zookeeper instance
+	// 3. Status change on the Deployment
+	// --> reconcile.Request is Zookeeper instance name/namespace
+	// 4. Zookeepers changes on the Manager instance
+	// --> reconcile.Request is Manager instance name/namespace
+	instance := &v1alpha1.Zookeeper{}
+
+	err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	// if not found we expect it a change in replicaset
+	// and get the zookeeper instance via label
+	if err != nil && errors.IsNotFound(err) {
+		return reconcile.Result{}, nil
+	}
+
+	managerInstance, err := instance.OwnedByManager(r.Client, request)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
 
-	// Fetch Manager instance
-	managerInstance := &contrailv1alpha1.Manager{}
-	err = r.client.Get(context.TODO(), request.NamespacedName, managerInstance)
+	if managerInstance != nil {
+		if managerInstance.Spec.Services.Zookeepers != nil {
+			for _, zookeeperManagerInstance := range managerInstance.Spec.Services.Zookeepers {
+				if zookeeperManagerInstance.Name == request.Name {
+					instance.Spec.CommonConfiguration = utils.MergeCommonConfiguration(
+						managerInstance.Spec.CommonConfiguration,
+						zookeeperManagerInstance.Spec.CommonConfiguration)
+					err = r.Client.Update(context.TODO(), instance)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+		}
+	}
+
+	configMap, err := instance.CreateConfigMap(request.Name+"-"+instanceType+"-configmap",
+		r.Client,
+		r.Scheme,
+		request)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("No Manager Instance")
-		}
-	} else {
-		instance.Spec.Service = managerInstance.Spec.Zookeeper
-		if managerInstance.Spec.Zookeeper.Size != nil {
-			instance.Spec.Service.Size = managerInstance.Spec.Zookeeper.Size
-		} else {
-			instance.Spec.Service.Size = managerInstance.Spec.Size
-		}
-		if managerInstance.Spec.HostNetwork != nil {
-			instance.Spec.HostNetwork = managerInstance.Spec.HostNetwork
-		}
+		return reconcile.Result{}, err
+	}
+	configMap2, err := instance.CreateConfigMap(request.Name+"-"+instanceType+"-configmap-1",
+		r.Client,
+		r.Scheme,
+		request)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
-	// Get default Deployment
-	deployment := GetDeployment()
-
-	if managerInstance.Spec.ImagePullSecrets != nil {
-		var imagePullSecretsList []corev1.LocalObjectReference
-		for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
-			imagePullSecret := corev1.LocalObjectReference{
-				Name: imagePullSecretName,
-			}
-			imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
-		}
-		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
+	intendedDeployment, err := instance.PrepareIntendedDeployment(GetDeployment(),
+		&instance.Spec.CommonConfiguration,
+		request,
+		r.Scheme)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
-	// Create initial ConfigMap
-	configMap := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "zookeeper-" + instance.Name,
-			Namespace: instance.Namespace,
-		},
-		Data: instance.Spec.Service.Configuration,
-	}
-	controllerutil.SetControllerReference(instance, &configMap, r.scheme)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "zookeeper-" + instance.Name, Namespace: instance.Namespace}, &configMap)
-	if err != nil && errors.IsNotFound(err) {
-		err = r.client.Create(context.TODO(), &configMap)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create ConfigMap", "Namespace", instance.Namespace, "Name", "zookeeper-"+instance.Name)
-			return reconcile.Result{}, err
-		}
-	}
+	instance.AddVolumesToIntendedDeployments(intendedDeployment,
+		map[string]string{configMap.Name: request.Name + "-" + instanceType + "-volume",
+			configMap2.Name: request.Name + "-" + instanceType + "-volume-1"})
 
-	// Set Deployment Name & Namespace
+	var revisionHistoryLimit int32
+	intendedDeployment.Spec.RevisionHistoryLimit = &revisionHistoryLimit
 
-	deployment.ObjectMeta.Name = "zookeeper-" + instance.Name
-	deployment.ObjectMeta.Namespace = instance.Namespace
-
-	if managerInstance.Spec.ImagePullSecrets != nil {
-		var imagePullSecretsList []corev1.LocalObjectReference
-		for _, imagePullSecretName := range managerInstance.Spec.ImagePullSecrets {
-			imagePullSecret := corev1.LocalObjectReference{
-				Name: imagePullSecretName,
-			}
-			imagePullSecretsList = append(imagePullSecretsList, imagePullSecret)
-		}
-		deployment.Spec.Template.Spec.ImagePullSecrets = imagePullSecretsList
-	}
-
-	//command = []string{"/bin/sh", "-c", "while true; do echo hello; sleep 10;done"}
-
-	//readinessCommand := []string{"/bin/bash", "-c", "OK=$(echo ruok | nc 127.0.0.1 2181); if [[ ${OK} == \"imok\" ]]; then exit 0; else exit 1;fi"}
-
-	// Configure Containers
-	for idx, container := range deployment.Spec.Template.Spec.Containers {
-		for containerName, image := range instance.Spec.Service.Images {
+	for idx, container := range intendedDeployment.Spec.Template.Spec.Containers {
+		for containerName, image := range instance.Spec.ServiceConfiguration.Images {
 			if containerName == container.Name {
-				(&deployment.Spec.Template.Spec.Containers[idx]).Image = image
+				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Image = image
 			}
 			if containerName == "zookeeper" {
-				(&deployment.Spec.Template.Spec.Containers[idx]).EnvFrom[0].ConfigMapRef.Name = "zookeeper-" + instance.Name
-			}
-			/*
-				if containerName == "zookeeper" {
-					(&deployment.Spec.Template.Spec.Containers[idx]).ReadinessProbe.Exec.Command = readinessCommand
-				}
-			*/
 
+				command := []string{"bash", "-c", "myid=$(cat /mydata/${POD_IP}) && echo ${myid} > /data/myid && cp /conf-1/* /conf/ && sed -i \"s/clientPortAddress=.*/clientPortAddress=${POD_IP}/g\" /conf/zoo.cfg && zkServer.sh --config /conf start-foreground"}
+				//command = []string{"sh", "-c", "while true; do echo hello; sleep 10;done"}
+				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).Command = command
+
+				volumeMountList := []corev1.VolumeMount{}
+				volumeMount := corev1.VolumeMount{
+					Name:      request.Name + "-" + instanceType + "-volume-1",
+					MountPath: "/conf-1",
+				}
+				volumeMountList = append(volumeMountList, volumeMount)
+
+				volumeMount = corev1.VolumeMount{
+					Name:      request.Name + "-" + instanceType + "-volume",
+					MountPath: "/mydata",
+				}
+				volumeMountList = append(volumeMountList, volumeMount)
+				(&intendedDeployment.Spec.Template.Spec.Containers[idx]).VolumeMounts = volumeMountList
+			}
 		}
 	}
 
 	// Configure InitContainers
-	for idx, container := range deployment.Spec.Template.Spec.InitContainers {
-		for containerName, image := range instance.Spec.Service.Images {
+	for idx, container := range intendedDeployment.Spec.Template.Spec.InitContainers {
+		for containerName, image := range instance.Spec.ServiceConfiguration.Images {
 			if containerName == container.Name {
-				(&deployment.Spec.Template.Spec.InitContainers[idx]).Image = image
+				(&intendedDeployment.Spec.Template.Spec.InitContainers[idx]).Image = image
 			}
 		}
 	}
 
-	// Set HostNetwork
-	deployment.Spec.Template.Spec.HostNetwork = *instance.Spec.HostNetwork
+	increaseVersion := false
+	currentDeployment := &appsv1.Deployment{}
+	err = r.Client.Get(context.TODO(),
+		types.NamespacedName{Name: intendedDeployment.Name, Namespace: request.Namespace},
+		currentDeployment)
+	if err == nil {
+		if *currentDeployment.Spec.Replicas == 1 {
+			increaseVersion = true
+		}
+	}
 
-	// Set Selector and Label
-	deployment.Spec.Selector.MatchLabels["app"] = "zookeeper-" + instance.Name
-	deployment.Spec.Template.ObjectMeta.Labels["app"] = "zookeeper-" + instance.Name
+	err = instance.CompareIntendedWithCurrentDeployment(intendedDeployment,
+		&instance.Spec.CommonConfiguration,
+		request,
+		r.Scheme,
+		r.Client,
+		increaseVersion)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
-	// Set Size
-	deployment.Spec.Replicas = instance.Spec.Service.Size
-
-	// Create Deployment
-	controllerutil.SetControllerReference(instance, deployment, r.scheme)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "zookeeper-" + instance.Name, Namespace: instance.Namespace}, deployment)
-	if err != nil && errors.IsNotFound(err) {
-		err = r.client.Create(context.TODO(), deployment)
+	podIPList, podIPMap, err := instance.PodIPListAndIPMap(request, r.Client)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(podIPList.Items) > 0 {
+		err = instance.InstanceConfiguration(request,
+			podIPList,
+			r.Client)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create Deployment", "Namespace", instance.Namespace, "Name", "zookeeper-"+instance.Name)
+			return reconcile.Result{}, err
+		}
+
+		err = instance.SetPodsToReady(podIPList, r.Client)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		err = instance.ManageNodeStatus(podIPMap, r.Client)
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	// Check if Init Containers are running
-	_, err = contrailv1alpha1.InitContainerRunning(r.client,
-		instance.ObjectMeta,
-		"zookeeper",
-		instance,
-		*instance.Spec.Service,
-		&instance.Status)
-
+	err = instance.SetInstanceActive(r.Client, &instance.Status, intendedDeployment, request)
 	if err != nil {
-		reqLogger.Error(err, "Err Init Pods not ready, requeing")
-		return reconcile.Result{}, err
-	}
-
-	// Update ConfigMap
-
-	var podIpList []string
-	for _, ip := range instance.Status.Nodes {
-		podIpList = append(podIpList, ip)
-	}
-	nodeList := strings.Join(podIpList, ",")
-	configMap.Data["ZOOKEEPER_NODES"] = nodeList
-	configMap.Data["CONTROLLER_NODES"] = nodeList
-	err = r.client.Update(context.TODO(), &configMap)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update ConfigMap", "Namespace", instance.Namespace, "Name", "cassandra-"+instance.Name)
-		return reconcile.Result{}, err
-	}
-
-	err = contrailv1alpha1.MarkInitPodsReady(r.client, instance.ObjectMeta, "zookeeper")
-
-	if err != nil {
-		reqLogger.Error(err, "Failed to mark Pods ready")
-		return reconcile.Result{}, err
-	}
-
-	err = contrailv1alpha1.SetServiceStatus(r.client,
-		instance.ObjectMeta,
-		"zookeeper",
-		instance,
-		&deployment.Status,
-		&instance.Status)
-
-	if err != nil {
-		reqLogger.Error(err, "Failed to set Service status")
-		return reconcile.Result{}, err
-	} else {
-		reqLogger.Info("set service status")
-	}
-	portMap := map[string]string{"port": instance.Spec.Service.Configuration["ZOOKEEPER_PORT"]}
-	instance.Status.Ports = portMap
-	err = r.client.Status().Update(context.TODO(), instance)
-	if err != nil {
-		reqLogger.Error(err, "Failed to instance with port information")
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
